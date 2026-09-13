@@ -1,0 +1,270 @@
+{
+  "clients": {
+    "qarawi.base.meena.sa": {
+      "branding": {
+        "appName": "Qarawi HR System",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "fayez.base.meena.sa": {
+      "branding": {
+        "appName": "Fayez HR System",
+        "primaryColor": "#10B981",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "default": {
+      "branding": {
+        "appName": "تمكين",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "fzz.base.meena.sa": {
+      "branding": {
+        "appName": "Fzz HR System",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "fzzz.base.meena.sa": {
+      "branding": {
+        "appName": "Fzzz HR System",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "client-a.base.meena.sa": {
+      "branding": {
+        "appName": "Client-A HR System",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "client-b.base.meena.sa": {
+      "branding": {
+        "appName": "Client-B HR System",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "client-c.base.meena.sa": {
+      "branding": {
+        "appName": "Client-C HR System",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "client-d.base.meena.sa": {
+      "branding": {
+        "appName": "Client-D HR System",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "naderahmed.base.meena.sa": {
+      "branding": {
+        "appName": "Naderahmed HR System",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "base.meena.sa": {
+      "branding": {
+        "appName": "Quanta HR System",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "nader1234.base.meena.sa": {
+      "branding": {
+        "appName": "Nader Trading Co",
+        "primaryColor": "#3B82F6",
+        "favicon": "/favicon.ico",
+        "logo": "/branding/nader1234.png"
+      }
+    },
+    "study.base.meena.sa": {
+      "branding": {
+        "appName": "شركة الاختبار QA",
+        "primaryColor": "#3B82F6",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "brandtest1.base.meena.sa": {
+      "branding": {
+        "appName": "Brand Test Co",
+        "primaryColor": "#3B82F6",
+        "favicon": "/favicon.ico",
+        "logo": "/branding/brandtest1.png"
+      }
+    },
+    "quanta.base.meena.sa": {
+      "branding": {
+        "appName": "nader",
+        "primaryColor": "#3B82F6",
+        "favicon": "/favicon.ico",
+        "logo": "/branding/quanta.jpg"
+      }
+    },
+    "rifad.base.meena.sa": {
+      "branding": {
+        "appName": "Rifad",
+        "primaryColor": "#0E6E62",
+        "logo": "/rifad.png",
+        "favicon": "/rifad.png"
+      }
+    },
+    "mandoob.base.meena.sa": {
+      "branding": {
+        "appName": "اهلنا الأولين",
+        "primaryColor": "#3B82F6",
+        "logo": "/branding/mandoob.png",
+        "favicon": "/branding/mandoob-favicon.png"
+      }
+    },
+    "lazaa.base.meena.sa": {
+      "branding": {
+        "appName": "لذعة",
+        "primaryColor": "#8A2B18",
+        "logo": "/branding/lazaa.png",
+        "favicon": "/branding/lazaa-favicon.png",
+        "theme": "lazaa",
+        "backgroundColor": "#FBF2E4"
+      }
+    },
+    "demo.base.meena.sa": {
+      "branding": {
+        "appName": "شركة تجريبية",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "sherka.base.meena.sa": {
+      "branding": {
+        "appName": "sherka",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "sherkas.base.meena.sa": {
+      "branding": {
+        "appName": "sherkas",
+        "primaryColor": "#3B82F6",
+        "logo": "/branding/sherkas.jpg",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "demo-inventory.base.meena.sa": {
+      "branding": {
+        "appName": "تجربة المخزون",
+        "primaryColor": "#EA580C",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico",
+        "tagline": "قطع غيار تويوتا الأصلية"
+      },
+      "invoice": {
+        "format": "parts",
+        "soldToParty": "2000000329",
+        "shipToParty": "2000000329",
+        "vatPercent": 15
+      }
+    },
+    "probe1.base.meena.sa": {
+      "branding": {
+        "appName": "عميل اختبار النسخ",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "demo-accounting.base.meena.sa": {
+      "branding": {
+        "appName": "تجربة المحاسبة",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico",
+        "primaryColor": "#3B82F6"
+      }
+    },
+    "demo-cashier.base.meena.sa": {
+      "branding": {
+        "appName": "تجربة نقطة البيع",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico",
+        "primaryColor": "#3B82F6"
+      }
+    },
+    "demo-hr.base.meena.sa": {
+      "branding": {
+        "appName": "تجربة الموارد البشرية",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico",
+        "primaryColor": "#3B82F6"
+      }
+    },
+    "demo-hr-fp.base.meena.sa": {
+      "branding": {
+        "appName": "تجربة البصمة والحضور",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico",
+        "primaryColor": "#3B82F6"
+      }
+    },
+    "demo-purchases.base.meena.sa": {
+      "branding": {
+        "appName": "تجربة المشتريات",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico",
+        "primaryColor": "#3B82F6"
+      }
+    },
+    "demo-sales.base.meena.sa": {
+      "branding": {
+        "appName": "تجربة المناديب",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico",
+        "primaryColor": "#3B82F6"
+      }
+    },
+    "fnr.base.meena.sa": {
+      "branding": {
+        "appName": "فنر",
+        "tagline": "لتجهيز المشاغل",
+        "primaryColor": "#0400AD",
+        "logo": "/branding/fnr.png",
+        "favicon": "/branding/fnr-favicon.png"
+      }
+    },
+    "fnr-fp.base.meena.sa": {
+      "branding": {
+        "appName": "فنر",
+        "tagline": "لتجهيز المشاغل",
+        "primaryColor": "#0400AD",
+        "logo": "/branding/fnr-fp.png",
+        "favicon": "/branding/fnr-fp-favicon.png"
+      }
+    },
+    "alzaad.base.meena.sa": {
+      "branding": {
+        "appName": "جمعية الزاد",
+        "primaryColor": "#3B82F6",
+        "logo": "/branding/alzaad.png",
+        "favicon": "/favicon.ico"
+      }
+    }
+  }
+}

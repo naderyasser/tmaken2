@@ -1,0 +1,355 @@
+/* متجر العقارات — public storefront brand.
+   Official in feel, heritage in detail (one Sadu signature), modern in execution.
+   White surfaces + ONE espresso-brown primary carry ~90% of the UI; sand bands for rhythm;
+   a bronze luxury accent + terracotta/gold are seasoning. */
+
+.aqar-store {
+  /* Primary — luxurious espresso brown (var names kept --aqar-green for non-regression) */
+  --aqar-green: #3A2A21;      /* primary / action (espresso) */
+  --aqar-green-h: #2E2019;    /* hover (darker) */
+  --aqar-green-d: #2A1D17;    /* hero / headers / footer — deepest espresso */
+  --aqar-espresso-fill: #2A1D17; /* deep FILLS (footer, sadu, clusters) — stays deep in BOTH themes */
+  /* Sand neutrals */
+  --aqar-sand: #FAF7F2;       /* alt section bg (cream — unchanged) */
+  --aqar-sand-2: #F3EDE3;     /* cards-on-sand, hovers */
+  --aqar-border: #E7E1D8;     /* warm border */
+  /* Accents (sparingly) */
+  --aqar-clay: #C26B45;       /* terracotta */
+  --aqar-gold: #B8923E;       /* muted gold — featured only */
+  --aqar-bronze: #B08D57;     /* luxury bronze accent — decorative fills */
+  --aqar-bronze-d: #87672F;   /* bronze for TEXT on cream (darkened → WCAG AA ≥4.5:1) */
+  /* Text */
+  --aqar-kohl: #1F2421;       /* primary text */
+  --aqar-muted: #585D53;      /* muted text — darkened to meet WCAG AA (≥4.5:1) on cream */
+  /* Surfaces (light defaults = white; overridden in dark) */
+  --aqar-surface: #ffffff;    /* cards */
+  --aqar-elevated: #ffffff;   /* header / hero top / modals */
+  --aqar-card-border: var(--aqar-border);
+
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--aqar-sand);
+  color: var(--aqar-kohl);
+  font-family: var(--font-arabic), system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;   /* Western digits, aligned */
+  font-size: 1.0625rem;                 /* +1px base for easier reading (low-literacy, mobile) */
+  color-scheme: light;
+}
+
+/* ── Premium warm-dark theme (storefront only; `.dark` on the store root — cookie `aqar-theme`,
+      matches Tailwind darkMode:['class'] so dark: variants work inside the store) ── */
+.aqar-store.dark {
+  --aqar-green: #8F6A45;      /* primary — warm espresso; white text passes WCAG AA (4.87:1) on dark */
+  --aqar-green-h: #7E5A38;    /* darken on hover (matches light); white text 6.2:1 */
+  --aqar-green-d: #E8DCC8;    /* emphasis TEXT ink — ~11:1 on the dark bg (was the near-black
+                                 fill value, which made 55 text usages unreadable in dark) */
+  --aqar-espresso-fill: #3A2A21; /* deep-espresso fills / footer / hero base */
+  --aqar-sand: #151816;       /* page background (warm kohl-charcoal) */
+  --aqar-sand-2: #262A24;     /* dark-sand bands / hovers */
+  --aqar-border: #2E332F;
+  --aqar-clay: #D88A63;
+  --aqar-gold: #D4AF5F;
+  --aqar-bronze: #C9A26A;     /* lighter bronze for dark surfaces */
+  --aqar-bronze-d: #C9A26A;   /* bronze TEXT reads light on dark */
+  --aqar-kohl: #ECEAE4;       /* warm off-white — never pure #fff */
+  --aqar-muted: #9BA39C;
+  --aqar-surface: #1D211E;    /* cards */
+  --aqar-elevated: #232824;   /* header / modals */
+  --aqar-card-border: rgba(236, 234, 228, 0.10);  /* light hairline so photos glow */
+  color-scheme: dark;
+}
+.aqar-store.dark p { font-weight: 450; }   /* +1 weight for Arabic body legibility on dark */
+
+.aqar-store :is(h1, h2, h3) { line-height: 1.4; }
+.aqar-store p { line-height: 1.7; }
+
+/* Form controls inherit the theme surface (light: white/dark text — unchanged). */
+.aqar-store :is(input, select, textarea) {
+  background-color: var(--aqar-surface);
+  color: var(--aqar-kohl);
+}
+.aqar-store :is(input, select, textarea)::placeholder { color: var(--aqar-muted); }
+
+/* Visible keyboard focus (WCAG 2.4.7) — :focus-visible ONLY (never on mouse click). Token-based
+   gold ring adapts to light + dark; `outline` (not box-shadow) isn't clipped by overflow:hidden. */
+.aqar-store :is(a, button, input, select, textarea, summary, [role="button"], [tabindex]):focus-visible {
+  outline: 2px solid var(--aqar-gold);
+  outline-offset: 2px;
+}
+
+/* Wordmark + hero tagline ONLY — calligraphic accent (Amiri). */
+.aqar-brand {
+  font-family: var(--font-calligraphy), serif;
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: var(--aqar-green-d);
+  letter-spacing: 0;
+}
+.aqar-tagline { font-family: var(--font-calligraphy), serif; font-weight: 400; }
+.aqar-footer .aqar-brand { color: #fff; }
+
+/* Hero & big section headlines — modern display (Tajawal Bold). NOT calligraphic. */
+.aqar-display {
+  font-family: var(--font-display), var(--font-arabic), sans-serif;
+  font-weight: 700;
+}
+/* Section titles — IBM Plex Sans Arabic 600 weight feel via Tajawal medium. */
+.aqar-section-title {
+  font-family: var(--font-display), var(--font-arabic), sans-serif;
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: var(--aqar-kohl);
+}
+
+/* The ONE heritage mark — single 2-color Sadu band (deep green on sand). */
+.aqar-sadu {
+  height: 10px;
+  width: 100%;
+  background-color: var(--aqar-sand-2);
+  background-image:
+    repeating-linear-gradient(135deg,
+      var(--aqar-espresso-fill) 0, var(--aqar-espresso-fill) 11px,
+      transparent 11px, transparent 22px),
+    repeating-linear-gradient(45deg,
+      var(--aqar-espresso-fill) 0, var(--aqar-espresso-fill) 11px,
+      transparent 11px, transparent 22px);
+  background-size: 22px 22px;
+  opacity: 0.85;
+}
+
+/* Slim heritage accent for section dividers — the Sadu serration, used sparingly. */
+.aqar-sadu-divider {
+  height: 7px;
+  width: 100%;
+  background-image:
+    linear-gradient(135deg, var(--aqar-bronze) 25%, transparent 25%),
+    linear-gradient(225deg, var(--aqar-bronze) 25%, transparent 25%);
+  background-size: 14px 7px;
+  background-repeat: repeat-x;
+  opacity: 0.45;
+}
+
+.aqar-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid var(--aqar-border);
+}
+.aqar-store.dark .aqar-header { background: rgba(35, 40, 36, 0.85); }   /* elevated, translucent */
+
+/* ── Primary navigation ──────────────────────────────────────────────────── */
+.aqar-nav-link {
+  position: relative;
+  padding: .45rem .8rem;
+  border-radius: 9999px;
+  font-size: .9rem;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--aqar-kohl) 72%, transparent);
+  white-space: nowrap;
+  transition: color .15s ease, background-color .15s ease;
+}
+.aqar-nav-link:hover { color: var(--aqar-green-d); background: var(--aqar-sand-2); }
+.aqar-nav-link.active { color: var(--aqar-green-d); font-weight: 700; }
+.aqar-store.dark .aqar-nav-link.active { color: var(--aqar-green); }
+.aqar-nav-link.active::after {
+  content: '';
+  position: absolute;
+  inset-inline: .8rem;
+  bottom: -.05rem;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--aqar-green);
+}
+
+.aqar-nav-burger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.4rem;
+  width: 2.4rem;
+  border-radius: 9999px;
+  border: 1px solid var(--aqar-border);
+  background: var(--aqar-surface);
+  color: var(--aqar-kohl);
+}
+.aqar-nav-burger:hover { background: var(--aqar-sand-2); }
+
+.aqar-nav-mobile {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  padding: .5rem .75rem .9rem;
+  border-top: 1px solid var(--aqar-border);
+  background: var(--aqar-elevated);
+}
+.aqar-nav-mobile-link {
+  padding: .7rem .85rem;
+  border-radius: .75rem;
+  font-size: .95rem;
+  font-weight: 500;
+  color: var(--aqar-kohl);
+}
+.aqar-nav-mobile-link:hover { background: var(--aqar-sand-2); }
+.aqar-nav-mobile-link.active {
+  color: var(--aqar-green-d);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--aqar-green) 10%, transparent);
+}
+.aqar-store.dark .aqar-nav-mobile-link.active { color: var(--aqar-green); }
+.aqar-nav-mobile-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .4rem;
+  margin-top: .35rem;
+  padding: .7rem 1rem;
+  border-radius: 9999px;
+  background: var(--aqar-green);
+  color: #fff;
+  font-weight: 600;
+  font-size: .92rem;
+}
+.aqar-nav-mobile-cta:hover { background: var(--aqar-green-h); }
+
+.aqar-main { flex: 1 0 auto; }   /* fills remaining height so the footer sticks to the bottom */
+
+.aqar-footer {
+  margin-top: 4rem;
+  background: var(--aqar-espresso-fill);
+  color: #fff;
+  position: relative;
+}
+/* Footer divider = the same 2-color Sadu band. */
+.aqar-footer::before {
+  content: '';
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  height: 10px;
+  background-color: var(--aqar-sand-2);
+  background-image:
+    repeating-linear-gradient(135deg, var(--aqar-espresso-fill) 0, var(--aqar-espresso-fill) 11px, transparent 11px, transparent 22px),
+    repeating-linear-gradient(45deg, var(--aqar-espresso-fill) 0, var(--aqar-espresso-fill) 11px, transparent 11px, transparent 22px);
+  background-size: 22px 22px;
+}
+
+/* Hero — warm earthy depth via tokens (bronze glow + espresso wash on sand). No image → no CLS/LCP.
+   The search bar/headline keep light backgrounds + dark text, so contrast stays AA. */
+.aqar-hero {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 85% -10%, rgba(176, 141, 87, 0.18) 0%, transparent 55%),
+    radial-gradient(90% 70% at 8% 0%, rgba(58, 42, 33, 0.07) 0%, transparent 50%),
+    linear-gradient(180deg, var(--aqar-elevated), var(--aqar-sand));
+  border-bottom: 1px solid var(--aqar-border);
+}
+
+/* Listing card */
+.aqar-card {
+  background: var(--aqar-surface);
+  border: 1px solid var(--aqar-card-border);
+  border-radius: 1rem;
+  overflow: hidden;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.aqar-card:hover { transform: translateY(-2px); box-shadow: 0 14px 32px -16px rgba(42,29,23,0.30); }
+.aqar-store.dark .aqar-card:hover { box-shadow: 0 16px 40px -18px rgba(0,0,0,0.6); }
+
+.aqar-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  border-radius: 9999px;
+  background: var(--aqar-surface);
+  border: 1px solid var(--aqar-border);
+  padding: .3rem .85rem;
+  font-size: .85rem;
+  color: var(--aqar-kohl);
+}
+.aqar-chip:hover { border-color: var(--aqar-green); color: var(--aqar-green-d); background: var(--aqar-sand); }
+.aqar-chip-count { color: var(--aqar-muted); font-size: .75rem; }
+
+.aqar-badge-featured { background: var(--aqar-gold); color: #fff; }
+
+.aqar-price { color: var(--aqar-bronze-d); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* REGA license seal — framed with the Sadu mark via a green dashed frame. */
+.aqar-seal {
+  border: 1px dashed var(--aqar-green);
+  background: rgba(22,110,79,0.04);
+  border-radius: 0.75rem;
+}
+
+.aqar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  min-height: 44px;            /* ≥44px tap target */
+  border-radius: 9999px;
+  background: var(--aqar-green);
+  color: #fff;
+  padding: .6rem 1.25rem;
+  font-weight: 500;
+  font-size: .95rem;
+}
+.aqar-btn:hover { background: var(--aqar-green-h); }
+.aqar-btn-clay { background: var(--aqar-clay); }
+.aqar-btn-outline { background: transparent; color: var(--aqar-green-d); border: 1px solid var(--aqar-green); }
+.aqar-btn-outline:hover { background: var(--aqar-sand); }
+.aqar-store.dark .aqar-btn-outline { color: var(--aqar-kohl); }
+
+/* ── Dark-mode component refinements ─────────────────────────────────────── */
+/* Sadu inverts: warm-sand pattern on a deep-green band (same single signature). */
+.aqar-store.dark .aqar-sadu,
+.aqar-store.dark .aqar-footer::before {
+  background-color: var(--aqar-espresso-fill);
+  background-image:
+    repeating-linear-gradient(135deg, #C9B68F 0, #C9B68F 11px, transparent 11px, transparent 22px),
+    repeating-linear-gradient(45deg, #C9B68F 0, #C9B68F 11px, transparent 11px, transparent 22px);
+}
+/* Header wordmark: the deep-green token is too dim on dark — lift to off-white. */
+.aqar-store.dark .aqar-brand { color: var(--aqar-kohl); }
+/* Hero gets depth on dark: a deep-green radial glow fading into the page bg. */
+.aqar-store.dark .aqar-hero {
+  background:
+    radial-gradient(120% 90% at 85% -10%, rgba(201, 162, 106, 0.16) 0%, transparent 55%),
+    radial-gradient(120% 80% at 50% 0%, rgba(58, 42, 33, 0.55) 0%, rgba(58, 42, 33, 0.18) 38%, transparent 72%),
+    linear-gradient(180deg, #211A15, var(--aqar-sand));
+}
+/* Featured gold badge pops on dark with dark text. */
+.aqar-store.dark .aqar-badge-featured { color: #151816; }
+/* REGA seal a touch more present on dark. */
+.aqar-store.dark .aqar-seal { background: rgba(176, 141, 87, 0.12); }
+/* Leaflet: dark-map the tiles only (markers/overlays keep their colors). */
+.aqar-store.dark .leaflet-tile { filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9); }
+.aqar-store.dark .leaflet-container { background: var(--aqar-sand-2); }
+
+/* Map-search price-pin markers + clusters (token-driven → themed in dark automatically). */
+.aqar-pin {
+  position: absolute; transform: translate(-50%, -120%); white-space: nowrap;
+  background: var(--aqar-green); color: #fff; border: 1.5px solid rgba(255, 255, 255, 0.85);
+  border-radius: 9999px; padding: 0.15rem 0.5rem; font-size: 0.72rem; font-weight: 700;
+  font-variant-numeric: tabular-nums; box-shadow: 0 4px 10px -3px rgba(42, 29, 23, 0.5);
+  transition: transform 0.15s ease, box-shadow 0.15s ease; cursor: pointer;
+}
+.aqar-pin-gold { background: var(--aqar-gold); color: #1F2421; }
+.aqar-pin-active { transform: translate(-50%, -130%) scale(1.18); box-shadow: 0 10px 22px -6px rgba(42, 29, 23, 0.7); z-index: 1000; }
+.aqar-cluster {
+  position: absolute; transform: translate(-50%, -50%); display: flex; align-items: center;
+  justify-content: center; min-width: 34px; height: 34px; padding: 0 0.35rem;
+  background: var(--aqar-espresso-fill); color: #fff; border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 9999px; font-size: 0.8rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  box-shadow: 0 4px 12px -3px rgba(42, 29, 23, 0.55);
+}
+.aqar-store.dark .aqar-cluster { border-color: rgba(236, 234, 228, 0.5); }
+@media (prefers-reduced-motion: reduce) { .aqar-pin { transition: none; } }
+
+/* Mortgage-calculator range sliders (palm green, theme-aware). */
+.aqar-range { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 9999px; background: var(--aqar-sand-2); outline: none; }
+.aqar-range::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--aqar-green); border: 2px solid var(--aqar-surface); box-shadow: 0 1px 4px rgba(42,29,23,.4); cursor: pointer; }
+.aqar-range::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--aqar-green); border: 2px solid var(--aqar-surface); cursor: pointer; }

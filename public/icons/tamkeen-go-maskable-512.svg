@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Tamkeen Go">
+  <rect width="512" height="512" fill="#0E6E62"/>
+  <g transform="translate(256 256) scale(0.62) translate(-256 -256)">
+    <path fill="#ffffff" d="M256 117c-44.2 0-80 35.8-80 80v55.2c0 11.7-5.3 22.9-14.4 30.4l-17.6 14.1c-8.3 6.9-3.5 20.3 7.2 20.3h209.6c10.7 0 15.5-13.4 7.2-20.3l-17.6-14.1c-9.1-7.5-14.4-18.7-14.4-30.4V197c0-44.2-35.8-80-80-80z"/>
+    <path fill="#ffffff" d="M256 395c21.9 0 40-14.9 44.8-35.2H211.2C216 380.1 234.1 395 256 395z"/>
+  </g>
+</svg>

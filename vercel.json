@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:match*",
+      "destination": "https://your-erpnext-backend.com/api/:match*"
+    },
+    {
+      "source": "/assets/:match*",
+      "destination": "https://your-erpnext-backend.com/assets/:match*"
+    },
+    {
+      "source": "/files/:match*",
+      "destination": "https://your-erpnext-backend.com/files/:match*"
+    }
+  ]
+}

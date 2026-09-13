@@ -1,0 +1,45 @@
+/* Cashier dark / high-contrast theme (12).
+ *
+ * Opt-in per user (header moon toggle → .cashier-dark on the cashier layout wrapper,
+ * persisted as cashier_theme:<user> in localStorage). Implemented as a SCOPED override
+ * sheet over the small set of Tailwind utilities the cashier screens actually use —
+ * `.cashier-dark .bg-white` (two classes) outranks `.bg-white` (one), so no component
+ * rewrite and zero effect outside the cashier. Contrast pairs chosen ≥ WCAG AA on the
+ * dark surfaces (#0f172a page / #1e293b cards / #e2e8f0 text ≈ 12:1).
+ */
+
+.cashier-dark .bg-slate-50 { background-color: #0f172a; }      /* page */
+.cashier-dark .bg-white { background-color: #1e293b; }          /* cards / panels */
+.cashier-dark .bg-slate-100 { background-color: #283548; }
+.cashier-dark .bg-slate-50\/60 { background-color: #243044; }
+.cashier-dark .bg-emerald-50 { background-color: #064e3b; }
+.cashier-dark .bg-emerald-100 { background-color: #065f46; }
+.cashier-dark .bg-amber-100 { background-color: #78350f; }
+.cashier-dark .bg-rose-100 { background-color: #7f1d1d; }
+.cashier-dark .bg-rose-50 { background-color: #5f1a1a; }
+
+.cashier-dark .text-slate-800,
+.cashier-dark .text-slate-700,
+.cashier-dark .text-slate-900 { color: #e2e8f0; }
+.cashier-dark .text-slate-600,
+.cashier-dark .text-slate-500 { color: #b6c2d4; }               /* AA on #1e293b */
+.cashier-dark .text-slate-400 { color: #94a3b8; }
+.cashier-dark .text-emerald-700,
+.cashier-dark .text-emerald-600 { color: #4ade80; }             /* prices pop on dark */
+.cashier-dark .text-emerald-800 { color: #6ee7b7; }
+.cashier-dark .text-amber-700 { color: #fcd34d; }
+.cashier-dark .text-rose-500, .cashier-dark .text-rose-400 { color: #fb7185; }
+
+.cashier-dark .border-slate-200,
+.cashier-dark .border-slate-100,
+.cashier-dark .border-slate-300 { border-color: #334155; }
+.cashier-dark .border-emerald-100 { border-color: #065f46; }
+
+.cashier-dark .bg-emerald-50.border-b { background-color: #064e3b; } /* customer bar */
+.cashier-dark .hover\:bg-emerald-50:hover { background-color: #065f46; }
+.cashier-dark .hover\:bg-slate-200:hover { background-color: #334155; }
+.cashier-dark .placeholder\:text-slate-400::placeholder { color: #7c8aa0; }
+
+/* inputs keep readable text on dark fields */
+.cashier-dark input, .cashier-dark textarea { color: #e2e8f0; }
+.cashier-dark input::selection { background: #047857; }

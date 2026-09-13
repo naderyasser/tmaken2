@@ -1,0 +1,271 @@
+{
+  "clients": {
+    "qarawi.base.meena.sa": {
+      "branding": {
+        "appName": "Qarawi HR System",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "fayez.base.meena.sa": {
+      "branding": {
+        "appName": "Fayez HR System",
+        "primaryColor": "#10B981",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "default": {
+      "branding": {
+        "appName": "\u062a\u0645\u0643\u064a\u0646",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "fzz.base.meena.sa": {
+      "branding": {
+        "appName": "Fzz HR System",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "fzzz.base.meena.sa": {
+      "branding": {
+        "appName": "Fzzz HR System",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "client-a.base.meena.sa": {
+      "branding": {
+        "appName": "Client-A HR System",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "client-b.base.meena.sa": {
+      "branding": {
+        "appName": "Client-B HR System",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "client-c.base.meena.sa": {
+      "branding": {
+        "appName": "Client-C HR System",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "client-d.base.meena.sa": {
+      "branding": {
+        "appName": "Client-D HR System",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "naderahmed.base.meena.sa": {
+      "branding": {
+        "appName": "Naderahmed HR System",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "base.meena.sa": {
+      "branding": {
+        "appName": "Quanta HR System",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "nader1234.base.meena.sa": {
+      "branding": {
+        "appName": "Nader Trading Co",
+        "primaryColor": "#3B82F6",
+        "favicon": "/favicon.ico",
+        "logo": "/branding/nader1234.png"
+      }
+    },
+    "study.base.meena.sa": {
+      "branding": {
+        "appName": "\u0634\u0631\u0643\u0629 \u0627\u0644\u0627\u062e\u062a\u0628\u0627\u0631 QA",
+        "primaryColor": "#3B82F6",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "brandtest1.base.meena.sa": {
+      "branding": {
+        "appName": "Brand Test Co",
+        "primaryColor": "#3B82F6",
+        "favicon": "/favicon.ico",
+        "logo": "/branding/brandtest1.png"
+      }
+    },
+    "quanta.base.meena.sa": {
+      "branding": {
+        "appName": "nader",
+        "primaryColor": "#3B82F6",
+        "favicon": "/favicon.ico",
+        "logo": "/branding/quanta.jpg"
+      }
+    },
+    "rifad.base.meena.sa": {
+      "branding": {
+        "appName": "Rifad",
+        "primaryColor": "#0E6E62",
+        "logo": "/rifad.png",
+        "favicon": "/rifad.png"
+      }
+    },
+    "mandoob.base.meena.sa": {
+      "branding": {
+        "appName": "\u0627\u0647\u0644\u0646\u0627 \u0627\u0644\u0623\u0648\u0644\u064a\u0646",
+        "primaryColor": "#3B82F6",
+        "logo": "/branding/mandoob.png",
+        "favicon": "/branding/mandoob-favicon.png"
+      }
+    },
+    "lazaa.base.meena.sa": {
+      "branding": {
+        "appName": "\u0644\u0630\u0639\u0629",
+        "primaryColor": "#8A2B18",
+        "logo": "/branding/lazaa.png",
+        "favicon": "/branding/lazaa-favicon.png",
+        "theme": "lazaa",
+        "backgroundColor": "#FBF2E4"
+      }
+    },
+    "demo.base.meena.sa": {
+      "branding": {
+        "appName": "\u0634\u0631\u0643\u0629 \u062a\u062c\u0631\u064a\u0628\u064a\u0629",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "sherka.base.meena.sa": {
+      "branding": {
+        "appName": "sherka",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "sherkas.base.meena.sa": {
+      "branding": {
+        "appName": "sherkas",
+        "primaryColor": "#3B82F6",
+        "logo": "/branding/sherkas.jpg",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "demo-inventory.base.meena.sa": {
+      "branding": {
+        "appName": "\u062a\u062c\u0631\u0628\u0629 \u0627\u0644\u0645\u062e\u0632\u0648\u0646",
+        "primaryColor": "#EA580C",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico",
+        "tagline": "\u0642\u0637\u0639 \u063a\u064a\u0627\u0631 \u062a\u0648\u064a\u0648\u062a\u0627 \u0627\u0644\u0623\u0635\u0644\u064a\u0629"
+      },
+      "invoice": {
+        "format": "parts",
+        "soldToParty": "2000000329",
+        "shipToParty": "2000000329",
+        "vatPercent": 15
+      }
+    },
+    "probe1.base.meena.sa": {
+      "branding": {
+        "appName": "\u0639\u0645\u064a\u0644 \u0627\u062e\u062a\u0628\u0627\u0631 \u0627\u0644\u0646\u0633\u062e",
+        "primaryColor": "#3B82F6",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico"
+      }
+    },
+    "demo-accounting.base.meena.sa": {
+      "branding": {
+        "appName": "\u062a\u062c\u0631\u0628\u0629 \u0627\u0644\u0645\u062d\u0627\u0633\u0628\u0629",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico",
+        "primaryColor": "#3B82F6"
+      }
+    },
+    "demo-cashier.base.meena.sa": {
+      "branding": {
+        "appName": "\u062a\u062c\u0631\u0628\u0629 \u0646\u0642\u0637\u0629 \u0627\u0644\u0628\u064a\u0639",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico",
+        "primaryColor": "#3B82F6"
+      }
+    },
+    "demo-hr.base.meena.sa": {
+      "branding": {
+        "appName": "\u062a\u062c\u0631\u0628\u0629 \u0627\u0644\u0645\u0648\u0627\u0631\u062f \u0627\u0644\u0628\u0634\u0631\u064a\u0629",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico",
+        "primaryColor": "#3B82F6"
+      }
+    },
+    "demo-hr-fp.base.meena.sa": {
+      "branding": {
+        "appName": "\u062a\u062c\u0631\u0628\u0629 \u0627\u0644\u0628\u0635\u0645\u0629 \u0648\u0627\u0644\u062d\u0636\u0648\u0631",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico",
+        "primaryColor": "#3B82F6"
+      }
+    },
+    "demo-purchases.base.meena.sa": {
+      "branding": {
+        "appName": "\u062a\u062c\u0631\u0628\u0629 \u0627\u0644\u0645\u0634\u062a\u0631\u064a\u0627\u062a",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico",
+        "primaryColor": "#3B82F6"
+      }
+    },
+    "demo-sales.base.meena.sa": {
+      "branding": {
+        "appName": "\u062a\u062c\u0631\u0628\u0629 \u0627\u0644\u0645\u0646\u0627\u062f\u064a\u0628",
+        "logo": "/logo.png",
+        "favicon": "/favicon.ico",
+        "primaryColor": "#3B82F6"
+      }
+    },
+    "fnr.base.meena.sa": {
+      "branding": {
+        "appName": "\u0641\u0646\u0631",
+        "tagline": "\u0644\u062a\u062c\u0647\u064a\u0632 \u0627\u0644\u0645\u0634\u0627\u063a\u0644",
+        "primaryColor": "#0400AD",
+        "logo": "/branding/fnr.png",
+        "favicon": "/branding/fnr-favicon.png"
+      }
+    },
+    "fnr-fp.base.meena.sa": {
+      "branding": {
+        "appName": "\u0641\u0646\u0631",
+        "tagline": "\u0644\u062a\u062c\u0647\u064a\u0632 \u0627\u0644\u0645\u0634\u0627\u063a\u0644",
+        "primaryColor": "#0400AD",
+        "logo": "/branding/fnr-fp.png",
+        "favicon": "/branding/fnr-fp-favicon.png"
+      }
+    },
+    "alzaad.base.meena.sa": {
+      "branding": {
+        "appName": "\u062c\u0645\u0639\u064a\u0629 \u0627\u0644\u0632\u0627\u062f",
+        "tagline": "\u0644\u0644\u062e\u062f\u0645\u0627\u062a \u0627\u0644\u0625\u0646\u0633\u0627\u0646\u064a\u0629",
+        "primaryColor": "#94173F",
+        "logo": "/branding/alzaad.png",
+        "favicon": "/branding/alzaad-favicon.png"
+      }
+    }
+  }
+}

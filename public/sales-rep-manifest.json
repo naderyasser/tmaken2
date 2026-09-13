@@ -1,0 +1,73 @@
+{
+  "name": "مندوب تمكين - Tamkeen Sales Rep",
+  "short_name": "مندوب تمكين",
+  "description": "تطبيق مندوب المبيعات - Tamkeen ERP Sales Representative App",
+  "start_url": "/sales-rep",
+  "scope": "/sales-rep",
+  "display": "standalone",
+  "orientation": "portrait",
+  "dir": "rtl",
+  "lang": "ar",
+  "theme_color": "#2563EB",
+  "background_color": "#F8FAFC",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/logo.jpeg",
+      "sizes": "any",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/sales-rep-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/sales-rep-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/sales-rep-maskable-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/sales-rep-maskable-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "إضافة عميل جديد",
+      "short_name": "عميل جديد",
+      "url": "/sales-rep/new-order",
+      "icons": [
+        {
+          "src": "/icons/sales-rep-192.svg",
+          "sizes": "192x192",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "سجل المخزون",
+      "short_name": "المخزون",
+      "url": "/sales-rep/inventory-records",
+      "icons": [
+        {
+          "src": "/icons/sales-rep-192.svg",
+          "sizes": "192x192",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}

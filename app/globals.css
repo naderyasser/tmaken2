@@ -1,0 +1,379 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: var(--font-inter), var(--font-arabic), -apple-system, BlinkMacSystemFont, 'Inter', 'Noto Sans Arabic', 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* RTL Support */
+[dir="rtl"] body {
+  font-family: var(--font-arabic), var(--font-inter), 'Noto Sans Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Urdu (sales vertical): Nastaliq script needs its own font + taller lines.
+   Falls back to the Arabic font (covers Urdu glyphs in naskh) if unavailable. */
+html[lang="ur"] body {
+  font-family: var(--font-urdu), var(--font-arabic), 'Noto Nastaliq Urdu', 'Noto Sans Arabic', sans-serif;
+  line-height: 1.9;
+}
+html[lang="ur"] input,
+html[lang="ur"] textarea,
+html[lang="ur"] button {
+  font-family: inherit;
+}
+
+[dir="rtl"] .rtl\:space-x-reverse > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-x-reverse: 1;
+}
+
+[dir="rtl"] .rtl\:flip {
+  transform: scaleX(-1);
+}
+
+/* Smooth scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* Sidebar thin scrollbar */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 217 32.6% 17.5%;
+    --card: 0 0% 100%;
+    --card-foreground: 217 32.6% 17.5%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 217 32.6% 17.5%;
+    --primary: 217 91.2% 59.8%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 97.3%;
+    --secondary-foreground: 217 32.6% 17.5%;
+    --muted: 0 0% 96.3%;
+    --muted-foreground: 217 16.9% 48.6%;
+    --accent: 217 91.2% 59.8%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 93.3%;
+    --input: 0 0% 97.3%;
+    --ring: 217 91.2% 59.8%;
+    --chart-1: 217 91.2% 59.8%;
+    --chart-2: 217 70% 50%;
+    --chart-3: 217 60% 45%;
+    --chart-4: 217 80% 55%;
+    --chart-5: 217 75% 60%;
+    --radius: 0.5rem;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 217 32.6% 17.5%;
+    --sidebar-primary: 217 91.2% 59.8%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 97.3%;
+    --sidebar-accent-foreground: 217 32.6% 17.5%;
+    --sidebar-border: 0 0% 93.3%;
+    --sidebar-ring: 217 91.2% 59.8%;
+  }
+
+  /* ── تمكين HR cream identity (SCOPED to HR routes via .theme-hr) ──
+     Applied by app/(erp)/(dashboard)/layout.tsx to HR routes only, so other
+     verticals (cashier/accounting/admin/…) keep the default tokens above.
+     Quiet cream background; loud deep-teal actions. WCAG-AA. */
+  .theme-hr {
+    --background: 38 40% 96%;        /* #FAF7F2 cream/sand page bg */
+    --foreground: 144 8% 13%;        /* #1F2421 primary text */
+    --card: 0 0% 100%;               /* #FFFFFF surfaces on cream */
+    --card-foreground: 144 8% 13%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 144 8% 13%;
+    --primary: 172 77% 24%;          /* #0E6E62 deep teal — actions */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 38 40% 92%;         /* #F3EDE3 warm surface-2 */
+    --secondary-foreground: 144 8% 13%;
+    --muted: 38 30% 93%;
+    --muted-foreground: 96 7% 35%;   /* #585D53 secondary text */
+    --accent: 174 30% 94%;           /* faint teal wash for hovers */
+    --accent-foreground: 172 77% 20%;
+    --destructive: 6 63% 46%;        /* #C0392B */
+    --destructive-foreground: 0 0% 100%;
+    --success: 147 46% 33%;          /* #2E7D52 */
+    --success-foreground: 0 0% 100%;
+    --warning: 43 89% 38%;           /* #B8860B */
+    --warning-foreground: 0 0% 100%;
+    --info: 206 56% 39%;             /* #2C6E9B */
+    --info-foreground: 0 0% 100%;
+    --border: 36 24% 88%;            /* #E7E1D8 warm hairline */
+    --input: 37 24% 81%;             /* #D9D1C4 stronger field border */
+    --ring: 172 77% 24%;             /* teal focus ring */
+    --chart-1: 172 77% 30%;
+    --chart-2: 43 74% 49%;
+    --chart-3: 16 62% 51%;
+    --chart-4: 206 56% 39%;
+    --chart-5: 147 35% 42%;
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 144 8% 13%;
+    --sidebar-primary: 172 77% 24%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 174 30% 94%;
+    --sidebar-accent-foreground: 172 77% 20%;
+    --sidebar-border: 36 24% 88%;
+    --sidebar-ring: 172 77% 24%;
+  }
+
+  /* ── Freelancer Workspace — deep Saudi-green identity (SCOPED via .theme-freelancer) ──
+     Applied by components/freelancer/freelancer-shell.tsx to the freelancer area ONLY,
+     so the ERP (which never mounts this class) stays visually unchanged. Mirrors the
+     .theme-hr pattern: it re-points the shadcn design tokens the shared components/ui/*
+     primitives read, so buttons/inputs/badges rendered inside the freelancer shell turn
+     green without any edit to those shared files. Light-only — .theme-hr has no dark
+     variant, so this matches it. To RETUNE THE GREEN, edit the --fl-* hex (HSL triplets)
+     in ONE place below; every token and component derives from them. */
+  .theme-freelancer {
+    /* === Saudi-green brand palette — EDIT THESE to retune the whole workspace === */
+    --fl-green:        152 69% 19%;   /* #0F5132 deep Saudi green — primary actions  */
+    --fl-green-hover:  153 70% 14%;   /* #0B3D26 darker hover                        */
+    --fl-green-light:  152 65% 29%;   /* #1A7A4E lighter green — accents/charts      */
+    --fl-green-tint:   147 30% 93%;   /* #E7F2EC very light green — subtle bg/badges */
+    --fl-green-fg:       0 0% 100%;   /* near-white text on green                    */
+
+    /* Map shadcn tokens (read by shared components/ui/* primitives) → green */
+    --primary: var(--fl-green);
+    --primary-foreground: var(--fl-green-fg);
+    --ring: var(--fl-green);
+    --accent: var(--fl-green-tint);
+    --accent-foreground: var(--fl-green);
+    --sidebar-primary: var(--fl-green);
+    --sidebar-primary-foreground: var(--fl-green-fg);
+    --sidebar-accent: var(--fl-green-tint);
+    --sidebar-accent-foreground: var(--fl-green);
+    --sidebar-ring: var(--fl-green);
+
+    /* Status tokens — kept distinct from brand green. :root does NOT define these, so
+       the freelancer surface defines them here for text-success / -warning / -info.
+       (Do NOT use these in the SHARED proposal components — they'd be undefined in the
+       plain ERP :root context.) */
+    --success: 152 65% 29%;           /* harmonious green, lighter than primary */
+    --success-foreground: 0 0% 100%;
+    --warning: 32 90% 44%;            /* amber */
+    --warning-foreground: 0 0% 100%;
+    --info: 206 56% 39%;              /* neutral blue */
+    --info-foreground: 0 0% 100%;
+
+    /* Chart series — green + gold family; follows the freelancer theme */
+    --chart-1: 152 60% 28%;           /* green — hero series   */
+    --chart-2: 40 78% 50%;            /* gold                  */
+    --chart-3: 32 90% 44%;            /* amber                 */
+    --chart-4: 152 40% 45%;           /* muted green           */
+    --chart-5: 206 45% 45%;           /* muted blue            */
+  }
+
+  /* ── لذعة (Laz'ah) — warm cream + brick-red identity (SCOPED via .theme-lazaa) ──
+     Applied to the sales-rep PWA + admin dashboard for the `lazaa` sales tenant ONLY
+     (clients.json `theme:"lazaa"` → /sales-brand → a guarded className in the sales
+     layout/page). Mirrors the .theme-hr / .theme-freelancer pattern: re-points the
+     shadcn design tokens the shared components/ui/* primitives read, so every
+     card/button/table/badge/dialog/input turns warm WITHOUT editing those shared files
+     — and Mandoob (never gets this class) renders byte-identically. To RETUNE THE WHOLE
+     BRAND, edit the --lz-* hex (HSL triplets) in ONE place below; every token derives
+     from them. Light-only (matches .theme-hr / .theme-freelancer). */
+  .theme-lazaa {
+    /* === Brand palette — EDIT THESE to retune all of Laz'ah === */
+    --lz-brick:        10 70% 32%;    /* #8A2B18 dark brick red — primary actions   */
+    --lz-brick-hover:  10 71% 25%;    /* #6E2213 darker hover                        */
+    --lz-brick-press:  10 70% 21%;    /* #5A1C10 pressed / gradient end              */
+    --lz-brick-wash:   15 48% 90%;    /* #F2E0DA faint brick wash — hovers/badges    */
+    --lz-cream:        37 74% 94%;    /* #FBF2E4 warm cream — page background        */
+    --lz-brown:        13 51% 19%;    /* #4A2318 dark warm brown — body text         */
+    --lz-espresso:     19 41% 12%;    /* #2B1A12 deep espresso — sidebar             */
+    --lz-tan:          39 42% 84%;    /* #E8DCC6 soft warm divider                   */
+    --lz-fg-on-brick:   0 0% 100%;    /* near-white text on brick                    */
+
+    /* Map shadcn tokens (read by shared components/ui/* primitives) → warm */
+    --background: var(--lz-cream);
+    --foreground: var(--lz-brown);
+    --card: 40 60% 99%;               /* #FFFDF9 warm-white surfaces on cream        */
+    --card-foreground: var(--lz-brown);
+    --popover: 40 60% 99%;
+    --popover-foreground: var(--lz-brown);
+    --primary: var(--lz-brick);
+    --primary-foreground: var(--lz-fg-on-brick);
+    --secondary: 39 61% 90%;          /* #F5EAD6 warm surface-2                      */
+    --secondary-foreground: var(--lz-brown);
+    --muted: 37 46% 89%;              /* #F0E6D6                                     */
+    --muted-foreground: 22 26% 38%;   /* #7A5A48 secondary text                      */
+    --accent: var(--lz-brick-wash);
+    --accent-foreground: var(--lz-brick);
+    --destructive: 0 72% 41%;         /* clear error red, kept distinct from brick   */
+    --destructive-foreground: 0 0% 100%;
+    --success: 147 46% 34%;           /* #2E7D52 warm-leaning green                  */
+    --success-foreground: 0 0% 100%;
+    --warning: 43 89% 38%;            /* #B8860B gold                                */
+    --warning-foreground: 0 0% 100%;
+    --info: 23 39% 39%;               /* warm brown — no blue                        */
+    --info-foreground: 0 0% 100%;
+    --border: var(--lz-tan);
+    --input: 35 40% 77%;              /* #DCC9AE stronger field border               */
+    --ring: var(--lz-brick);
+    /* Warm chart series — brick · gold · terracotta · olive · warm brown (no blue) */
+    --chart-1: 10 70% 40%;
+    --chart-2: 43 89% 38%;
+    --chart-3: 15 62% 47%;
+    --chart-4: 74 36% 35%;
+    --chart-5: 23 39% 39%;
+    /* Sidebar — deep espresso with brick accent (token-based sidebars) */
+    --sidebar-background: var(--lz-espresso);
+    --sidebar-foreground: 37 30% 88%;
+    --sidebar-primary: var(--lz-brick);
+    --sidebar-primary-foreground: var(--lz-fg-on-brick);
+    --sidebar-accent: 21 31% 18%;     /* #3D2A20 hover row on espresso               */
+    --sidebar-accent-foreground: 37 40% 92%;
+    --sidebar-border: 21 31% 18%;
+    --sidebar-ring: var(--lz-brick);
+  }
+
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* ── تمكين HR — RTL table alignment (P2) ──
+   The shared shadcn <TableHead> defaults to physical `text-left`, which keeps
+   headers left-aligned even in RTL while data cells follow the start edge — the
+   "mixed LTR-header / RTL-data" bug. Re-align default-aligned headers/cells to
+   the logical start so Arabic tables line up. twMerge strips `text-left` when an
+   explicit alignment (e.g. an actions column's `text-right`) is set, so the
+   `.text-left` selector matches ONLY default cells — intentional overrides are
+   preserved. Unlayered so it beats Tailwind's layered utility; scoped to
+   `.theme-hr` so only HR routes are affected (other verticals untouched). */
+.theme-hr table th.text-left,
+.theme-hr table td.text-left {
+  text-align: start;
+}
+
+/* ── لذعة — recolour the sales apps' few HARDCODED (non-token) colours ──
+   The sales admin dashboard (app/(erp)/(dashboard)/sales-reps/page.tsx) and the PWA
+   bottom-nav paint some brand colours as literal Tailwind utilities (slate-900 sidebar,
+   violet/indigo brand tile, blue-600 buttons, #f4f5f7 page bg) that BYPASS the design
+   tokens above. Re-point just those, scoped to .theme-lazaa, so Mandoob (no class) keeps
+   its slate/violet/blue and only Laz'ah turns warm. Unlayered so it beats Tailwind's
+   layered utilities (same trick as the .theme-hr table rule above). */
+.theme-lazaa.bg-\[\#f4f5f7\] { background-color: hsl(var(--lz-cream)); }        /* dashboard page bg */
+.theme-lazaa .bg-slate-900 { background-color: hsl(var(--lz-espresso)); }       /* sidebar */
+.theme-lazaa .border-slate-800 { border-color: hsl(var(--sidebar-border)); }
+.theme-lazaa .bg-slate-700 { background-color: hsl(var(--sidebar-border)); }    /* collapse toggle */
+.theme-lazaa .border-slate-600 { border-color: hsl(var(--lz-brick)); }
+.theme-lazaa .hover\:bg-slate-600:hover { background-color: hsl(var(--lz-brick-hover)); }
+.theme-lazaa .text-slate-500,
+.theme-lazaa .text-slate-400 { color: hsl(37 22% 66%); }                        /* warm muted on espresso */
+.theme-lazaa .from-violet-500 {                                                 /* brand tile gradient → brick */
+  background-image: linear-gradient(to bottom right, hsl(var(--lz-brick)), hsl(var(--lz-brick-press)));
+}
+.theme-lazaa .border-violet-600 { border-color: hsl(var(--lz-brick)); }         /* spinner */
+.theme-lazaa .text-violet-600 { color: hsl(var(--lz-brick)); }
+.theme-lazaa .bg-blue-600 { background-color: hsl(var(--lz-brick)); }           /* buttons + PWA nav */
+.theme-lazaa .hover\:bg-blue-700:hover { background-color: hsl(var(--lz-brick-hover)); }
+.theme-lazaa .text-blue-600 { color: hsl(var(--lz-brick)); }
+.theme-lazaa .border-blue-600 { border-color: hsl(var(--lz-brick)); }
+/* Naskh headings — classic calligraphic feel echoing the لذعة logo */
+.theme-lazaa h1, .theme-lazaa h2, .theme-lazaa h3 {
+  font-family: var(--font-naskh), var(--font-arabic), 'Noto Naskh Arabic', serif;
+}
+
+/* لذعة login screen (components/login-page.tsx) — the shared login uses hardcoded blues.
+   Button + hover are already recoloured by the .bg-blue-600 / hover rules above; here we
+   also warm the (desktop) gradient panel, the active/focus states and the panel bg. All
+   scoped to .theme-lazaa, so Mandoob's login stays exactly blue. */
+.theme-lazaa .from-blue-700 {   /* immersive left brand panel gradient → brick */
+  background-image: linear-gradient(to bottom right, hsl(var(--lz-brick)), hsl(var(--lz-brick-press))) !important;
+}
+.theme-lazaa .bg-blue-500\/20 { background-color: hsl(var(--lz-brick) / 0.2); }   /* panel glow */
+.theme-lazaa .active\:bg-blue-800:active { background-color: hsl(var(--lz-brick-press)); }
+.theme-lazaa .focus\:border-blue-400:focus { border-color: hsl(var(--lz-brick)); }
+.theme-lazaa .focus\:ring-blue-500\/20:focus { --tw-ring-color: hsl(var(--lz-brick) / 0.2); }
+.theme-lazaa .bg-slate-50\/80 { background-color: hsl(var(--lz-cream) / 0.8); }   /* warm the form panel */
+
+/* ── لذعة — broad blue/indigo → brick sweep ──
+   The 13 rep-PWA pages + dashboard components paint assorted brand accents as hardcoded
+   blue/indigo utilities (home-header gradient, primary CTAs, active tabs, links, badges)
+   beyond the specific ones handled above. Remap the whole blue/indigo family to brick
+   within .theme-lazaa so the app is cohesively warm ("no blues"). !important beats the
+   layered utilities; scoped to .theme-lazaa so Mandoob & every other tenant stay blue.
+   (Semantic greens/oranges for success/samples are intentionally left as-is.) */
+.theme-lazaa .bg-blue-500, .theme-lazaa .bg-blue-600, .theme-lazaa .bg-blue-700,
+.theme-lazaa .bg-indigo-600, .theme-lazaa .bg-indigo-700 { background-color: hsl(var(--lz-brick)) !important; }
+.theme-lazaa .hover\:bg-blue-600:hover, .theme-lazaa .hover\:bg-blue-700:hover,
+.theme-lazaa .hover\:bg-blue-800:hover { background-color: hsl(var(--lz-brick-hover)) !important; }
+.theme-lazaa .text-blue-500, .theme-lazaa .text-blue-600, .theme-lazaa .text-blue-700,
+.theme-lazaa .text-indigo-600 { color: hsl(var(--lz-brick)) !important; }
+.theme-lazaa .border-blue-400, .theme-lazaa .border-blue-500, .theme-lazaa .border-blue-600 { border-color: hsl(var(--lz-brick)) !important; }
+.theme-lazaa .ring-blue-500, .theme-lazaa .ring-blue-600 { --tw-ring-color: hsl(var(--lz-brick)) !important; }
+.theme-lazaa .from-blue-500, .theme-lazaa .from-blue-600, .theme-lazaa .from-blue-700,
+.theme-lazaa .from-indigo-600, .theme-lazaa .from-indigo-700 {
+  background-image: linear-gradient(to bottom right, hsl(var(--lz-brick)), hsl(var(--lz-brick-press))) !important;
+}

@@ -1,0 +1,73 @@
+# Logs
+logs/
+*.log
+
+# Backups
+*.sql.gz
+*.sql
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Next.js
+.next/
+
+# Frappe specific
+sites/*/private/
+sites/*/public/backups/
+sites/*/public/files/
+sites/*/local_config.json
+sites/*/site_config.json.lock
+
+# Environment — never commit secrets (keep .env.example tracked)
+.env*
+!.env.example
+
+# Local session cookies / secrets
+cookies.txt
+
+# Lock files
+*.lock
+*.pid
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Embedded git repos (remove nested .git folders)
+ChatGLM3/.git
+apps/*/.git
+
+# Redis dumps
+dump.rdb
+
+# v0 runtime files (should only exist in preview, not in git)
+__v0_runtime_loader.js
+__v0_devtools.tsx
+__v0_jsx-dev-runtime.ts
+instrumentation-client.js
+instrumentation-client.ts
+
+# نسخ بناء قديمة — ليست كوداً. أي دليل يبدأ بـ .next مخرَج بناء
+# النمط الشامل يمنع تكرار ما حدث: 4050 ملف بناء دخلوا git عبر .next.old
+.next*/
+tsconfig.tsbuildinfo

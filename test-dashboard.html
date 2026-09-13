@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة الموارد البشرية</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #718096;
+            font-size: 16px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .card h2 {
+            font-size: 24px;
+            color: #2d3748;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .login-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .login-form input {
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .login-form input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #38a169;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-card.green {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        }
+        
+        .stat-card.red {
+            background: linear-gradient(135deg, #f56565 0%, #c53030 100%);
+        }
+        
+        .stat-card.yellow {
+            background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+        
+        .stat-value {
+            font-size: 36px;
+            font-weight: bold;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background: #f7fafc;
+            padding: 12px;
+            text-align: right;
+            font-size: 12px;
+            color: #718096;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 14px;
+        }
+        
+        tr:hover {
+            background: #f7fafc;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .badge-success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .badge-danger {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        
+        .badge-warning {
+            background: #feebc8;
+            color: #7c2d12;
+        }
+        
+        .badge-info {
+            background: #bee3f8;
+            color: #2c5282;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .alert {
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+        
+        .alert-success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .alert-error {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        
+        .alert-info {
+            background: #bee3f8;
+            color: #2c5282;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #718096;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .spinner {
+            border: 3px solid #e2e8f0;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .login-form {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🧑‍💼 نظام إدارة الموارد البشرية</h1>
+            <p>اختبار الربط مع Frappe Backend - مباشر وبسيط</p>
+        </div>
+
+        <!-- Login Section -->
+        <div id="loginSection" class="card">
+            <h2>🔐 تسجيل الدخول</h2>
+            <div class="login-form">
+                <input type="text" id="username" value="administrator" placeholder="اسم المستخدم">
+                <input type="password" id="password" value="admin" placeholder="كلمة المرور">
+                <button onclick="login()" class="btn btn-primary">دخول</button>
+            </div>
+            <div id="loginStatus"></div>
+        </div>
+
+        <!-- Stats Dashboard -->
+        <div id="statsSection" class="hidden">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">إجمالي الموظفين</div>
+                    <div class="stat-value" id="totalEmployees">-</div>
+                </div>
+                <div class="stat-card green">
+                    <div class="stat-label">الحضور اليوم</div>
+                    <div class="stat-value" id="presentToday">-</div>
+                </div>
+                <div class="stat-card red">
+                    <div class="stat-label">الغياب</div>
+                    <div class="stat-value" id="absentToday">-</div>
+                </div>
+                <div class="stat-card yellow">
+                    <div class="stat-label">في إجازة</div>
+                    <div class="stat-value" id="onLeave">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Employees Table -->
+        <div id="employeesSection" class="hidden card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2>👥 قائمة الموظفين</h2>
+                <button onclick="loadEmployees()" class="btn btn-success">🔄 تحديث</button>
+            </div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>الاسم</th>
+                            <th>القسم</th>
+                            <th>الوظيفة</th>
+                            <th>الحالة</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employeesTableBody">
+                        <tr><td colspan="5" class="loading">
+                            <div class="spinner"></div>
+                            جاري التحميل...
+                        </td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Attendance Table -->
+        <div id="attendanceSection" class="hidden card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2>📅 سجل الحضور</h2>
+                <button onclick="loadAttendance()" class="btn btn-success">🔄 تحديث</button>
+            </div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>الموظف</th>
+                            <th>التاريخ</th>
+                            <th>الحالة</th>
+                            <th>وقت الدخول</th>
+                            <th>وقت الخروج</th>
+                            <th>الساعات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attendanceTableBody">
+                        <tr><td colspan="6" class="loading">
+                            <div class="spinner"></div>
+                            جاري التحميل...
+                        </td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const FRAPPE_URL = 'https://qarawi.base.meena.sa';
+
+            async function apiCall(endpoint, method = 'GET', body = null) {
+                const options = {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include'
+                };
+                
+                if (body) {
+                    options.body = JSON.stringify(body);
+                }
+                
+                const response = await fetch(FRAPPE_URL + endpoint, options);
+                return response.json();
+            }
+
+            window.login = async function() {
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+                const statusDiv = document.getElementById('loginStatus');
+                
+                statusDiv.innerHTML = '<div class="alert alert-info">⏳ جاري تسجيل الدخول...</div>';
+                
+                try {
+                    const response = await apiCall('/api/method/login', 'POST', {
+                        usr: username,
+                        pwd: password
+                    });
+                    
+                    if (response.message === 'Logged In' || !response.exception) {
+                        statusDiv.innerHTML = '<div class="alert alert-success">✅ تم تسجيل الدخول بنجاح!</div>';
+                        
+                        setTimeout(() => {
+                            document.getElementById('loginSection').classList.add('hidden');
+                            document.getElementById('statsSection').classList.remove('hidden');
+                            document.getElementById('employeesSection').classList.remove('hidden');
+                            document.getElementById('attendanceSection').classList.remove('hidden');
+                            
+                            loadEmployees();
+                            loadAttendance();
+                        }, 1000);
+                    } else {
+                        statusDiv.innerHTML = '<div class="alert alert-error">❌ فشل تسجيل الدخول! تحقق من البيانات.</div>';
+                    }
+                } catch (error) {
+                    statusDiv.innerHTML = '<div class="alert alert-error">❌ خطأ في الاتصال: ' + error.message + '</div>';
+                }
+            }
+
+            window.loadEmployees = async function() {
+                const tbody = document.getElementById('employeesTableBody');
+                tbody.innerHTML = '<tr><td colspan="5" class="loading"><div class="spinner"></div>جاري التحميل...</td></tr>';
+                
+                try {
+                    const response = await apiCall('/api/resource/Employee?limit_page_length=100');
+                    
+                    if (response.data && response.data.length > 0) {
+                        document.getElementById('totalEmployees').textContent = response.data.length;
+                        
+                        tbody.innerHTML = '';
+                        response.data.forEach((emp, index) => {
+                            const statusClass = emp.status === 'Active' ? 'badge-success' : 'badge-danger';
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${index + 1}</td>
+                                <td style="font-weight: 600;">${emp.employee_name || emp.name}</td>
+                                <td>${emp.department || '-'}</td>
+                                <td>${emp.designation || '-'}</td>
+                                <td><span class="badge ${statusClass}">${emp.status || 'Unknown'}</span></td>
+                            `;
+                            tbody.appendChild(row);
+                        });
+                    } else {
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px; color: #718096;">لا توجد بيانات موظفين</td></tr>';
+                        document.getElementById('totalEmployees').textContent = '0';
+                    }
+                } catch (error) {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px; color: #e53e3e;">خطأ في تحميل البيانات: ' + error.message + '</td></tr>';
+                }
+            }
+
+            window.loadAttendance = async function() {
+                const tbody = document.getElementById('attendanceTableBody');
+                tbody.innerHTML = '<tr><td colspan="6" class="loading"><div class="spinner"></div>جاري التحميل...</td></tr>';
+                
+                try {
+                    const today = new Date().toISOString().split('T')[0];
+                    const response = await apiCall('/api/resource/Attendance?limit_page_length=100&filters=[["attendance_date",">=","' + today + '"]]');
+                    
+                    if (response.data) {
+                        const present = response.data.filter(a => a.status === 'Present').length;
+                        const absent = response.data.filter(a => a.status === 'Absent').length;
+                        const onLeave = response.data.filter(a => a.status === 'On Leave').length;
+                        
+                        document.getElementById('presentToday').textContent = present;
+                        document.getElementById('absentToday').textContent = absent;
+                        document.getElementById('onLeave').textContent = onLeave;
+                        
+                        tbody.innerHTML = '';
+                        
+                        if (response.data.length === 0) {
+                            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: #718096;">لا توجد سجلات حضور لهذا اليوم</td></tr>';
+                        } else {
+                            response.data.forEach((att) => {
+                                const statusClasses = {
+                                    'Present': 'badge-success',
+                                    'Absent': 'badge-danger',
+                                    'On Leave': 'badge-info',
+                                    'Half Day': 'badge-warning',
+                                    'Work From Home': 'badge-info'
+                                };
+                                
+                                const row = document.createElement('tr');
+                                row.innerHTML = `
+                                    <td style="font-weight: 600;">${att.employee_name || att.employee}</td>
+                                    <td>${att.attendance_date}</td>
+                                    <td><span class="badge ${statusClasses[att.status] || 'badge-secondary'}">${att.status}</span></td>
+                                    <td>${att.in_time || '-'}</td>
+                                    <td>${att.out_time || '-'}</td>
+                                    <td>${att.working_hours ? att.working_hours.toFixed(1) + 'h' : '-'}</td>
+                                `;
+                                tbody.appendChild(row);
+                            });
+                        }
+                    }
+                } catch (error) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: #e53e3e;">خطأ في تحميل البيانات: ' + error.message + '</td></tr>';
+                }
+            }
+        })();
+    </script>
+</body>
+</html>

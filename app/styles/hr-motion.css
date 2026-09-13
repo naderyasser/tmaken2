@@ -1,0 +1,208 @@
+/* ════════════════════════════════════════════════════════════════════════
+   تمكين HR — Motion & Smoothness layer  (Jisr redesign · UI polish pass)
+   ────────────────────────────────────────────────────────────────────────
+   A single, scoped "feel" layer that makes the whole HR app read as fluid and
+   modern WITHOUT touching individual pages. Everything here is:
+     • scoped to `.theme-hr` (no other vertical — store/cashier/accounting/
+       freelancer/lazaa — is affected);
+     • unlayered (wins over globals.css like theme-hr-airy.css);
+     • fully disabled under `prefers-reduced-motion: reduce` (accessibility);
+     • transform/opacity-only for the animated bits (GPU-cheap, no reflow).
+
+   Imported once, right after theme-hr-airy.css, from (dashboard)/layout.tsx.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.theme-hr {
+  /* ── Motion tokens ─────────────────────────────────────────────────── */
+  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);      /* expo-out — premium, decisive settle */
+  --ease-in-out:   cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring:   cubic-bezier(0.34, 1.3, 0.5, 1);    /* gentle overshoot for chips/toggles */
+  --dur-fast:      120ms;
+  --dur:           200ms;
+  --dur-slow:      320ms;
+
+  scroll-behavior: smooth;
+}
+
+/* ── Universal easing upgrade ─────────────────────────────────────────────
+   Tailwind's `transition-*` utilities default to `ease` @150ms. Re-point the
+   custom-property Tailwind emits so EVERY existing `transition-colors`,
+   `transition`, `transition-all` in migrated + un-migrated HR files instantly
+   inherits the premium curve — zero component edits. */
+.theme-hr *,
+.theme-hr *::before,
+.theme-hr *::after {
+  --tw-ease: var(--ease-out);
+}
+.theme-hr [class*='transition'] {
+  transition-timing-function: var(--ease-out);
+}
+
+/* ── Interactive press feedback ───────────────────────────────────────────
+   Buttons/links/menu-items get a smooth base transition + a subtle "press"
+   on :active. Tactile, not bouncy. Excludes inputs and the rail width anim. */
+.theme-hr button,
+.theme-hr [role='button'],
+.theme-hr a[href],
+.theme-hr [role='menuitem'],
+.theme-hr [role='tab'],
+.theme-hr summary,
+.theme-hr .cursor-pointer {
+  transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+  transition-duration: var(--dur-fast);
+  transition-timing-function: var(--ease-out);
+}
+.theme-hr button:active:not(:disabled),
+.theme-hr [role='button']:active,
+.theme-hr [role='tab']:active,
+.theme-hr .cursor-pointer:active {
+  transform: scale(0.97);
+}
+/* Don't shrink big surfaces (whole rows/cards marked cursor-pointer) as hard */
+.theme-hr tr.cursor-pointer:active,
+.theme-hr .card:active,
+.theme-hr [class*='rounded-xl'].cursor-pointer:active,
+.theme-hr [class*='rounded-2xl'].cursor-pointer:active {
+  transform: scale(0.995);
+}
+
+/* ── Consistent, smooth focus ring (keyboard only) ────────────────────────
+   One calm teal ring across every focusable control — replaces the browser
+   default outline and the scattered focus styles, and fades in. */
+.theme-hr :focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring) / 0.55);
+  border-radius: var(--radius);
+  transition: box-shadow var(--dur-fast) var(--ease-out);
+}
+
+/* ── Card hover lift ──────────────────────────────────────────────────────
+   Opt-in class the kit/cards can add for a gentle rise + shadow on hover.
+   Kept opt-in (not applied to every box) so nothing shifts unexpectedly. */
+.theme-hr .hr-lift {
+  transition: transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out);
+  will-change: transform;
+}
+.theme-hr .hr-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -12px hsl(217 33% 17% / 0.18);
+}
+
+/* ── Table / list row hover ───────────────────────────────────────────────
+   Rows in the shared DataTable & hand-rolled HR tables get a smooth wash. */
+.theme-hr tbody tr {
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+
+/* ── Entrance animations ──────────────────────────────────────────────────
+   Utility classes for content that mounts. `hr-page-enter` is applied by the
+   shell to <main> keyed on the route, so every page fades+rises in. */
+@keyframes hr-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes hr-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes hr-scale-in {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.theme-hr .hr-page-enter {
+  animation: hr-fade-up var(--dur-slow) var(--ease-out) both;
+}
+.theme-hr .hr-fade-up   { animation: hr-fade-up var(--dur-slow) var(--ease-out) both; }
+.theme-hr .hr-fade-in   { animation: hr-fade-in var(--dur) var(--ease-out) both; }
+.theme-hr .hr-scale-in  { animation: hr-scale-in var(--dur) var(--ease-out) both; }
+
+/* Stagger helper — parent adds `hr-stagger`, children fade-up in sequence.
+   Cheap nth-child ramp (up to 12), then everything after shares the last delay. */
+.theme-hr .hr-stagger > * { animation: hr-fade-up var(--dur-slow) var(--ease-out) both; }
+.theme-hr .hr-stagger > *:nth-child(1)  { animation-delay: 20ms; }
+.theme-hr .hr-stagger > *:nth-child(2)  { animation-delay: 55ms; }
+.theme-hr .hr-stagger > *:nth-child(3)  { animation-delay: 90ms; }
+.theme-hr .hr-stagger > *:nth-child(4)  { animation-delay: 125ms; }
+.theme-hr .hr-stagger > *:nth-child(5)  { animation-delay: 160ms; }
+.theme-hr .hr-stagger > *:nth-child(6)  { animation-delay: 195ms; }
+.theme-hr .hr-stagger > *:nth-child(7)  { animation-delay: 230ms; }
+.theme-hr .hr-stagger > *:nth-child(8)  { animation-delay: 265ms; }
+.theme-hr .hr-stagger > *:nth-child(n+9) { animation-delay: 300ms; }
+
+/* ── Shimmer skeletons ────────────────────────────────────────────────────
+   Any element that carries `animate-pulse` (the codebase's skeleton idiom)
+   gets a smoother left-to-right sheen instead of the flat opacity blink. */
+@keyframes hr-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.theme-hr .animate-pulse {
+  animation: none;
+  background-image: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 0%,
+    hsl(var(--muted) / 0.45) 50%,
+    hsl(var(--muted)) 100%
+  );
+  background-size: 200% 100%;
+  animation: hr-shimmer 1.6s var(--ease-in-out) infinite;
+}
+
+/* ── Dialog / drawer / popover entrances ──────────────────────────────────
+   Radix sets data-state=open/closed; give overlays + panels a smooth curve.
+   (Radix ships the keyframes via Tailwind's data-[state] utilities; we only
+   refine timing so it doesn't snap.) */
+.theme-hr [data-state='open'][data-radix-popper-content-wrapper],
+.theme-hr [role='dialog'][data-state='open'],
+.theme-hr [role='menu'][data-state='open'],
+.theme-hr [role='listbox'][data-state='open'] {
+  animation-timing-function: var(--ease-out);
+  animation-duration: var(--dur);
+}
+
+/* ── Prettier, quieter scrollbars ─────────────────────────────────────────*/
+.theme-hr .scrollbar-thin,
+.theme-hr .overflow-y-auto,
+.theme-hr .overflow-auto {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.28) transparent;
+}
+.theme-hr .scrollbar-thin::-webkit-scrollbar,
+.theme-hr .overflow-y-auto::-webkit-scrollbar,
+.theme-hr .overflow-auto::-webkit-scrollbar { width: 8px; height: 8px; }
+.theme-hr .scrollbar-thin::-webkit-scrollbar-thumb,
+.theme-hr .overflow-y-auto::-webkit-scrollbar-thumb,
+.theme-hr .overflow-auto::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.25);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: background var(--dur) var(--ease-out);
+}
+.theme-hr .scrollbar-thin:hover::-webkit-scrollbar-thumb,
+.theme-hr .overflow-y-auto:hover::-webkit-scrollbar-thumb,
+.theme-hr .overflow-auto:hover::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.4);
+  background-clip: content-box;
+}
+
+/* ── Respect the user's motion preference — kill all of it ────────────────*/
+@media (prefers-reduced-motion: reduce) {
+  .theme-hr,
+  .theme-hr *,
+  .theme-hr *::before,
+  .theme-hr *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .theme-hr button:active,
+  .theme-hr [role='button']:active,
+  .theme-hr .hr-lift:hover { transform: none !important; }
+  .theme-hr .animate-pulse {
+    animation: none !important;
+    background-image: none;
+    background-color: hsl(var(--muted));
+  }
+}
