@@ -29,7 +29,12 @@ export function RequestsHub() {
   const tt = (en: string, ar: string) => (isRTL ? ar : en)
   const { isHRUser, isManager } = useAuth()
   const router = useRouter()
-  const showTeam = isHRUser || isManager
+  // Role flags only exist on the client. Gate on `mounted` so the server HTML and
+  // the first client render agree — otherwise the extra "Team" tab shifts Radix's
+  // generated ids and hydration fails.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+  const showTeam = mounted && (isHRUser || isManager)
 
   const [tab, setTab] = useState<Tab>('my_requests')
   const [flows, setFlows] = useState<FlowRow[]>([])

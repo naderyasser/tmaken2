@@ -48,6 +48,25 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
       team: t('nav.team'),
       custody: t('nav.custody'),
       biometric: t('nav.biometric'),
+      // ── New sidebar modules ──
+      jobs: t('nav.jobs'),
+      'unregistered-employees': t('nav.unregistered_employees'),
+      projects: t('nav.projects'),
+      tasks: t('nav.tasks'),
+      'location-groups': t('nav.location_groups'),
+      'employee-groups': t('nav.employee_groups'),
+      nationality: t('nav.nationality'),
+      'official-holidays': t('nav.official_holidays'),
+      'leave-types': t('nav.leave_types'),
+      'add-leave': t('nav.add_leave'),
+      'add-permission': t('nav.add_permission'),
+      'cancel-transactions': t('nav.cancel_transactions'),
+      'user-transactions': t('nav.user_transactions'),
+      'ramadan-schedule': t('nav.ramadan_schedule'),
+      'attendance-settings': t('nav.attendance_settings'),
+      'requests-settings': t('nav.requests_settings'),
+      'company-data': t('nav.company_data'),
+      'subscription-info': t('nav.subscription_info'),
     }
     const label = moduleLabels[module]
     if (!label) return [{ label: isRTL ? 'الموارد البشرية' : 'HR' }]

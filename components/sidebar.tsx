@@ -71,6 +71,25 @@ export type ModuleType =
   | 'custody'
   | 'contracts'
   | 'proposals'
+  // ── New modules from the redesigned sidebar ──
+  | 'jobs'
+  | 'unregistered-employees'
+  | 'projects'
+  | 'tasks'
+  | 'location-groups'
+  | 'employee-groups'
+  | 'nationality'
+  | 'official-holidays'
+  | 'leave-types'
+  | 'add-leave'
+  | 'add-permission'
+  | 'cancel-transactions'
+  | 'user-transactions'
+  | 'ramadan-schedule'
+  | 'attendance-settings'
+  | 'requests-settings'
+  | 'company-data'
+  | 'subscription-info'
 
 interface NavItem {
   labelKey: string

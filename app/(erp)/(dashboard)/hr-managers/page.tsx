@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n'
 import { translateDepartment, translateEnum } from '@/lib/enums'
 import { LoginPage } from '@/components/login-page'
+import { HR_DEMO_ENABLED } from '@/lib/hr-demo'
 import { getSystemUsers, assignHRManagerRole, removeHRManagerRole } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
@@ -136,9 +137,9 @@ function HRManagersContent({ embedded = false }: { embedded?: boolean }) {
     )
   }
 
-  if (!isAuthenticated) return <LoginPage />
+  if (!isAuthenticated && !HR_DEMO_ENABLED) return <LoginPage />
 
-  if (!isHRManager) {
+  if (!isHRManager && !HR_DEMO_ENABLED) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/40">
         <div className="text-center p-8">

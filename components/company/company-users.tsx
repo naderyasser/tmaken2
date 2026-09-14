@@ -207,12 +207,12 @@ export function CompanyUsersPanel({ hideHeader = false }: { hideHeader?: boolean
 
     // ── Guards ─────────────────────────────────────────────────────────────
     if (authLoading) {
-        return <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        return <div className={`${hideHeader ? 'min-h-full' : 'min-h-screen'} flex items-center justify-center bg-gray-50`}>
             <Loader2 className="h-6 w-6 animate-spin text-sky-600" />
         </div>
     }
     if (!isCompanyAdmin) {
-        return <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-8 text-center" dir={isRTL ? 'rtl' : 'ltr'}>
+        return <div className={`${hideHeader ? 'min-h-full' : 'min-h-screen'} flex flex-col items-center justify-center bg-gray-50 p-8 text-center`} dir={isRTL ? 'rtl' : 'ltr'}>
             <ShieldAlert className="h-12 w-12 text-amber-500 mb-4" />
             <p className="text-gray-600 mb-4">{tr.needAuth}</p>
             <button onClick={() => router.push('/')} className="px-4 py-2 bg-sky-600 text-white rounded-lg text-sm">{tr.back}</button>

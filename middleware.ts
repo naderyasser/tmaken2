@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { isMarketplaceRequest } from '@/lib/marketplace'
+import { isHrDemoPath } from '@/lib/hr-demo'
 
 // Pages that don't require authentication
 const publicPaths = ['/login', '/update-password', '/onboarding', '/proposal', '/letter-verify', '/api/frappe', '/api/upload_file', '/api/method', '/api/resource', '/sales-brand', '/sales-rep-manifest']
@@ -49,9 +50,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // Exact public route: the bare HR dashboard (`/hr`) — the guest-accessible
-  // "Tamkeen proposed version" mock. EXACT match only: `/hr?module=…` module
-  // surfaces and `/hr-managers`, `/hr-settings`, `/hr/analytics`, … stay protected.
-  if (pathname === '/hr') {
+  // "Tamkeen proposed version" mock — plus every HR-shell surface the sidebar
+  // links to, so the proposed UI can be walked through without a login wall.
+  // (See lib/hr-demo.ts; the backend still authorizes every data call.)
+  if (isHrDemoPath(pathname)) {
     return NextResponse.next()
   }
 

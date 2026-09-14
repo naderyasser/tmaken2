@@ -36,12 +36,6 @@ function Chrome({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams()
   const moduleParam = searchParams.get('module')
 
-  const isPublicDashboard =
-    pathname === '/hr' && (!moduleParam || moduleParam === 'dashboard')
-  if (isPublicDashboard) {
-    return <div className="theme-hr min-h-screen bg-background text-foreground">{children}</div>
-  }
-
   if (matchesShell(pathname)) {
     // Migrated HR routes → the Jisr shell. `/team` (Company-Admin) gets the shell
     // WITHOUT the HR-user gate (the page enforces its own Company-Admin access).

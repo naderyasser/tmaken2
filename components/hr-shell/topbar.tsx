@@ -1,105 +1,184 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Menu, Globe, Building2, ChevronDown } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { ChevronDown, ChevronLeft, UserCircle2, LogOut, Calendar } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/auth-context'
 import { useBrand } from '@/hooks/use-brand'
 import { useCompanySafe } from '@/hooks/use-company'
 import { NotificationsPanel } from '@/components/notifications-panel'
 import { GlobalSearch } from './global-search'
-import { UserMenu } from './user-menu'
-import { TOPBAR_ACTIONS, FINGERPRINT_HOME } from './routes'
+import { TOPBAR_ACTIONS } from './routes'
+import { useBreadcrumbs } from '@/lib/breadcrumbs'
+import { accountingApi } from '@/lib/accounting-api'
 
-/** Jisr-style top bar for the HR shell. */
+/**
+ * Apex ERP Topbar — two stacked bars, matching the reference screenshot:
+ *
+ *   Row 1 (navy #17356b): ☰ · avatar · name/role · خرج      …      Apex ERP logo
+ *   Row 2 (blue #2456a6): الرئيسية ‹ …crumb · company        …      أبحث · الفترة المالية · 🔔
+ *
+ * All backend hooks preserved:
+ *   useBrand · useCompanySafe · useAuth · NotificationsPanel · accountingApi
+ */
 export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
-  const { t, lang, setLang } = useI18n()
-  const { hrFingerprintOnly } = useAuth()
-  // Per-tenant lockup. app.name/app.subtitle are GENERIC i18n strings («تمكين»),
-  // so without this every white-labelled tenant saw the platform's own brand once
-  // logged in even with a logo configured — only the login page honoured it.
+  const { t } = useI18n()
+  const { logout, user } = useAuth()
   const brand = useBrand()
-  const { company: activeCompany, isAdmin, allCompanies, switchCompany } = useCompanySafe()
+  const { company: activeCompany } = useCompanySafe()
+  const crumbs = useBreadcrumbs()
+
+  // ── Fiscal year from backend ──────────────────────────────────────────────
+  const [fiscalLabel, setFiscalLabel] = useState<string>('')
+
+  // The header reflects auth/brand/company data that only exists on the client.
+  // Rendering it during SSR and again with data on hydration changes the tree and
+  // breaks Radix's generated ids (aria-controls) — so auth-derived bits only render
+  // after mount, keeping the server HTML and the first client render identical.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    accountingApi.getCurrentFiscalYear(activeCompany ?? undefined)
+      .then((fy) => {
+        if (cancelled || !fy) return
+        const fmt = (d: string) => {
+          const [y, m, day] = d.split('-')
+          return `${day}/${m}/${y}`
+        }
+        setFiscalLabel(`${fmt(fy.year_end_date)} - ${fmt(fy.year_start_date)}`)
+      })
+      .catch(() => { /* non-blocking */ })
+    return () => { cancelled = true }
+  }, [activeCompany])
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const userName = mounted ? (user?.full_name || user?.email || 'مدير النظام') : 'مدير النظام'
+  const userRole = mounted ? (user?.roles?.[0] || 'مدير النظام') : 'مدير النظام'
 
   return (
-    <header className="h-14 bg-card/80 backdrop-blur-md border-b border-border sticky top-0 z-40">
-      <div className="h-full px-3 md:px-5 flex items-center gap-3">
-        {/* Mobile nav trigger */}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={onOpenMobileNav}
-          aria-label="Menu"
-          className="h-9 w-9 text-muted-foreground hover:bg-accent rounded-lg lg:hidden"
-        >
-          <Menu className="h-5 w-5" />
-        </Button>
+    <header className="shrink-0 z-40" dir="rtl">
 
-        {/* Logo — the attendance-only package rebrands to "تمكين حضور" and links to
-            its own home (the HR dashboard is out of that package's bundle). */}
-        <Link href={hrFingerprintOnly ? FINGERPRINT_HOME : '/hr'} className="flex items-center gap-2.5 flex-shrink-0">
-          <Image src={brand.logo || '/logo.jpeg'} alt={brand.appName || 'Tamkeen'} width={32} height={32} className="rounded-lg object-cover" />
-          <div className="hidden sm:block leading-tight">
-            <h1 className="text-sm font-bold text-foreground">{brand.appName || t(hrFingerprintOnly ? 'app.attendance_name' : 'app.name')}</h1>
-            <p className="text-[10px] text-muted-foreground">{brand.tagline || t(hrFingerprintOnly ? 'app.attendance_subtitle' : 'app.subtitle')}</p>
+      {/* ───────────── Row 1 — brand & user ───────────── */}
+      <div className="h-14 bg-[#17356b] text-white flex items-center justify-between px-3 shadow-sm">
+
+        {/* Right (start): hamburger · avatar · name/role · logout */}
+        <div className="flex items-center gap-2.5 min-w-0">
+          <button
+            onClick={onOpenMobileNav}
+            title="القائمة"
+            className="flex items-center justify-center w-9 h-9 rounded hover:bg-white/10 transition-colors shrink-0"
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+
+          <div className="h-9 w-9 rounded-full bg-white/20 flex items-center justify-center overflow-hidden shrink-0">
+            {mounted && user?.user_image ? (
+              <Image src={user.user_image} alt={userName} width={36} height={36} className="object-cover" unoptimized />
+            ) : (
+              <UserCircle2 className="h-8 w-8 text-white/90 mt-1" />
+            )}
           </div>
-        </Link>
 
-        {/* Global search — centered, grows. Hidden for the attendance-only package
-            (it would surface HR pages/modules outside that package's bundle). */}
-        <div className="flex-1 flex justify-center px-2">
-          {!hrFingerprintOnly && <GlobalSearch />}
+          <div className="hidden sm:flex flex-col leading-tight min-w-0">
+            <span className="text-[13px] font-bold truncate max-w-[180px]">{userName}</span>
+            <span className="text-[11px] text-white/80 truncate max-w-[180px]">{userRole}</span>
+          </div>
+
+          <button
+            onClick={() => logout()}
+            title={t('nav.logout')}
+            className="flex items-center gap-1.5 text-[12.5px] font-medium hover:text-white/80 transition-colors pr-3 mr-1 border-r border-white/25"
+          >
+            <LogOut className="h-[15px] w-[15px]" />
+            <span className="hidden sm:inline">خرج</span>
+          </button>
         </div>
 
-        {/* End cluster */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          {TOPBAR_ACTIONS.map((Action, i) => <Action key={i} />)}
+        {/* Left (end): logo */}
+        <Link href="/hr" className="flex items-center gap-2 shrink-0">
+          {mounted && brand.logo ? (
+            <span className="relative block h-9 w-[130px] shrink-0">
+              <Image
+                src={brand.logo}
+                alt="Logo"
+                fill
+                sizes="130px"
+                className="object-contain"
+                unoptimized
+              />
+            </span>
+          ) : (
+            <>
+              <span className="font-serif italic font-bold text-[26px] leading-none tracking-wide">Apex</span>
+              <span className="bg-white text-[#17356b] rounded px-1.5 py-[3px] text-[11px] font-extrabold not-italic leading-none">ERP</span>
+            </>
+          )}
+        </Link>
+      </div>
 
-          {/* Company switcher (admin, multi-company) */}
-          {isAdmin && allCompanies.length > 1 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-9 px-2.5 rounded-lg text-muted-foreground hover:bg-accent flex items-center gap-1.5">
-                  <Building2 className="h-[18px] w-[18px]" />
-                  <span className="text-xs font-medium hidden sm:inline max-w-[100px] truncate">{activeCompany || t('header.all_companies')}</span>
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64 max-h-72 overflow-y-auto">
-                <DropdownMenuLabel>{t('header.switch_company')}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {allCompanies.map((c) => (
-                  <DropdownMenuItem key={c} onClick={() => switchCompany(c)} className={activeCompany === c ? 'bg-accent text-primary font-medium' : ''}>
-                    <Building2 className="me-2 h-4 w-4 flex-shrink-0" /><span className="truncate">{c}</span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+      {/* ───────────── Row 2 — breadcrumb, company, search, period ───────────── */}
+      <div className="h-11 bg-[#2456a6] text-white flex items-center justify-between px-3 text-[12.5px]">
+
+        {/* Right (start): breadcrumb · company */}
+        <div className="flex items-center gap-3 min-w-0">
+          <nav className="flex items-center gap-1 min-w-0 whitespace-nowrap">
+            <Link href="/" className="hover:underline text-white/95">الرئيسية</Link>
+            {crumbs.map((c, i) => (
+              <span key={i} className="flex items-center gap-1 min-w-0">
+                <ChevronLeft className="h-3.5 w-3.5 text-white/60 shrink-0" />
+                {c.href && i < crumbs.length - 1 ? (
+                  <Link href={c.href} className="hover:underline truncate max-w-[160px]">{c.label}</Link>
+                ) : (
+                  <span className="font-semibold truncate max-w-[200px]">{c.label}</span>
+                )}
+              </span>
+            ))}
+          </nav>
+
+          {mounted && activeCompany && (
+            <>
+              <div className="hidden md:block h-5 w-px bg-white/30 shrink-0" />
+              <span className="hidden md:inline font-semibold truncate max-w-[260px]">{activeCompany}</span>
+            </>
+          )}
+        </div>
+
+        {/* Left (end): search · fiscal period · notifications */}
+        <div className="flex items-center gap-2 shrink-0">
+          {mounted && (
+            <div className="hidden lg:block w-[230px]">
+              <GlobalSearch />
+            </div>
           )}
 
-          {/* Language toggle — globe icon only (label lives in tooltip/aria) */}
-          <Button
-            variant="ghost"
-            onClick={() => setLang(lang === 'en' ? 'ar' : 'en')}
-            title={t('lang.switch')}
-            aria-label={t('lang.switch')}
-            className="h-9 w-9 p-0 rounded-lg text-muted-foreground hover:bg-accent flex items-center justify-center"
-          >
-            <Globe className="h-[18px] w-[18px]" />
-          </Button>
+          {mounted && fiscalLabel && (
+            <div className="hidden md:flex items-center gap-2">
+              <span className="text-[12.5px] font-bold">{t('nav.fiscal_period') || 'الفترة المالية'}</span>
+              <div className="flex items-center gap-1.5 bg-white text-[#17356b] rounded px-2.5 py-1 text-[12px] font-bold">
+                <Calendar className="h-3.5 w-3.5" />
+                <span>{fiscalLabel}</span>
+                <ChevronDown className="h-3.5 w-3.5" />
+              </div>
+            </div>
+          )}
 
-          <NotificationsPanel />
-
-          <div className="w-px h-6 bg-border mx-1 hidden sm:block" />
-
-          <UserMenu />
+          {mounted && (
+            <div className="text-white [&_button]:text-white [&_svg]:text-white">
+              <NotificationsPanel />
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* Feature-phase topbar widgets (seam for future additions) */}
+      <div className="hidden">
+        {TOPBAR_ACTIONS.map((Action, i) => <Action key={i} />)}
       </div>
     </header>
   )

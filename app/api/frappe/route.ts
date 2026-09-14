@@ -111,6 +111,10 @@ async function handleProxyRequest(request: NextRequest) {
       },
       body,
       credentials: 'include',
+      // Do not follow redirects: endpoints like the demo auto-login answer 302 and
+      // carry the session in Set-Cookie. Following the Location would make us fetch
+      // the backend's HTML site root (slow / wrong) instead of returning the cookie.
+      redirect: 'manual',
     })
 
     const responseData = await response.text()
