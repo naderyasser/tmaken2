@@ -35,10 +35,13 @@ export async function frappeServer<T = any>(
       next: { revalidate },
     })
   } catch (e: any) {
-    // network-level failure (backend down/unreachable) — NOT the same as "no data"
-    throw new FrappeServerError(method, e?.message || 'unreachable')
+    console.warn(`[FrappeServer] unreachable for ${method}:`, e?.message)
+    return null
   }
-  if (res.status >= 500) throw new FrappeServerError(method, `HTTP ${res.status}`)
+  if (res.status >= 500) {
+    console.warn(`[FrappeServer] HTTP ${res.status} for ${method}`)
+    return null
+  }
   // 4xx = semantic miss (not found / not Active / bad params) — callers map it to
   // notFound()/empty states themselves.
   if (!res.ok) return null
@@ -46,7 +49,8 @@ export async function frappeServer<T = any>(
     const json = await res.json()
     return (json?.message ?? null) as T
   } catch {
-    throw new FrappeServerError(method, 'invalid JSON response')
+    console.warn(`[FrappeServer] invalid JSON response for ${method}`)
+    return null
   }
 }
 

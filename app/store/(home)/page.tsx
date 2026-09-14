@@ -28,11 +28,16 @@ const HOW_IT_WORKS = [
 ]
 
 export default async function StoreHome() {
-  const [recent, categories, regionCounts] = await Promise.all([
-    store.search({ sort: 'newest', limit: 12 }),
-    store.categories(),
-    store.regionCounts(),
-  ])
+  let recent, categories, regionCounts;
+  try {
+    [recent, categories, regionCounts] = await Promise.all([
+      store.search({ sort: 'newest', limit: 12 }),
+      store.categories(),
+      store.regionCounts(),
+    ])
+  } catch (error) {
+    console.warn('Frappe server unreachable during build/render for store home page:', error)
+  }
   const listings: ListingSearchResult[] = (recent?.results as any) || []
   const cats = (categories || []).filter((c: any) => !c.is_group)
   const topRegions = (regionCounts || []).slice(0, 12)

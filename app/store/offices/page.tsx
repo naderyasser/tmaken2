@@ -11,7 +11,12 @@ export const metadata: Metadata = {
 }
 
 export default async function OfficesPage() {
-  const offices = (await store.offices()) || []
+  let offices = [];
+  try {
+    offices = (await store.offices()) || [];
+  } catch (e) {
+    console.warn('Frappe server unreachable for offices page');
+  }
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="aqar-display flex items-center gap-2 text-2xl text-[var(--aqar-green-d)]">
