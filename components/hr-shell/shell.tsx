@@ -58,7 +58,7 @@ export function HrShell({ requireHR = true, children }: { requireHR?: boolean; c
         {/* Body: sidebar + main */}
         <div className="flex flex-1 overflow-hidden">
           {/* Sidebar on the right (RTL) */}
-          <Suspense fallback={<div className="hidden lg:block w-[248px] bg-[#1b5b9f] shrink-0" />}>
+          <Suspense fallback={<div className="hidden lg:block w-[272px] bg-[#2960b6] shrink-0" />}>
             <IconRail />
           </Suspense>
 

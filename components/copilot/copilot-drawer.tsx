@@ -419,10 +419,12 @@ export function CopilotDrawer() {
             // The owner has weak eyesight: big, red, high-contrast, and pinned
             // top-RIGHT (physical right, requested explicitly — not start/end)
             // just below the h-16 sticky header so it never covers its buttons.
+            // On desktop the 290px HR sidebar owns the right edge, so the launcher
+            // sits just to its left instead of covering the sidebar search.
             'hr-lift fixed z-40 flex items-center gap-2 rounded-full bg-red-600 text-white',
             'shadow-xl ring-4 ring-red-200 hover:bg-red-700',
             'h-16 w-16 justify-center sm:h-auto sm:w-auto sm:px-5 sm:py-4',
-            'top-[4.5rem] right-3 sm:right-5',
+            'top-[4.5rem] right-3 sm:right-5 lg:top-auto lg:bottom-6 lg:right-[302px]',
           )}
         >
           <Sparkles className="h-8 w-8 sm:h-7 sm:w-7" />

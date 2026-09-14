@@ -1,22 +1,23 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { Save, Loader2, RefreshCw, AlertCircle } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Loader2, Check, X, AlertCircle } from 'lucide-react'
 import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { FieldInput, toFormValue, toPayload } from '@/components/hr/field-input'
+import { useBreadcrumbs } from '@/lib/breadcrumbs'
 import type { SettingsModuleConfig } from '@/lib/hr-modules'
 
 /**
- * Generic settings screen: loads one document (singleton doctype, or a named
- * record such as the active Company) and saves it with PUT.
+ * Apex settings/form screen — matches the reference (company information):
+ * action bar on top (breadcrumb right · حفظ/اغلاق left) then a card of grouped
+ * fields in two columns.
  */
-export function GenericSettingsPage({
-  config, recordName,
-}: { config: SettingsModuleConfig; recordName?: string }) {
+export function GenericSettingsPage({ config, recordName }: { config: SettingsModuleConfig; recordName?: string }) {
   const { toast } = useToast()
+  const crumbs = useBreadcrumbs()
   const [form, setForm] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -40,9 +41,7 @@ export function GenericSettingsPage({
       const initial: Record<string, any> = {}
       for (const f of config.fields) initial[f.field] = f.type === 'checkbox' ? false : ''
       setForm(initial)
-    } finally {
-      setLoading(false)
-    }
+    } finally { setLoading(false) }
   }, [config.doctype, config.fields, recordName])
 
   useEffect(() => { load() }, [load])
@@ -53,71 +52,84 @@ export function GenericSettingsPage({
       await frappeClient.put(config.doctype, recordName || config.doctype, toPayload(config.fields, form))
       toast({ title: 'تم الحفظ' })
     } catch (e) {
-      toast({
-        title: 'فشل الحفظ',
-        description: e instanceof Error ? e.message : 'تعذّر الاتصال بالخادم',
-        variant: 'destructive',
-      })
-    } finally {
-      setSaving(false)
-    }
+      toast({ title: 'فشل الحفظ', description: e instanceof Error ? e.message : 'تعذّر الاتصال بالخادم', variant: 'destructive' })
+    } finally { setSaving(false) }
   }
 
-  return (
-    <div dir="rtl" className="space-y-4 p-6 font-[family-name:var(--font-arabic)]">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">{config.title}</h1>
-          {config.subtitle && <p className="text-[13px] text-slate-500 mt-0.5">{config.subtitle}</p>}
+  // Split the fields into two titled sections, like the reference form.
+  const [top, bottom] = useMemo(() => {
+    const cut = Math.max(1, Math.ceil(config.fields.length * 0.55))
+    return [config.fields.slice(0, cut), config.fields.slice(cut)]
+  }, [config.fields])
+
+  const renderFields = (fields: typeof config.fields) => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
+      {fields.map((f) => (
+        <div key={f.field} className="space-y-1.5">
+          {f.type !== 'checkbox' && (
+            <Label className="text-[13px] text-slate-600">
+              {f.label}{f.required && <span className="text-red-500"> *</span>}
+            </Label>
+          )}
+          <FieldInput field={f} value={form[f.field]} onChange={(v) => setForm((prev) => ({ ...prev, [f.field]: v }))} />
         </div>
-        <Button
-          variant="ghost" size="icon" onClick={load} title="تحديث"
-          className="text-[#195a9e] hover:bg-blue-50"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-        </Button>
+      ))}
+    </div>
+  )
+
+  return (
+    <div dir="rtl" className="p-4 space-y-3 font-[family-name:var(--font-arabic)]">
+
+      {/* ── Action bar: breadcrumb (right) · actions (left) ── */}
+      <div className="flex items-center justify-between gap-4 bg-white rounded shadow-sm border border-slate-200/60 px-4 py-2.5">
+        <nav className="flex items-center gap-1.5 text-[13px] text-slate-600 min-w-0">
+          {crumbs.map((c, i) => (
+            <span key={i} className="flex items-center gap-1.5 min-w-0">
+              {i > 0 && <span className="text-slate-400">/</span>}
+              <span className={i === crumbs.length - 1 ? 'font-bold text-slate-800 truncate' : 'truncate'}>{c.label}</span>
+            </span>
+          ))}
+        </nav>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <Button onClick={save} disabled={saving || loading}
+            className="bg-[#28a745] hover:bg-[#218838] text-white rounded px-5 h-9 font-bold text-[13px]">
+            {saving ? <Loader2 className="h-4 w-4 ml-1.5 animate-spin" /> : <Check className="h-4 w-4 ml-1.5" strokeWidth={3} />}
+            حفظ
+          </Button>
+          <Button onClick={load} disabled={saving || loading} variant="outline"
+            className="border-red-300 text-red-500 hover:bg-red-50 rounded px-5 h-9 font-bold text-[13px]">
+            <X className="h-4 w-4 ml-1.5" strokeWidth={3} />
+            اغلاق
+          </Button>
+        </div>
       </div>
 
       {loadError && !loading && (
-        <div className="flex items-center gap-2 rounded-sm bg-amber-50 border border-amber-200 px-3 py-2 text-[12.5px] text-amber-800">
+        <div className="flex items-center gap-2 rounded bg-amber-50 border border-amber-200 px-3 py-2 text-[12.5px] text-amber-800">
           <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>تعذّر تحميل الإعدادات من الخادم. يمكنك تعديل القيم ومحاولة الحفظ بعد استعادة الاتصال.</span>
+          <span>تعذّر تحميل البيانات من الخادم. يمكنك تعديل القيم ومحاولة الحفظ بعد استعادة الاتصال.</span>
         </div>
       )}
 
-      <div className="bg-white rounded-md shadow-sm border border-slate-200/60">
-        <div className="p-5 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-          {loading ? (
-            <div className="col-span-full py-12 text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-[#195a9e] mx-auto" />
-            </div>
-          ) : (
-            config.fields.map((f) => (
-              <div key={f.field} className="space-y-1.5">
-                {f.type !== 'checkbox' && (
-                  <Label className="text-[13px] text-slate-600">{f.label}</Label>
-                )}
-                <FieldInput
-                  field={f}
-                  value={form[f.field]}
-                  onChange={(v) => setForm((prev) => ({ ...prev, [f.field]: v }))}
-                />
-              </div>
-            ))
-          )}
-        </div>
-
-        <div className="flex items-center justify-end gap-2 border-t border-slate-100 p-4">
-          <Button variant="outline" onClick={load} disabled={saving || loading}>استعادة</Button>
-          <Button
-            onClick={save}
-            disabled={saving || loading}
-            className="bg-[#195a9e] hover:bg-[#154d8a] text-white font-bold"
-          >
-            {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-            حفظ
-          </Button>
-        </div>
+      {/* ── Form ── */}
+      <div className="bg-white rounded shadow-sm border border-slate-200/60 p-6">
+        {loading ? (
+          <div className="py-16 text-center"><Loader2 className="h-8 w-8 animate-spin text-[#2e71c8] mx-auto" /></div>
+        ) : (
+          <div className="space-y-8">
+            <section className="space-y-5">
+              <h3 className="text-[18px] font-bold text-slate-800">البيانات الاساسية</h3>
+              {renderFields(top)}
+            </section>
+            {bottom.length > 0 && (
+              <section className="space-y-5">
+                <h3 className="text-[18px] font-bold text-slate-800">بيانات الاتصال</h3>
+                {renderFields(bottom)}
+              </section>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )

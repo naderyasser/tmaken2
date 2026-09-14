@@ -25,17 +25,17 @@ import {
 const TOTAL_EMPLOYEES = 63
 
 const stats = [
-  { key: 'leave', label: 'الاجازات', value: 0, icon: ArrowUpFromLine, color: '#22c55e' },
-  { key: 'official', label: 'عطلات رسمية', value: 0, icon: Gift, color: '#f59e0b' },
-  { key: 'weekly', label: 'عطله إسبوعية', value: 0, icon: CalendarDays, color: '#64748b' },
-  { key: 'absent', label: 'الغياب', value: 2, icon: AlertTriangle, color: '#ef4444' },
-  { key: 'present', label: 'حضور', value: 15, icon: CheckSquare, color: '#3b82f6' },
+  { key: 'leave', label: 'الاجازات', value: 0, icon: ArrowUpFromLine, color: '#2eaf7d' },
+  { key: 'official', label: 'عطلات رسمية', value: 0, icon: Gift, color: '#808080' },
+  { key: 'weekly', label: 'عطله إسبوعية', value: 0, icon: CalendarDays, color: '#808080' },
+  { key: 'absent', label: 'الغياب', value: 2, icon: AlertTriangle, color: '#ff0000' },
+  { key: 'present', label: 'حضور', value: 15, icon: CheckSquare, color: '#2960b6' },
 ]
 
 const departments = [
-  { name: 'حضور', value: 45, fill: '#3b82f6' },
-  { name: 'غياب', value: 15, fill: '#f59e0b' },
-  { name: 'اجازات', value: 3, fill: '#ef4444' },
+  { name: 'حضور', value: 45, fill: '#497cff' },
+  { name: 'غياب', value: 15, fill: '#dc3545' },
+  { name: 'اجازات', value: 3, fill: '#34c75a' },
 ]
 
 const branchesData = [
@@ -71,14 +71,14 @@ export function PublicHrDashboard() {
          
          {/* Cards Section */}
          <div className="flex-1 bg-[#f1f2f4] p-5 rounded border border-slate-200/60">
-            <h2 className="mb-5 text-[17px] font-bold text-slate-800 text-center">ملخص حضور اليوم</h2>
-            <div className="flex justify-center gap-3 flex-row-reverse flex-wrap">
+            <h2 className="mb-5 text-[24px] font-bold text-slate-800 text-center">ملخص حضور اليوم</h2>
+            <div className="flex gap-3 flex-row-reverse">
               {stats.map((s) => {
                 const Icon = s.icon
                 return (
                   <div
                     key={s.key}
-                    className="flex flex-col items-center justify-center bg-white rounded border border-slate-200/70 py-5 px-3 shadow-sm w-[140px]"
+                    className="flex-1 min-w-0 flex flex-col items-center justify-center bg-white rounded border border-slate-200/70 py-5 px-2 shadow-sm"
                   >
                     <Icon className="h-6 w-6 mb-3" strokeWidth={2} style={{ color: s.color }} />
                     <p className="text-[12px] font-bold text-slate-700 mb-1">{s.label}</p>
@@ -99,8 +99,8 @@ export function PublicHrDashboard() {
                   dataKey="value"
                   cx="50%"
                   cy="50%"
-                  innerRadius={65}
-                  outerRadius={80}
+                  innerRadius={61}
+                  outerRadius={70}
                   stroke="none"
                   isAnimationActive={false}
                 >
@@ -123,7 +123,7 @@ export function PublicHrDashboard() {
          
          {/* Stacked bar — attendance by branch */}
          <div className="order-2 bg-white pt-5 pb-3 px-4 rounded border border-slate-100 shadow-sm flex flex-col">
-           <h2 className="mb-6 text-[16px] font-bold text-slate-800 text-center">
+           <h2 className="mb-6 text-[24px] font-bold text-slate-800 text-center">
              ملخص الحضور في الفروع
            </h2>
            <div className="h-[300px] mb-2">
@@ -144,21 +144,21 @@ export function PublicHrDashboard() {
                  />
                  <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{stroke: '#cbd5e1'}} tickLine={false} tickCount={10} domain={[0, 18]} />
                  <Tooltip cursor={{ fill: 'rgba(148,163,184,0.1)' }} contentStyle={{ direction: 'rtl', borderRadius: 4, fontSize: 12 }} />
-                 <Bar dataKey="present" stackId="a" fill="#3b82f6" isAnimationActive={false} />
-                 <Bar dataKey="leave" stackId="a" fill="#ef4444" isAnimationActive={false} />
-                 <Bar dataKey="absent" stackId="a" fill="#94a3b8" isAnimationActive={false} />
-                 <Bar dataKey="waiting" stackId="a" fill="#f59e0b" radius={[2, 2, 0, 0]} isAnimationActive={false} />
+                 <Bar dataKey="present" stackId="a" fill="#497cff" isAnimationActive={false} />
+                 <Bar dataKey="leave" stackId="a" fill="#34c75a" isAnimationActive={false} />
+                 <Bar dataKey="absent" stackId="a" fill="#dc3545" isAnimationActive={false} />
+                 <Bar dataKey="waiting" stackId="a" fill="#ffb62e" radius={[2, 2, 0, 0]} isAnimationActive={false} />
                </BarChart>
              </ResponsiveContainer>
            </div>
            
            {/* Custom Legend */}
            <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] font-bold text-slate-600 mt-auto">
-              <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#3b82f6]" /><span>حضور</span></div>
-              <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#ef4444]" /><span>الاجازات</span></div>
-              <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#94a3b8]" /><span>الغياب</span></div>
-              <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#f59e0b]" /><span>في إنتظار الترتيب</span></div>
-              <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#cbd5e1]" /><span>عطله إسبوعية</span></div>
+              <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#497cff]" /><span>حضور</span></div>
+              <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#dc3545]" /><span>الغياب</span></div>
+              <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#34c75a]" /><span>الاجازات</span></div>
+              <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#ffb62e]" /><span>في الانتظار</span></div>
+              <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#9d9fa0]" /><span>عطله إسبوعية</span></div>
            </div>
          </div>
 
@@ -166,7 +166,7 @@ export function PublicHrDashboard() {
          <div className="order-1 bg-white pt-5 pb-3 px-4 rounded border border-slate-100 shadow-sm flex flex-col">
            <div className="flex items-center justify-between mb-4 px-2">
              <div className="flex items-center justify-center gap-2">
-               <h2 className="text-[16px] font-bold text-slate-800">حركات يوم الاحد 13-09-2026</h2>
+               <h2 className="text-[24px] font-bold text-slate-800">حركات يوم الاحد 13-09-2026</h2>
                <Info className="h-4 w-4 text-slate-400" />
              </div>
            </div>
@@ -205,7 +205,7 @@ export function PublicHrDashboard() {
 
       {/* Bottom Chart: 10 Days */}
       <div className="bg-white pt-5 pb-3 px-4 rounded border border-slate-100 shadow-sm">
-         <h2 className="mb-4 text-[16px] font-bold text-slate-800 text-center">حركات اخر 10 ايام</h2>
+         <h2 className="mb-4 text-[24px] font-bold text-slate-800 text-center">حركات اخر 10 ايام</h2>
          <div className="h-[200px]">
            <ResponsiveContainer width="100%" height="100%">
              <BarChart data={tenDaysData} barSize={16}>
@@ -213,7 +213,7 @@ export function PublicHrDashboard() {
                <XAxis dataKey="day" hide />
                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{stroke: '#cbd5e1'}} tickLine={false} domain={[0, 50]} />
                <Tooltip cursor={{ fill: 'rgba(148,163,184,0.1)' }} />
-               <Bar dataKey="val" fill="#3b82f6" radius={[2, 2, 0, 0]} isAnimationActive={false}>
+               <Bar dataKey="val" fill="#497cff" radius={[2, 2, 0, 0]} isAnimationActive={false}>
                  {tenDaysData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#3b82f6' : (index % 3 === 0 ? '#94a3b8' : '#f59e0b')} />
                  ))}

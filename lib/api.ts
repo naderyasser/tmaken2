@@ -191,27 +191,33 @@ export async function getUserInfo(uid: string): Promise<{ full_name: string; use
 }
 
 /**
- * Get roles for a user from Frappe
+ * Get roles for a user from Frappe.
+ * Retries once on a network failure — a single blip must not strip the user's
+ * roles (which would make an admin look unauthorized and hide gated screens).
  */
 export async function getUserRoles(uid: string): Promise<string[]> {
-  try {
-    const path = `/api/method/frappe.core.doctype.user.user.get_roles?uid=${encodeURIComponent(uid)}`
-    const response = await fetch(path, {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include'
-    })
+  const path = `/api/method/frappe.core.doctype.user.user.get_roles?uid=${encodeURIComponent(uid)}`
+  const attempt = async (): Promise<Response> => fetch(path, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include'
+  })
 
-    if (!response.ok) {
-      return []
+  for (let i = 0; i < 2; i++) {
+    try {
+      const response = await attempt()
+      if (!response.ok) return []
+      const data = await response.json()
+      return data.message || []
+    } catch (error) {
+      if (i === 0) {
+        await new Promise((r) => setTimeout(r, 600))
+        continue
+      }
+      console.error('Failed to fetch user roles:', error)
     }
-
-    const data = await response.json()
-    return data.message || []
-  } catch (error) {
-    console.error('Failed to fetch user roles:', error)
-    return []
   }
+  return []
 }
 
 /**

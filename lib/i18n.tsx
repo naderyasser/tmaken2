@@ -396,6 +396,7 @@ const translations: Record<'en' | 'ar', Record<string, string>> = {
     'nav.fiscal_period': 'Fiscal Period',
     // ── Sidebar section labels (matching screenshot exactly) ──
     'nav.dashboard_section': 'Dashboard',
+    'nav.dashboard_home': 'Attendance Dashboard',
     'nav.attendance_control_panel': 'Attendance Control Panel',
     'nav.basic_data': 'Basic Data',
     'nav.attendance_section': 'Attendance',
@@ -3012,6 +3013,7 @@ const translations: Record<'en' | 'ar', Record<string, string>> = {
     'nav.fiscal_period': 'الفترة المالية',
     // ── عناوين الأقسام (مطابق للصورة تماماً) ──
     'nav.dashboard_section': 'لوحة التحكم',
+    'nav.dashboard_home': 'لوحة تحكم الحضور والانصراف',
     'nav.attendance_control_panel': 'لوحة تحكم الحضور والانصراف',
     'nav.basic_data': 'البيانات الاساسية',
     'nav.attendance_section': 'الحضور والانصراف',

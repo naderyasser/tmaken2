@@ -4,9 +4,7 @@ import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import {
-  LogOut, Home, LayoutDashboard, ChevronDown, ChevronUp, Search,
-} from 'lucide-react'
+import { LogOut, Home, LayoutDashboard, ChevronDown, ChevronUp, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/auth-context'
@@ -15,9 +13,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { RAIL_SECTIONS } from './routes'
 
 /**
- * Mobile navigation drawer — same blue Apex look as the desktop IconRail:
- * search box, collapsible sections (section icon right, chevron left) and plain
- * indented items. Opens from the right edge in RTL.
+ * Mobile drawer — identical metrics to the desktop rail (measured from the
+ * reference): 272px · #2960b6 · 57px centred section headers · 16px items.
  */
 export function MobileNav({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const { t, isRTL } = useI18n()
@@ -51,58 +48,59 @@ export function MobileNav({ open, onOpenChange }: { open: boolean; onOpenChange:
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side={isRTL ? 'right' : 'left'}
-        className="w-[260px] sm:max-w-[260px] p-0 flex flex-col bg-[#1b5b9f] text-white border-0"
+        className="w-[272px] sm:max-w-[272px] p-0 flex flex-col bg-[#2960b6] text-white border-0"
         dir="rtl"
       >
-        {/* Header */}
-        <SheetHeader className="h-14 px-4 flex-row items-center gap-2.5 border-b border-white/15 text-start shrink-0">
+        <SheetHeader className="h-[55px] px-4 flex-row items-center gap-2.5 border-b border-white/15 text-start shrink-0">
           <Image
             src={brand.logo || '/logo.jpeg'}
             alt={brand.appName || 'Tamkeen'}
             width={32}
             height={32}
-            className="rounded-lg object-cover shrink-0 bg-white"
+            className="rounded object-cover shrink-0 bg-white"
           />
           <div className="leading-tight">
-            <SheetTitle className="text-base font-bold text-white">
+            <SheetTitle className="text-[15px] font-semibold text-white">
               {brand.appName || t('app.name')}
             </SheetTitle>
-            <p className="text-[10px] text-white/70">
-              {brand.tagline || t('app.subtitle')}
-            </p>
+            <p className="text-[11px] text-white/75">{brand.tagline || t('app.subtitle')}</p>
           </div>
         </SheetHeader>
 
         {/* Search */}
-        <div className="p-3 shrink-0">
+        <div className="px-[10px] pt-4 shrink-0">
           <div className="relative">
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="أبحث"
-              className="w-full h-9 rounded-md bg-white text-slate-700 text-[13px] pr-3 pl-9 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-white/50"
+              placeholder="ابحث"
+              className="w-full h-[37px] rounded bg-white text-[14px] text-[#495057] pr-[11px] pl-9 placeholder:text-slate-400 outline-none"
             />
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-slate-500" />
           </div>
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto pb-2">
+        <nav className="flex-1 overflow-y-auto pt-3 pb-12">
           {dashItem && (
-            <div className="px-2">
-              <Link
-                href={dashItem.href}
-                onClick={close}
-                className={cn(
-                  'flex items-center gap-2.5 rounded-md px-3 py-2.5 text-[13.5px] transition-colors w-full',
-                  dashItem.match(pathname, moduleParam)
-                    ? 'bg-[#dbeafe] text-[#17356b] font-bold'
-                    : 'text-white font-bold hover:bg-white/10'
-                )}
-              >
-                <LayoutDashboard className="h-4 w-4 shrink-0" />
-                <span>{t('nav.dashboard_section')}</span>
-              </Link>
+            <div className="mb-px">
+              <div className="relative w-full h-[57px] px-2 bg-[#2e71c8] flex items-center justify-between text-white">
+                <ChevronUp className="h-[18px] w-[18px] shrink-0" />
+                <span className="flex-1 text-center text-[16px]">{t('nav.dashboard_section')}</span>
+                <LayoutDashboard className="h-[21px] w-[21px] shrink-0" />
+              </div>
+              <div className="bg-[#2e71c8] px-[10px] pt-0 pb-[15px]">
+                <Link
+                  href={dashItem.href}
+                  onClick={close}
+                  className={cn(
+                    'block py-2 text-[16px] transition-colors',
+                    dashItem.match(pathname, moduleParam) ? 'text-white underline' : 'text-white hover:underline'
+                  )}
+                >
+                  {t('nav.dashboard_home')}
+                </Link>
+              </div>
             </div>
           )}
 
@@ -111,26 +109,28 @@ export function MobileNav({ open, onOpenChange }: { open: boolean; onOpenChange:
             .map((section) => {
               const SectionIcon = section.icon
               const isCollapsed = !searching && !!collapsed[section.id]
+              const bg = isCollapsed ? 'bg-[#2960b6]' : 'bg-[#2e71c8]'
               return (
-                <div key={section.id}>
+                <div key={section.id} className="mb-px">
                   <button
                     type="button"
                     onClick={() => toggle(section.id)}
-                    className="w-full flex items-center justify-between px-4 py-2.5 text-[13.5px] font-bold text-white hover:bg-white/10 transition-colors"
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <SectionIcon className="h-4 w-4 shrink-0 text-white" />
-                      <span>{t(section.labelKey)}</span>
-                    </span>
-                    {isCollapsed ? (
-                      <ChevronDown className="h-4 w-4 text-white/80 shrink-0" />
-                    ) : (
-                      <ChevronUp className="h-4 w-4 text-white/80 shrink-0" />
+                    className={cn(
+                      'relative w-full h-[57px] px-2 flex items-center justify-between text-white transition-colors',
+                      bg
                     )}
+                  >
+                    {isCollapsed ? (
+                      <ChevronDown className="h-[18px] w-[18px] shrink-0" />
+                    ) : (
+                      <ChevronUp className="h-[18px] w-[18px] shrink-0" />
+                    )}
+                    <span className="flex-1 text-center text-[16px]">{t(section.labelKey)}</span>
+                    <SectionIcon className="h-[21px] w-[21px] shrink-0" />
                   </button>
 
                   {!isCollapsed && (
-                    <div className="mx-2 mb-1 rounded-md bg-white/[0.07] py-1">
+                    <div className={cn(bg, 'px-[10px] pt-0 pb-[15px]')}>
                       {section.items.map((item) => {
                         const active = item.match(pathname, moduleParam)
                         return (
@@ -139,10 +139,8 @@ export function MobileNav({ open, onOpenChange }: { open: boolean; onOpenChange:
                             href={item.href}
                             onClick={close}
                             className={cn(
-                              'block mx-1 my-0.5 rounded-md px-3 py-2 text-[13px] transition-colors',
-                              active
-                                ? 'bg-[#dbeafe] text-[#17356b] font-bold'
-                                : 'text-white/90 hover:bg-white/10 hover:text-white'
+                              'block py-2 text-[16px] transition-colors',
+                              active ? 'text-white underline' : 'text-white hover:underline'
                             )}
                           >
                             {t(item.labelKey)}
@@ -157,24 +155,24 @@ export function MobileNav({ open, onOpenChange }: { open: boolean; onOpenChange:
         </nav>
 
         {/* Bottom */}
-        <div className="px-3 py-3 shrink-0 space-y-1 border-t border-white/15">
+        <div className="shrink-0 border-t border-white/15 px-3 py-2 space-y-0.5">
           <Link
             href="/"
             onClick={close}
-            className="flex items-center gap-2.5 rounded-md px-3 py-2 text-[13px] font-medium text-white/90 hover:bg-white/10 transition-colors w-full"
+            className="flex items-center gap-2.5 py-2 text-[14px] text-white/90 hover:underline"
           >
-            <Home className="h-4 w-4 shrink-0" />
+            <Home className="h-[18px] w-[18px] shrink-0" />
             <span>{t('guard.back_home')}</span>
           </Link>
           <button
             onClick={() => { close(); logout() }}
-            className="flex items-center gap-2.5 rounded-md px-3 py-2 text-[13px] font-bold bg-white/10 text-white hover:bg-white/20 transition-colors w-full"
+            className="flex items-center gap-2.5 py-2 text-[14px] text-white hover:underline w-full"
           >
-            <LogOut className="h-4 w-4 shrink-0" />
+            <LogOut className="h-[18px] w-[18px] shrink-0" />
             <span>{t('nav.logout')}</span>
           </button>
-          <div className="px-2 pt-1 text-[10px] text-white/70 text-center">
-            Powered By Taif Alalmas v1.0.11
+          <div className="pt-2 h-11 text-center">
+            <span className="text-[12px] text-white">Powered By Taif Alalmas v1.0.11</span>
           </div>
         </div>
       </SheetContent>
