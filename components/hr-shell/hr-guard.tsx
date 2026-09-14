@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n'
 import { LoginPage } from '@/components/login-page'
 import { isHrDemoPath } from '@/lib/hr-demo'
+import { PUBLIC_APP_NO_AUTH } from '@/lib/public-access'
 
 /**
  * Access gate for the HR shell.
@@ -23,7 +24,7 @@ export function HrGuard({ requireHR = true, children }: { requireHR?: boolean; c
 
   // Public HR demo — no login wall
   const isPublicHr = isHrDemoPath(pathname)
-  if (isPublicHr) return <>{children}</>
+  if (PUBLIC_APP_NO_AUTH || isPublicHr) return <>{children}</>
 
   if (isLoading) {
     return (

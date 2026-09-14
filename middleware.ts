@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { isMarketplaceRequest } from '@/lib/marketplace'
 import { isHrDemoPath } from '@/lib/hr-demo'
+import { PUBLIC_APP_NO_AUTH } from '@/lib/public-access'
 
 // Pages that don't require authentication
 const publicPaths = ['/login', '/update-password', '/onboarding', '/proposal', '/letter-verify', '/api/frappe', '/api/upload_file', '/api/method', '/api/resource', '/sales-brand', '/sales-rep-manifest']
@@ -47,6 +48,12 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = `/store${pathname === '/' ? '' : pathname}`
     return NextResponse.rewrite(url)
+  }
+
+  // Public frontend walkthrough mode. This intentionally removes only the
+  // Next.js login redirect; the Frappe backend still protects its resources.
+  if (PUBLIC_APP_NO_AUTH) {
+    return NextResponse.next()
   }
 
   // Exact public route: the bare HR dashboard (`/hr`) — the guest-accessible
