@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Check, ChevronDown, ChevronUp, Loader2, Plus, X, Image as ImageIcon } from 'lucide-react'
 import { frappeClient } from '@/lib/api-client'
+import { useCompanySafe } from '@/hooks/use-company'
 import { useToast } from '@/hooks/use-toast'
 import { cn, frappeImageUrl } from '@/lib/utils'
 
@@ -27,6 +28,7 @@ const REQUIRED = ['employee_number', 'status', 'employee_name', 'custom_branch_a
 export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
   const router = useRouter()
   const { toast } = useToast()
+  const { company } = useCompanySafe()
   const isNew = !employeeId
   const [f, setF] = useState<F>({ status: 'Active', custom_branch_access: 'فرعه فقط', custom_attendance_method: 'جهاز البصمة', custom_mobile_app: 'لا' })
   const [opts, setOpts] = useState<Opts>(EMPTY)
@@ -70,6 +72,7 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
     setSaving(true)
     try {
       const payload: F = {
+        company: f.company || company || undefined,
         employee_number: f.employee_number, status: f.status, employee_name: f.employee_name, first_name: f.employee_name,
         custom_employee_name_en: f.custom_employee_name_en || '', designation: f.designation || '', custom_branch_access: f.custom_branch_access,
         branch: f.branch, default_shift: f.default_shift, department: f.department || '', custom_employee_group: f.custom_employee_group || '',

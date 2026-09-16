@@ -9,6 +9,7 @@ import {
 import { frappeClient, isAuthError } from '@/lib/api-client'
 import { SessionRenew } from '@/components/login-page'
 import { useAuthSafe } from '@/lib/auth-context'
+import { useCompanySafe } from '@/hooks/use-company'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -46,6 +47,7 @@ const ar = (v: any) => (typeof v === 'string' && VALUE_AR[v]) || v
 export function GenericListPage({ config }: { config: ListModuleConfig }) {
   const { toast } = useToast()
   const router = useRouter()
+  const { company } = useCompanySafe()
   const { isAuthenticated, isLoading: authLoading } = useAuthSafe()
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
@@ -189,6 +191,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
       }
     }
     const payload = toPayload(formFields, form)
+    if (!editing && config.needsCompany && !payload.company) payload.company = company || undefined
     setSaving(true)
     try {
       if (editing) await frappeClient.put(config.doctype, editing.name, payload)

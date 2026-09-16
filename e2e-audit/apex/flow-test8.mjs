@@ -1,0 +1,26 @@
+import { chromium } from '@playwright/test'
+const BASE = 'https://tamkeen-v2.base.meena.sa'
+const browser = await chromium.launch()
+const page = await (await browser.newContext({ viewport: { width: 1512, height: 900 }, locale: 'ar' })).newPage()
+const errors = []
+page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text().slice(0, 200)) })
+page.on('response', (r) => { if (r.status() >= 400 && !r.url().includes('/_next/')) errors.push(`${r.status()} ${r.url().replace(BASE,'').slice(0,150)}`) })
+await page.goto(BASE + '/requests', { waitUntil: 'networkidle', timeout: 60000 })
+await page.waitForTimeout(1000)
+await page.getByRole('button', { name: 'البصمات' }).click()
+await page.waitForTimeout(800)
+await page.getByRole('button', { name: 'اضافة طلب بصمة', exact: true }).click()
+await page.waitForTimeout(600)
+const dlg = page.locator('[role=dialog]')
+await dlg.locator('select').first().selectOption({ index: 1 }) // employee (link -> native select)
+await dlg.locator('input[type=date]').nth(0).fill('2026-10-07')
+await dlg.locator('input[type=date]').nth(1).fill('2026-10-07')
+// reason is a radix Select trigger button
+await dlg.getByRole('combobox').last().click()
+await page.waitForTimeout(400)
+await page.getByRole('option').first().click()
+await page.getByRole('button', { name: 'حفظ', exact: true }).click()
+await page.waitForTimeout(2000)
+console.log('toast:', (await page.locator('[class*=toast]').allTextContents()).join(' | '))
+console.log('errors:', [...new Set(errors)].join(' | ') || 'none')
+await browser.close()

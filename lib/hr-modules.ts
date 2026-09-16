@@ -72,6 +72,8 @@ export interface ListModuleConfig {
   emptyAction?: string
   /** Apex «بحث متقدم» drawer filters (client-side over the loaded rows). */
   drawerFilters?: DrawerFilter[]
+  /** Doctype requires `company` on create; inject the active company automatically. */
+  needsCompany?: boolean
 }
 
 export interface SettingsModuleConfig {
@@ -131,6 +133,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     noIndex: true,
     print: false,
     linkField: 'branch',
+    needsCompany: true,
     fields: [
       { field: 'idx', label: 'رقم', inForm: false },
       { field: 'branch', label: 'اسم الفرع', required: true },
@@ -266,6 +269,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     title: 'المشاريع',
     subtitle: 'مشاريع الشركة',
     doctype: 'Project',
+    needsCompany: true,
     orderBy: 'modified desc',
     addLabel: 'اضافة مشروع',
     searchPlaceholder: 'ابحث باسم المشروع',
@@ -355,8 +359,8 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     print: false,
     fields: [
       { field: 'holiday_list_name', label: 'اسم العطلة', required: true },
-      { field: 'from_date', label: 'من تاريخ', type: 'date' },
-      { field: 'to_date', label: 'إلى تاريخ', type: 'date' },
+      { field: 'from_date', label: 'من تاريخ', type: 'date', required: true },
+      { field: 'to_date', label: 'إلى تاريخ', type: 'date', required: true },
       { field: 'weekly_off', label: 'العطلة الأسبوعية', type: 'select', options: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] },
     ],
   },
@@ -387,6 +391,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     title: 'اضافة اجازة',
     subtitle: 'اجازات الموظفين',
     doctype: 'Leave Application',
+    needsCompany: true,
     orderBy: 'from_date desc',
     addLabel: 'اضافة اجازة',
     searchPlaceholder: 'ابحث بالكود او اسم الموظف',
@@ -415,6 +420,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     title: 'البصمات',
     subtitle: 'طلبات إضافة بصمة',
     doctype: 'Attendance Request',
+    needsCompany: true,
     orderBy: 'from_date desc',
     addLabel: 'اضافة طلب بصمة',
     searchPlaceholder: 'ابحث بالكود او اسم الموظف',
@@ -425,7 +431,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'employee_name', label: 'اسم الموظف', inForm: false },
       { field: 'from_date', label: 'من تاريخ', type: 'date', required: true },
       { field: 'to_date', label: 'إلى تاريخ', type: 'date', required: true },
-      { field: 'reason', label: 'السبب', type: 'select', options: ['Work From Home', 'On Duty'] },
+      { field: 'reason', label: 'السبب', type: 'select', options: ['Work From Home', 'On Duty'], required: true },
       { field: 'explanation', label: 'التفاصيل', type: 'textarea', inTable: false },
     ],
   },
@@ -452,7 +458,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'permission_date', label: 'التاريخ', type: 'date', required: true },
       { field: 'from_time', label: 'من الساعة', type: 'time' },
       { field: 'to_time', label: 'إلى الساعة', type: 'time' },
-      { field: 'reason', label: 'السبب', type: 'textarea' },
+      { field: 'reason', label: 'السبب', type: 'textarea', required: true },
       { field: 'status', label: 'الحالة', type: 'select', options: ['Draft', 'Pending', 'Approved', 'Rejected'] },
     ],
   },
@@ -481,6 +487,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     title: 'تفعيل دوام رمضان',
     subtitle: 'إعدادات ساعات العمل في رمضان',
     doctype: 'Ramadan Settings',
+    needsCompany: true,
     orderBy: 'modified desc',
     addLabel: 'اضافة',
     searchPlaceholder: 'بحث بالاسم',
