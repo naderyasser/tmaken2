@@ -28,6 +28,33 @@ import { stripExceptionClass } from './frappe-error'
 export const frappeApiUrl = (path: string): string =>
     process.env.NEXT_PUBLIC_FRAPPE_URL ? `/api/frappe?path=${encodeURIComponent(path)}` : path
 
+/**
+ * True when a Frappe request was refused for lack of authorization: no valid
+ * session (401/403 as Guest) or a missing doctype/method permission. Screens
+ * hand such errors to <SessionRenew /> (components/login-page.tsx), which
+ * reopens the walkthrough session when the session is what died, and says
+ * "no permission" otherwise — instead of an error toast + console spam.
+ */
+export const isAuthError = (e: unknown): boolean => {
+    const status = (e as { status?: number } | null)?.status
+    if (status === 401 || status === 403) return true
+    const msg = e instanceof Error ? e.message : String(e ?? '')
+    return (
+        /HTTP (401|403)/.test(msg) ||
+        /PermissionError/i.test(msg) ||
+        /not permitted/i.test(msg) ||
+        /login to access/i.test(msg) ||
+        /not whitelisted/i.test(msg)
+    )
+}
+
+/** Attach HTTP status to thrown API errors so callers can branch on 401/403. */
+const authError = (status: number, message: string): Error => {
+    const err = new Error(message) as Error & { status?: number }
+    err.status = status
+    return err
+}
+
 const makeDirectRequest = async (path: string, options: RequestInit = {}): Promise<Response> => {
     return fetch(frappeApiUrl(path), {
         ...options,
@@ -454,8 +481,8 @@ constructor(_baseUrl?: string) { }
 
         if (!response.ok) {
             const errorMsg = await this.parseErrorResponse(response, 'GET', doctype)
-            console.warn(`[API] ${errorMsg}`)
-            throw new Error(errorMsg)
+            if (response.status !== 401 && response.status !== 403) console.warn(`[API] ${errorMsg}`)
+            throw authError(response.status, errorMsg)
         }
 
         return await response.json()
@@ -482,8 +509,8 @@ constructor(_baseUrl?: string) { }
 
         if (!response.ok) {
             const errorMsg = await this.parseErrorResponse(response, 'POST', doctype)
-            console.warn(`[API] ${errorMsg}`)
-            throw new Error(errorMsg)
+            if (response.status !== 401 && response.status !== 403) console.warn(`[API] ${errorMsg}`)
+            throw authError(response.status, errorMsg)
         }
 
         return await response.json()
@@ -510,8 +537,8 @@ constructor(_baseUrl?: string) { }
 
         if (!response.ok) {
             const errorMsg = await this.parseErrorResponse(response, 'PUT', `${doctype}/${name}`)
-            console.warn(`[API] ${errorMsg}`)
-            throw new Error(errorMsg)
+            if (response.status !== 401 && response.status !== 403) console.warn(`[API] ${errorMsg}`)
+            throw authError(response.status, errorMsg)
         }
 
         return await response.json()
@@ -544,8 +571,8 @@ constructor(_baseUrl?: string) { }
 
         if (!response.ok) {
             const errorMsg = await this.parseErrorResponse(response, 'DELETE', `${doctype}/${name}`)
-            console.warn(`[API] ${errorMsg}`)
-            throw new Error(errorMsg)
+            if (response.status !== 401 && response.status !== 403) console.warn(`[API] ${errorMsg}`)
+            throw authError(response.status, errorMsg)
         }
 
         return await response.json()
@@ -576,8 +603,8 @@ constructor(_baseUrl?: string) { }
 
         if (!response.ok) {
             const errorMsg = await this.parseErrorResponse(response, 'CALL', method)
-            console.warn(`[API] ${errorMsg}`)
-            throw new Error(errorMsg)
+            if (response.status !== 401 && response.status !== 403) console.warn(`[API] ${errorMsg}`)
+            throw authError(response.status, errorMsg)
         }
 
         return await response.json()

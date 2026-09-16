@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronDown, ChevronLeft, UserCircle2, LogOut, Calendar, Globe } from 'lucide-react'
+import { ChevronDown, ChevronLeft, UserCircle2, Calendar, Globe } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/auth-context'
 import { useBrand } from '@/hooks/use-brand'
@@ -19,9 +19,23 @@ import { accountingApi } from '@/lib/accounting-api'
  *   middle → fiscal period · 🔔 · language · company · breadcrumb
  *   left  → avatar · name/role · خرج
  */
+/** Arabic label for the most relevant role — roles[0] is arbitrary (Frappe order). */
+const ROLE_LABELS: [string, string][] = [
+  ['Administrator', 'مدير النظام'],
+  ['System Manager', 'مدير النظام'],
+  ['HR Manager', 'مدير الموارد البشرية'],
+  ['HR User', 'مستخدم الموارد البشرية'],
+  ['Company Admin', 'مدير الشركة'],
+  ['Employee', 'موظف'],
+]
+function roleLabel(roles?: string[]): string {
+  const have = new Set(roles || [])
+  return ROLE_LABELS.find(([r]) => have.has(r))?.[1] || roles?.[0] || 'مدير النظام'
+}
+
 export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
   const { t, lang, setLang } = useI18n()
-  const { logout, user } = useAuth()
+  const { user } = useAuth()
   const brand = useBrand()
   const { company: activeCompany } = useCompanySafe()
   const crumbs = useBreadcrumbs()
@@ -50,7 +64,7 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
   }, [activeCompany])
 
   const userName = mounted ? (user?.full_name || user?.email || 'مدير النظام') : 'مدير النظام'
-  const userRole = mounted ? (user?.roles?.[0] || 'مدير النظام') : 'مدير النظام'
+  const userRole = mounted ? roleLabel(user?.roles) : 'مدير النظام'
 
   return (
     <header className="shrink-0 z-40" dir="rtl">
@@ -135,7 +149,7 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
           </nav>
         </div>
 
-        {/* ── Left (end): avatar · name/role · logout ── */}
+        {/* ── Left (end): avatar · name/role (login-free build: no logout) ── */}
         <div className="flex items-center gap-2.5 shrink-0">
           <div className="h-9 w-9 rounded-full bg-white/20 flex items-center justify-center overflow-hidden shrink-0">
             {mounted && user?.user_image ? (
@@ -150,14 +164,6 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
             <span className="text-[11px] text-white/75 truncate max-w-[160px]">{userRole}</span>
           </div>
 
-          <button
-            onClick={() => logout()}
-            title={t('nav.logout')}
-            className="flex items-center gap-1.5 text-[12.5px] font-medium hover:text-white/80 transition-colors pr-2.5 mr-0.5 border-r border-white/25"
-          >
-            <LogOut className="h-[15px] w-[15px]" />
-            <span className="hidden sm:inline">خرج</span>
-          </button>
         </div>
       </div>
 

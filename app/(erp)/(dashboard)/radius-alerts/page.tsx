@@ -21,7 +21,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Switch } from "@/components/ui/switch"
 import { useAuth } from "@/lib/auth-context"
 import { LoginPage } from "@/components/login-page"
-import { HR_DEMO_ENABLED } from "@/lib/hr-demo"
 import { I18nProvider, useI18n } from "@/lib/i18n"
 import { formatDateShort, formatTime } from '@/lib/format'
 import { translateDepartment } from "@/lib/enums"
@@ -1028,9 +1027,9 @@ function RadiusAlertsInner() {
     )
   }
 
-  if (!isAuthenticated && !HR_DEMO_ENABLED) return <LoginPage />
+  if (!isAuthenticated) return <LoginPage />
 
-  if (!isHRUser && !HR_DEMO_ENABLED) {
+  if (!isHRUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/40">
         <div className="text-center p-8">

@@ -40,6 +40,11 @@ export interface ListModuleConfig {
   searchPlaceholder?: string
   /** View-only list (no add/edit/delete). */
   readOnly?: boolean
+  /**
+   * Whitelisted method that returns the rows instead of the resource endpoint —
+   * for doctypes the HR role set cannot read directly (Activity Log). Implies readOnly.
+   */
+  method?: string
 }
 
 export interface SettingsModuleConfig {
@@ -220,14 +225,15 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     title: 'حركات المستخدمين',
     subtitle: 'سجل نشاط المستخدمين',
     doctype: 'Activity Log',
-    orderBy: 'modified desc',
+    method: 'base_meena.api.user_activity.get_user_activity',
     readOnly: true,
     searchPlaceholder: 'إبحث في السجل',
     fields: [
-      { field: 'user', label: 'المستخدم' },
-      { field: 'subject', label: 'الحدث' },
+      { field: 'full_name', label: 'المستخدم' },
+      { field: 'user', label: 'البريد' },
       { field: 'operation', label: 'العملية' },
       { field: 'status', label: 'الحالة' },
+      { field: 'creation', label: 'الوقت' },
     ],
   },
 

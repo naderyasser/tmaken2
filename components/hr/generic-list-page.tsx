@@ -5,7 +5,9 @@ import {
   Search, Plus, Pencil, Trash2, MoreVertical, Loader2, Printer,
   ChevronDown, ChevronRight, ChevronLeft, Filter, AlertCircle,
 } from 'lucide-react'
-import { frappeClient } from '@/lib/api-client'
+import { frappeClient, isAuthError } from '@/lib/api-client'
+import { SessionRenew } from '@/components/login-page'
+import { useAuthSafe } from '@/lib/auth-context'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -31,9 +33,11 @@ const PAGE_SIZES = [5, 10, 20, 50]
  */
 export function GenericListPage({ config }: { config: ListModuleConfig }) {
   const { toast } = useToast()
+  const { isAuthenticated, isLoading: authLoading } = useAuthSafe()
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
+  const [authRequired, setAuthRequired] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [search, setSearch] = useState('')
@@ -53,27 +57,43 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
   const formFields = useMemo(() => config.fields.filter((f) => f.inForm !== false), [config.fields])
 
   const load = useCallback(async () => {
+    // No session yet — don't fire the request; <SessionRenew /> reopens it.
+    if (!authLoading && !isAuthenticated) {
+      setRows([])
+      setAuthRequired(true)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     setLoadError(false)
+    setAuthRequired(false)
     try {
       const fieldNames = Array.from(new Set([...config.fields.map((f) => f.field), 'name']))
-      const data = await frappeClient.getList<Row>(config.doctype, {
-        fields: fieldNames,
-        filters: config.filters,
-        order_by: config.orderBy,
-        limit_page_length: 0,
-      })
+      const data = config.method
+        ? ((await frappeClient.call<Row[]>(config.method)) as any)?.message ?? []
+        : await frappeClient.getList<Row>(config.doctype, {
+          fields: fieldNames,
+          filters: config.filters,
+          order_by: config.orderBy,
+          limit_page_length: 0,
+        })
       setRows(Array.isArray(data) ? data : [])
     } catch (e) {
-      console.error(`Failed to load ${config.doctype}:`, e)
-      setRows([])
-      setLoadError(true)
+      if (isAuthError(e)) {
+        setRows([])
+        setAuthRequired(true)
+        setLoadError(false)
+      } else {
+        console.error(`Failed to load ${config.doctype}:`, e)
+        setRows([])
+        setLoadError(true)
+      }
     } finally {
       setLoading(false)
     }
-  }, [config.doctype, config.fields, config.filters, config.orderBy])
+  }, [config.doctype, config.method, config.fields, config.filters, config.orderBy, authLoading, isAuthenticated])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { if (!authLoading) load() }, [load, authLoading])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -230,6 +250,10 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
           </div>
         </div>
+
+        {authRequired && !loading && (
+          <div className="mx-3 mt-3"><SessionRenew /></div>
+        )}
 
         {loadError && !loading && (
           <div className="mx-3 mt-3 flex items-center gap-2 rounded bg-amber-50 border border-amber-200 px-3 py-2 text-[12.5px] text-amber-800">

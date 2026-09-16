@@ -5,7 +5,9 @@ import {
     Calendar, Search, Plus, RefreshCw, Download, Eye, MapPin, Camera,
     Clock, Loader2, Filter, Fingerprint, User, LogIn, LogOut, Image as ImageIcon, Printer
 } from 'lucide-react'
-import { frappeClient, type EmployeeCheckin } from '@/lib/api-client'
+import { frappeClient, isAuthError, type EmployeeCheckin } from '@/lib/api-client'
+import { SessionRenew } from '@/components/login-page'
+import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -53,11 +55,21 @@ export function EmployeeCheckinList({ onAddCheckin }: EmployeeCheckinListProps) 
     const { toast } = useToast()
     const { t, isRTL } = useI18n()
     const { company: activeCompany } = useCompany()
+    const { isAuthenticated, isLoading: authLoading } = useAuth()
+    const [authRequired, setAuthRequired] = useState(false)
 
     const loadCheckins = useCallback(async (showRefresh = false) => {
+        if (!authLoading && !isAuthenticated) {
+            setCheckins([])
+            setAuthRequired(true)
+            setLoading(false)
+            setRefreshing(false)
+            return
+        }
         try {
             if (showRefresh) setRefreshing(true)
             else setLoading(true)
+            setAuthRequired(false)
 
             // Determine date range based on filter
             const today = new Date()
@@ -114,19 +126,24 @@ export function EmployeeCheckinList({ onAddCheckin }: EmployeeCheckinListProps) 
             })
             setCheckins(data)
         } catch (error) {
-            console.error('Failed to load checkins:', error)
-            toast({ 
-                title: t('error'), 
-                description: t('ckl.loadFail'), 
-                variant: 'destructive' 
-            })
+            if (isAuthError(error)) {
+                setCheckins([])
+                setAuthRequired(true)
+            } else {
+                console.error('Failed to load checkins:', error)
+                toast({
+                    title: t('error'),
+                    description: t('ckl.loadFail'),
+                    variant: 'destructive'
+                })
+            }
         } finally {
             setLoading(false)
             setRefreshing(false)
         }
-    }, [toast, dateFilter, activeCompany])
+    }, [toast, t, dateFilter, activeCompany, authLoading, isAuthenticated])
 
-    useEffect(() => { loadCheckins() }, [loadCheckins])
+    useEffect(() => { if (!authLoading) loadCheckins() }, [loadCheckins, authLoading])
 
     const filteredCheckins = useMemo(() => {
         let filtered = checkins
@@ -252,6 +269,8 @@ export function EmployeeCheckinList({ onAddCheckin }: EmployeeCheckinListProps) 
             </div>
         )
     }
+
+    if (authRequired) return <SessionRenew />
 
     return (
         <div className="space-y-6">

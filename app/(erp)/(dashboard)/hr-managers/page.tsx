@@ -8,7 +8,6 @@ import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n'
 import { translateDepartment, translateEnum } from '@/lib/enums'
 import { LoginPage } from '@/components/login-page'
-import { HR_DEMO_ENABLED } from '@/lib/hr-demo'
 import { getSystemUsers, assignHRManagerRole, removeHRManagerRole } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { useToast } from '@/hooks/use-toast'
@@ -137,9 +136,9 @@ function HRManagersContent({ embedded = false }: { embedded?: boolean }) {
     )
   }
 
-  if (!isAuthenticated && !HR_DEMO_ENABLED) return <LoginPage />
+  if (!isAuthenticated) return <LoginPage />
 
-  if (!isHRManager && !HR_DEMO_ENABLED) {
+  if (!isHRManager) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/40">
         <div className="text-center p-8">
@@ -236,7 +235,7 @@ function HRManagersContent({ embedded = false }: { embedded?: boolean }) {
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0 border border-green-100">
                             {u.user_image ? (
-                              <img src={frappeImageUrl(u.user_image)} alt="" className="w-10 h-10 rounded-full object-cover" />
+                              <img src={frappeImageUrl(u.user_image)} alt="" className="w-10 h-10 rounded-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
                             ) : (
                               <ShieldCheck className="w-5 h-5 text-green-600" />
                             )}
@@ -306,7 +305,7 @@ function HRManagersContent({ embedded = false }: { embedded?: boolean }) {
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
                             {u.user_image ? (
-                              <img src={frappeImageUrl(u.user_image)} alt="" className="w-10 h-10 rounded-full object-cover" />
+                              <img src={frappeImageUrl(u.user_image)} alt="" className="w-10 h-10 rounded-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none' }} />
                             ) : (
                               <span className="text-sm font-medium text-muted-foreground">
                                 {u.full_name?.charAt(0)?.toUpperCase() || '?'}

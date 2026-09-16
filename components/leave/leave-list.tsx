@@ -5,7 +5,8 @@ import {
     Calendar, Search, Plus, RefreshCw, Download, Eye, CheckCircle, XCircle,
     Clock, Loader2, Filter, MoreVertical, FileText, Paperclip, Check, X
 } from 'lucide-react'
-import { frappeClient, type LeaveApplication } from '@/lib/api-client'
+import { frappeClient, isAuthError, type LeaveApplication } from '@/lib/api-client'
+import { SessionRenew } from '@/components/login-page'
 import { frappeImageUrl } from '@/lib/utils'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
@@ -69,16 +70,25 @@ export function LeaveList({ onAddLeave }: LeaveListProps) {
     const { toast } = useToast()
     const { t, isRTL } = useI18n()
     const locale = isRTL ? 'ar' : 'en'
-    const { user } = useAuth()
+    const { user, isAuthenticated, isLoading: authLoading } = useAuth()
+    const [authRequired, setAuthRequired] = useState(false)
     // Separation of duties: an admin must not approve/reject their OWN leave request.
     // The backend enforces this too (source of truth); here we disable the buttons up-front.
     const currentEmployee = user?.employee || null
     const isOwnLeave = (leave: LeaveApplication) => !!currentEmployee && leave.employee === currentEmployee
 
     const loadLeaves = useCallback(async (showRefresh = false) => {
+        if (!authLoading && !isAuthenticated) {
+            setLeaves([])
+            setAuthRequired(true)
+            setLoading(false)
+            setRefreshing(false)
+            return
+        }
         try {
             if (showRefresh) setRefreshing(true)
             else setLoading(true)
+            setAuthRequired(false)
 
             const data = await frappeClient.getLeaveApplications({
                 fields: [
@@ -118,15 +128,20 @@ export function LeaveList({ onAddLeave }: LeaveListProps) {
                 })
             }
         } catch (error) {
-            console.error('Failed to load leaves:', error)
-            toast({ title: t('error'), description: t('leave.load_fail'), variant: 'destructive' })
+            if (isAuthError(error)) {
+                setLeaves([])
+                setAuthRequired(true)
+            } else {
+                console.error('Failed to load leaves:', error)
+                toast({ title: t('error'), description: t('leave.load_fail'), variant: 'destructive' })
+            }
         } finally {
             setLoading(false)
             setRefreshing(false)
         }
-    }, [toast, isRTL])
+    }, [toast, isRTL, t, authLoading, isAuthenticated])
 
-    useEffect(() => { loadLeaves() }, [loadLeaves])
+    useEffect(() => { if (!authLoading) loadLeaves() }, [loadLeaves, authLoading])
 
     const filteredLeaves = useMemo(() => {
         let filtered = leaves
@@ -258,6 +273,8 @@ export function LeaveList({ onAddLeave }: LeaveListProps) {
             </div>
         )
     }
+
+    if (authRequired) return <SessionRenew />
 
     return (
         <div className="space-y-6">

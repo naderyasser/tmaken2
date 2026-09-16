@@ -1,8 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { UserCircle, Settings as SettingsIcon, Shield, Building2, ChevronDown, LogOut } from 'lucide-react'
+import { UserCircle, Settings as SettingsIcon, Shield, Building2, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -12,32 +11,12 @@ import { useI18n } from '@/lib/i18n'
 import { useAuthSafe } from '@/lib/auth-context'
 import { useCompanySafe } from '@/hooks/use-company'
 import { frappeImageUrl } from '@/lib/utils'
-import { useToast } from '@/hooks/use-toast'
 
-/** Account menu for the HR topbar — port of the legacy Header user dropdown. */
+/** Account menu for the HR topbar (login-free build: no logout entry). */
 export function UserMenu() {
   const { t } = useI18n()
-  const { user, logout: authLogout, isAdmin } = useAuthSafe()
+  const { user, isAdmin } = useAuthSafe()
   const { company: activeCompany } = useCompanySafe()
-  const router = useRouter()
-  const { toast } = useToast()
-
-  const handleLogout = async () => {
-    try {
-      await authLogout()
-    } catch (e) {
-      console.error('Logout error:', e)
-    } finally {
-      // Force-clear cookies client-side as a safety net (mirrors legacy Header).
-      document.cookie = 'sid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
-      document.cookie = 'user_id=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
-      document.cookie = 'system_user=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
-      document.cookie = 'user_image=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
-      document.cookie = 'full_name=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
-      toast({ title: t('header.logout_success_title'), description: t('header.logout_success_desc') })
-      router.push('/login')
-    }
-  }
 
   return (
     <DropdownMenu>
@@ -79,10 +58,6 @@ export function UserMenu() {
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/hr-managers" className="flex items-center cursor-pointer"><Shield className="me-2 h-4 w-4" /><span>{t('header.permissions')}</span></Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive cursor-pointer">
-          <LogOut className="me-2 h-4 w-4" /><span>{t('header.logout')}</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

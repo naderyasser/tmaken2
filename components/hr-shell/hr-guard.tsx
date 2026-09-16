@@ -1,30 +1,21 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { usePathname } from 'next/navigation'
 import { useRouter } from 'next/navigation'
 import { ShieldAlert } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useI18n } from '@/lib/i18n'
 import { LoginPage } from '@/components/login-page'
-import { isHrDemoPath } from '@/lib/hr-demo'
-import { PUBLIC_APP_NO_AUTH } from '@/lib/public-access'
 
 /**
- * Access gate for the HR shell.
- * EXCEPTION: the public HR demo (bare `/hr` dashboard + every HR-shell surface the
- * sidebar links to) is open without login — the middleware also allows it
- * (see lib/hr-demo.ts). Any other route still requires auth.
+ * Access gate for the HR shell. There is no login wall: a missing session is
+ * renewed through the walkthrough endpoint (LoginPage = auto-session), so the
+ * only thing this guard can actually refuse is a session without HR roles.
  */
 export function HrGuard({ requireHR = true, children }: { requireHR?: boolean; children: ReactNode }) {
   const { isAuthenticated, isLoading, isHRUser } = useAuth()
   const { isRTL } = useI18n()
   const router = useRouter()
-  const pathname = usePathname() || ''
-
-  // Public HR demo — no login wall
-  const isPublicHr = isHrDemoPath(pathname)
-  if (PUBLIC_APP_NO_AUTH || isPublicHr) return <>{children}</>
 
   if (isLoading) {
     return (

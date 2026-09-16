@@ -1,4 +1,4 @@
-import { Search, Bell, User, UserCircle, ChevronDown, Menu, Globe, LogOut, Settings as SettingsIcon, Shield, Building2, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Home, Loader2 } from 'lucide-react'
+import { Search, Bell, User, UserCircle, ChevronDown, Menu, Globe, Settings as SettingsIcon, Shield, Building2, ArrowLeft, ArrowRight, ChevronLeft, ChevronRight, Home, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -19,7 +19,6 @@ import { frappeImageUrl } from '@/lib/utils'
 import { frappeClient, type Employee } from '@/lib/api-client'
 import { rankEmployees } from '@/lib/employee-search'
 import { NotificationsPanel } from '@/components/notifications-panel'
-import { useToast } from '@/hooks/use-toast'
 import { useState, useEffect, useRef, Fragment } from 'react'
 import { useBreadcrumbs } from '@/lib/breadcrumbs'
 import {
@@ -39,12 +38,11 @@ interface HeaderProps {
 
 export function Header({ onToggleSidebar, sidebarExpanded, showHomeButton }: HeaderProps) {
   const { t, lang, setLang, isRTL } = useI18n()
-  const { user, logout: authLogout, isHRUser } = useAuthSafe()
+  const { user, isHRUser } = useAuthSafe()
   const { company: activeCompany, isAdmin, allCompanies, userCompany, switchCompany } = useCompanySafe()
   const router = useRouter()
   const pathname = usePathname()
   const isHome = pathname === '/' || pathname === ''
-  const { toast } = useToast()
   const crumbs = useBreadcrumbs()
 
   // Smart back: navigate to the nearest ancestor that has an href, else browser back
@@ -129,26 +127,6 @@ export function Header({ onToggleSidebar, sidebarExpanded, showHomeButton }: Hea
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
-
-  const handleLogout = async () => {
-    try {
-      await authLogout()
-    } catch (error) {
-      console.error('Logout error:', error)
-    } finally {
-      // Force-clear cookies client-side as a safety net
-      document.cookie = 'sid=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
-      document.cookie = 'user_id=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
-      document.cookie = 'system_user=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
-      document.cookie = 'user_image=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
-      document.cookie = 'full_name=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
-      toast({
-        title: t('header.logout_success_title'),
-        description: t('header.logout_success_desc'),
-      })
-      router.push('/login')
-    }
-  }
 
   return (
     <header className="border-b border-gray-200/80 bg-white/80 backdrop-blur-md sticky top-0 z-50">
@@ -395,11 +373,6 @@ export function Header({ onToggleSidebar, sidebarExpanded, showHomeButton }: Hea
                 <Shield className="mr-2 h-4 w-4" />
                 <span>{t('header.permissions')}</span>
               </Link>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogout} className="text-red-600 focus:text-red-600 cursor-pointer">
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>{t('header.logout')}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

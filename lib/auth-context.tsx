@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react'
 import { login as apiLogin, logout as apiLogout, getCurrentUser, getUserRoles, getUserInfo } from '@/lib/api'
 import { frappeClient } from '@/lib/api-client'
+import { renewWalkthroughSession } from '@/lib/public-access'
 
 interface User {
     email: string
@@ -290,9 +291,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             try {
                 const currentUser = await getCurrentUser()
                 if (!currentUser || currentUser === 'Guest') {
-                    // Session expired — clear state and redirect to login
+                    // Session expired — reopen the walkthrough session in place (no login screen)
                     setUser(null)
-                    window.location.href = '/login'
+                    renewWalkthroughSession()
                 }
             } catch {
                 // Network error — don't clear session, just skip this check

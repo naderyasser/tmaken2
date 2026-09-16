@@ -12,7 +12,8 @@ import {
     UserPlus, Download, RefreshCw, Eye, Edit, Trash2, Columns3, Bookmark, Save,
     PencilLine, Trash, Hash,
 } from 'lucide-react'
-import { frappeClient, type Employee } from '@/lib/api-client'
+import { frappeClient, isAuthError, type Employee } from '@/lib/api-client'
+import { SessionRenew } from '@/components/login-page'
 import { IdExpiryBadge } from '@/components/employee/id-expiry-badge'
 import { GosiStatusBadge } from '@/components/employee/gosi-status-badge'
 import { useI18n } from '@/lib/i18n'
@@ -69,7 +70,7 @@ interface SavedView { name: string; segment: Segment; status: string; company: s
 // ==================== Main Component ====================
 
 export function EmployeesList({ onEmployeeSelect, onAddEmployee, branch }: EmployeesListProps) {
-    const { isHRManager, isHRUser } = useAuth()
+    const { isHRManager, isHRUser, isAuthenticated, isLoading: authLoading } = useAuth()
     const { company: activeCompany } = useCompany()
     const { t, isRTL } = useI18n()
     const { toast } = useToast()
@@ -78,6 +79,7 @@ export function EmployeesList({ onEmployeeSelect, onAddEmployee, branch }: Emplo
     const [employees, setEmployees] = useState<Employee[]>([])
     const [salaryMap, setSalaryMap] = useState<Record<string, number>>({})
     const [loading, setLoading] = useState(true)
+    const [authRequired, setAuthRequired] = useState(false)
     const [refreshing, setRefreshing] = useState(false)
     const [searchQuery, setSearchQuery] = useState('')
     const [serverResults, setServerResults] = useState<Employee[] | null>(null)
@@ -111,6 +113,7 @@ export function EmployeesList({ onEmployeeSelect, onAddEmployee, branch }: Emplo
     // ==================== Data ====================
 
     const loadCompaniesAndDepartments = useCallback(async () => {
+        if (!authLoading && !isAuthenticated) return
         try {
             const [companiesRes, departmentsRes] = await Promise.all([
                 frappeClient.get<{ name: string }[]>('Company', undefined, { fields: ['name'], order_by: 'name asc', limit_page_length: 100 }),
@@ -118,8 +121,8 @@ export function EmployeesList({ onEmployeeSelect, onAddEmployee, branch }: Emplo
             ])
             setCompanies((companiesRes.data || []).map(c => c.name))
             setAllDepartments(departmentsRes.data || [])
-        } catch (error) { console.error('Failed to load companies/departments:', error) }
-    }, [])
+        } catch (error) { if (!isAuthError(error)) console.error('Failed to load companies/departments:', error) }
+    }, [authLoading, isAuthenticated])
 
     const loadSegmentCounts = useCallback(async () => {
         try {
@@ -131,8 +134,16 @@ export function EmployeesList({ onEmployeeSelect, onAddEmployee, branch }: Emplo
     }, [companyFilter, branch])
 
     const loadEmployees = useCallback(async (showRefresh = false) => {
+        if (!authLoading && !isAuthenticated) {
+            setEmployees([])
+            setAuthRequired(true)
+            setLoading(false)
+            setRefreshing(false)
+            return
+        }
         try {
             showRefresh ? setRefreshing(true) : setLoading(true)
+            setAuthRequired(false)
             const data = await frappeClient.getEmployees({
                 limit_page_length: 0,
                 fields: ['name', 'employee_name', 'employee_number', 'department', 'designation', 'company', 'branch', 'status', 'date_of_joining', 'company_email', 'cell_number', 'image', 'gender', 'reports_to', 'custom_id_expiry_date', 'custom_gosi_registration_status'],
@@ -140,16 +151,22 @@ export function EmployeesList({ onEmployeeSelect, onAddEmployee, branch }: Emplo
             })
             setEmployees(data)
         } catch (error) {
-            console.error('Failed to load employees:', error)
-            toast({ title: t('error'), description: t('emp.load_fail'), variant: 'destructive' })
+            if (isAuthError(error)) {
+                setEmployees([])
+                setAuthRequired(true)
+            } else {
+                console.error('Failed to load employees:', error)
+                toast({ title: t('error'), description: t('emp.load_fail'), variant: 'destructive' })
+            }
         } finally { setLoading(false); setRefreshing(false) }
-    }, [toast, t])
+    }, [toast, t, authLoading, isAuthenticated])
 
     // Current base salary per employee. Salary lives on Salary Structure Assignment
     // (Employee has no salary field), so it needs its own fetch. Best-effort by design:
     // a user without payroll permission gets a 403, we swallow it and the column renders
     // "—" rather than failing the whole employees page.
     const loadSalaries = useCallback(async () => {
+        if (!authLoading && !isAuthenticated) { setSalaryMap({}); return }
         try {
             const rows = await frappeClient.getList<{ employee: string; base: number; from_date: string }>(
                 'Salary Structure Assignment',
@@ -165,10 +182,10 @@ export function EmployeesList({ onEmployeeSelect, onAddEmployee, branch }: Emplo
             for (const r of rows || []) if (!(r.employee in map)) map[r.employee] = r.base
             setSalaryMap(map)
         } catch { setSalaryMap({}) }
-    }, [])
+    }, [authLoading, isAuthenticated])
 
-    useEffect(() => { loadCompaniesAndDepartments(); loadEmployees(); loadSalaries() }, [loadCompaniesAndDepartments, loadEmployees, loadSalaries])
-    useEffect(() => { loadSegmentCounts() }, [loadSegmentCounts])
+    useEffect(() => { if (authLoading) return; loadCompaniesAndDepartments(); loadEmployees(); loadSalaries() }, [authLoading, loadCompaniesAndDepartments, loadEmployees, loadSalaries])
+    useEffect(() => { if (authLoading || (!isAuthenticated)) return; loadSegmentCounts() }, [authLoading, isAuthenticated, loadSegmentCounts])
     useEffect(() => { setCompanyFilter(activeCompany || 'all') }, [activeCompany])
     useEffect(() => { setDepartmentFilter('all') }, [companyFilter])
 
@@ -331,6 +348,8 @@ export function EmployeesList({ onEmployeeSelect, onAddEmployee, branch }: Emplo
     if (loading) {
         return (<div className="space-y-6"><Skeleton className="h-12 w-full" /><Skeleton className="h-64 w-full" /></div>)
     }
+
+    if (authRequired) return <SessionRenew />
 
     const segOptions = [
         { id: 'active', label: t('status.active'), count: segCounts.active },

@@ -22,13 +22,24 @@ export function GenericSettingsPage({ config, recordName }: { config: SettingsMo
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [loadError, setLoadError] = useState(false)
+  // The record actually being edited. `recordName` may be unknown (e.g. the
+  // active company for an account with no Employee link), so fall back to the
+  // first record of the doctype instead of hitting the list endpoint, which only
+  // returns names and would render — and then save — an empty form.
+  const [docName, setDocName] = useState<string | undefined>(recordName)
 
   const load = useCallback(async () => {
     setLoading(true)
     setLoadError(false)
     try {
-      const res = recordName
-        ? await frappeClient.get<Record<string, any>>(config.doctype, recordName)
+      let name = recordName
+      if (!name) {
+        const list = await frappeClient.get<{ name: string }[]>(config.doctype, undefined, { fields: ['name'], limit_page_length: 1 })
+        name = (list as any)?.data?.[0]?.name
+      }
+      setDocName(name)
+      const res = name
+        ? await frappeClient.get<Record<string, any>>(config.doctype, name)
         : await frappeClient.get<any>(config.doctype)
       let data: any = (res as any)?.data
       if (Array.isArray(data)) data = data[0] ?? {}
@@ -49,7 +60,7 @@ export function GenericSettingsPage({ config, recordName }: { config: SettingsMo
   const save = async () => {
     setSaving(true)
     try {
-      await frappeClient.put(config.doctype, recordName || config.doctype, toPayload(config.fields, form))
+      await frappeClient.put(config.doctype, docName || config.doctype, toPayload(config.fields, form))
       toast({ title: 'تم الحفظ' })
     } catch (e) {
       toast({ title: 'فشل الحفظ', description: e instanceof Error ? e.message : 'تعذّر الاتصال بالخادم', variant: 'destructive' })
