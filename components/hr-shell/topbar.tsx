@@ -32,6 +32,8 @@ function roleLabel(roles?: string[]): string {
   return ROLE_LABELS.find(([r]) => have.has(r))?.[1] || roles?.[0] || 'مدير النظام'
 }
 
+const SHOW_COMPANY_NAME = false
+
 export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
   const { t, lang, setLang } = useI18n()
   const { user } = useAuth()
@@ -136,7 +138,10 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
           <Link href="/hr" className="hidden xl:inline text-[12.5px] font-medium hover:text-white/80 whitespace-nowrap">الادارة</Link>
           <span className="hidden xl:block h-5 w-px bg-white/30 shrink-0" />
 
-          {mounted && activeCompany && (
+          {/* Company name hidden per client request until the system is handed
+              over to the receiving company (2026-09-16) — flip SHOW_COMPANY_NAME
+              back on at handover. */}
+          {SHOW_COMPANY_NAME && mounted && activeCompany && (
             <span className="hidden xl:inline font-bold truncate max-w-[260px] text-[13px]" title={activeCompany}>
               {activeCompany}
             </span>
