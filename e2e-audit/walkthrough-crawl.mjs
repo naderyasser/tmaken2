@@ -16,9 +16,11 @@ const PAGES = [
   '/hr?module=add-leave', '/hr?module=add-permission', '/attendance', '/hr?module=cancel-transactions',
   '/requests', '/hr?module=attendance-report',
   '/team', '/hr-managers', '/hr?module=user-transactions',
-  '/hr?module=ramadan-schedule', '/hr?module=attendance-settings', '/hr?module=location-tracking',
+  '/hr?module=ramadan-schedule', '/hr?module=attendance-settings', 
   '/biometric', '/hr?module=settings', '/hr?module=requests-settings', '/hr?module=company-data',
-  '/hr?module=subscription-info', '/login', '/',
+  '/hr?module=subscription-info', '/hr?module=locations', '/employee/new', '/login', '/',
+  ...['daystatus', 'detailed', 'total', 'vacations', 'delays', 'absences', 'late-early', 'total-absence', 'employees',
+      'overtime', 'incomplete', 'permissions', 'by-branch', 'on-site', 'rejected-on-site'].map((s) => `/hr?module=report-${s}`),
 ]
 
 const browser = await chromium.launch()

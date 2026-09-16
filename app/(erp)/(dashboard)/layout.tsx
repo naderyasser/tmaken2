@@ -15,7 +15,6 @@ import '../../styles/hr-motion.css'
 import { HrShell } from '@/components/hr-shell/shell'
 import { matchesShell, shellRequiresHR } from '@/components/hr-shell/routes'
 import { EgarsysReturnButton } from '@/components/egarsys-return-button'
-import { CopilotDrawer } from '@/components/copilot/copilot-drawer'
 
 /**
  * Dashboard route group layout.
@@ -65,7 +64,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           every dashboard route. It used to live only inside /me, so anyone who
           navigated away lost it and couldn't find it again. Self-hides when the
           tenant/role isn't eligible. */}
-      <CopilotDrawer />
+      {/* tamkeen-v2 is an exact Apex copy — no floating assistant on this build. */}
       {/* Follows the user across every dashboard page, but ONLY for sessions
           opened from egarsys (cookie-gated inside the component). */}
       <EgarsysReturnButton />

@@ -90,6 +90,8 @@ export type ModuleType =
   | 'requests-settings'
   | 'company-data'
   | 'subscription-info'
+  | `report-${string}`
+  | 'locations'
 
 interface NavItem {
   labelKey: string

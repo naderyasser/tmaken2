@@ -2,3 +2,6 @@
 report/
 shots-*/
 *.png
+apex/.creds
+apex/*.png
+apex/pages/

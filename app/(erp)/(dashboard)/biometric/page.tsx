@@ -1,13 +1,13 @@
+/**
+ * «الاجهزة» — Apex list screen inside the unified HR shell (HrGuard owns the gate).
+ * Columns and toolbar mirror the reference; rows come from base_meena.api.hr_lists.
+ */
+
 'use client'
 
-import { BiometricManagement } from '@/components/biometric/biometric-management'
+import { GenericListPage } from '@/components/hr/generic-list-page'
+import { getModuleConfig, type ListModuleConfig } from '@/lib/hr-modules'
 
-export default function BiometricPage() {
-  return (
-    <div className="p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        <BiometricManagement />
-      </div>
-    </div>
-  )
+export default function Page() {
+  return <GenericListPage config={getModuleConfig('devices') as ListModuleConfig} />
 }

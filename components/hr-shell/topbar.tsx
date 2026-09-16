@@ -3,21 +3,20 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronDown, ChevronLeft, UserCircle2, Calendar, Globe } from 'lucide-react'
+import { ChevronDown, UserCircle2, Calendar, Globe, LogOut } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/auth-context'
 import { useBrand } from '@/hooks/use-brand'
 import { useCompanySafe } from '@/hooks/use-company'
 import { NotificationsPanel } from '@/components/notifications-panel'
 import { TOPBAR_ACTIONS } from './routes'
-import { useBreadcrumbs } from '@/lib/breadcrumbs'
 import { accountingApi } from '@/lib/accounting-api'
 
 /**
  * Apex ERP Topbar — single dark-navy bar, matching the reference:
  *   right → ☰ · logo
- *   middle → fiscal period · 🔔 · language · company · breadcrumb
- *   left  → avatar · name/role · خرج
+ *   middle → fiscal period · 🔔 · language · الادارة · company
+ *   left  → avatar · name/role · logout icon
  */
 /** Arabic label for the most relevant role — roles[0] is arbitrary (Frappe order). */
 const ROLE_LABELS: [string, string][] = [
@@ -38,7 +37,6 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
   const { user } = useAuth()
   const brand = useBrand()
   const { company: activeCompany } = useCompanySafe()
-  const crumbs = useBreadcrumbs()
 
   // ── Fiscal year from backend ──────────────────────────────────────────────
   const [fiscalLabel, setFiscalLabel] = useState<string>('')
@@ -125,28 +123,16 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
 
-          {mounted && activeCompany && (
-            <>
-              <span className="hidden xl:block h-5 w-px bg-white/30 shrink-0" />
-              <span className="hidden xl:inline font-semibold truncate max-w-[220px] text-[12.5px]" title={activeCompany}>
-                {activeCompany}
-              </span>
-            </>
-          )}
+          {/* «الادارة» — Apex module switcher; the HR shell is the only module here */}
+          <span className="hidden xl:block h-5 w-px bg-white/30 shrink-0" />
+          <Link href="/hr" className="hidden xl:inline text-[12.5px] font-medium hover:text-white/80 whitespace-nowrap">الادارة</Link>
+          <span className="hidden xl:block h-5 w-px bg-white/30 shrink-0" />
 
-          <nav className="hidden lg:flex items-center gap-1 min-w-0 whitespace-nowrap shrink-0">
-            <Link href="/" className="hover:underline text-white/90 text-[12.5px]">الرئيسية</Link>
-            {crumbs.map((c, i) => (
-              <span key={i} className="flex items-center gap-1 min-w-0">
-                <ChevronLeft className="h-3.5 w-3.5 text-white/50 shrink-0" />
-                {c.href && i < crumbs.length - 1 ? (
-                  <Link href={c.href} className="hover:underline truncate max-w-[140px] text-[12.5px]">{c.label}</Link>
-                ) : (
-                  <span className="font-semibold truncate max-w-[160px] text-[12.5px]">{c.label}</span>
-                )}
-              </span>
-            ))}
-          </nav>
+          {mounted && activeCompany && (
+            <span className="hidden xl:inline font-bold truncate max-w-[260px] text-[13px]" title={activeCompany}>
+              {activeCompany}
+            </span>
+          )}
         </div>
 
         {/* ── Left (end): avatar · name/role (login-free build: no logout) ── */}
@@ -164,6 +150,10 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
             <span className="text-[11px] text-white/75 truncate max-w-[160px]">{userRole}</span>
           </div>
 
+          {/* Apex logout icon (far left). Login-free build: the session reopens itself. */}
+          <Link href="/hr" title="خروج" className="ms-2 flex items-center justify-center w-9 h-9 rounded hover:bg-white/10">
+            <LogOut className="h-6 w-6" />
+          </Link>
         </div>
       </div>
 

@@ -1,10 +1,9 @@
 'use client'
 
-import { RequestsHub } from '@/components/requests/requests-hub'
+import { RequestsTabsPage } from '@/components/hr/requests-tabs-page'
 
-// Mounted inside <HrShell> by the dashboard layout (SHELL_PREFIXES). Listed in
-// SHELL_NON_HR_PREFIXES so any authenticated employee can reach their own
-// requests; the Team tab inside the hub is gated to managers/HR.
+// «الطلبات» — Apex tabs over leaves / permissions / fingerprint requests.
+// Mounted inside <HrShell> by the dashboard layout (SHELL_PREFIXES).
 export default function RequestsPage() {
-  return <RequestsHub />
+  return <RequestsTabsPage />
 }

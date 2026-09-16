@@ -8,6 +8,7 @@ import {
   CreditCard, Moon, Fingerprint, Upload, UserX, CheckSquare,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
+import { HR_REPORTS, REPORT_MODULE_PREFIX } from '@/lib/hr-reports'
 
 /**
  * HR Shell Navigation — exact match to the Apex ERP screenshot.
@@ -23,11 +24,15 @@ import type { ComponentType } from 'react'
 export interface RailItem {
   id: string
   labelKey: string
+  /** literal label (used for the report pages, which are not in the i18n table) */
+  label?: string
   href: string
   match: (pathname: string, moduleParam: string | null) => boolean
   icon?: LucideIcon
   visibility?: 'all' | 'hr'
   requiresEmployee?: boolean
+  /** nested group (Apex «التقارير» under الحضور والانصراف) */
+  children?: RailItem[]
 }
 
 export interface RailSection {
@@ -217,9 +222,16 @@ export const RAIL_SECTIONS: RailSection[] = [
       {
         id: 'attendance-reports',
         labelKey: 'nav.reports',
-        href: '/hr?module=attendance-report',
-        match: mod('attendance-report'),
+        href: `/hr?module=${REPORT_MODULE_PREFIX}${HR_REPORTS[0].slug}`,
+        match: (p, q) => p === '/hr' && !!q && q.startsWith(REPORT_MODULE_PREFIX),
         icon: BarChart3,
+        children: HR_REPORTS.map((r) => ({
+          id: `report-${r.slug}`,
+          labelKey: 'nav.reports',
+          label: r.title,
+          href: `/hr?module=${REPORT_MODULE_PREFIX}${r.slug}`,
+          match: mod(`${REPORT_MODULE_PREFIX}${r.slug}`),
+        })),
       },
     ],
   },
@@ -277,8 +289,8 @@ export const RAIL_SECTIONS: RailSection[] = [
       {
         id: 'locations',
         labelKey: 'nav.locations',
-        href: '/hr?module=location-tracking',
-        match: mod('location-tracking'),
+        href: '/hr?module=locations',
+        match: mod('locations'),
         icon: MapPin,
       },
       {

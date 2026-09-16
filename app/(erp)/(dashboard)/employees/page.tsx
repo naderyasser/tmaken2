@@ -1,36 +1,13 @@
 /**
- * Employees Page — renders inside the unified Jisr shell (HrShell mounted by
- * the dashboard layout; HrGuard owns the auth/HR gate).
+ * «الموظفين» — Apex list (رقم · اسم الموظف · الوظيفة · فرع · الدوام · الحالة)
+ * inside the unified HR shell. Add/edit open the full-page employee form.
  */
 
 'use client'
 
-import { useRouter } from 'next/navigation'
-import { EmployeesList } from '@/components/employee/employees-list'
-import type { Employee } from '@/lib/api-client'
+import { GenericListPage } from '@/components/hr/generic-list-page'
+import { getModuleConfig, type ListModuleConfig } from '@/lib/hr-modules'
 
 export default function EmployeesPage() {
-    const router = useRouter()
-
-    const handleEmployeeSelect = (employee: Employee) => {
-        const path = `/employee/${encodeURIComponent(employee.name)}`
-        try {
-            router.push(path)
-        } catch {
-            window.location.href = path
-        }
-    }
-
-    const handleAddEmployee = () => {
-        router.push('/employee/new')
-    }
-
-    return (
-        <div className="p-4 sm:p-6 lg:p-8">
-            <EmployeesList
-                onEmployeeSelect={handleEmployeeSelect}
-                onAddEmployee={handleAddEmployee}
-            />
-        </div>
-    )
+  return <GenericListPage config={getModuleConfig('employees') as ListModuleConfig} />
 }

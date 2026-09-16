@@ -1,4 +1,5 @@
 import type { FrappeFilter } from '@/lib/api-client'
+import type { DrawerFilter } from '@/components/hr/advanced-search-drawer'
 
 /**
  * Registry for the HR "proposed version" master-data / settings screens.
@@ -13,7 +14,7 @@ import type { FrappeFilter } from '@/lib/api-client'
  *   - 'settings' → GenericSettingsPage (single record form, saved with PUT)
  */
 
-export type FieldType = 'text' | 'number' | 'date' | 'textarea' | 'checkbox' | 'select'
+export type FieldType = 'text' | 'number' | 'date' | 'textarea' | 'checkbox' | 'select' | 'link' | 'time'
 
 export interface FieldDef {
   field: string
@@ -21,11 +22,17 @@ export interface FieldDef {
   type?: FieldType
   /** Options for `select`. */
   options?: string[]
+  /** For `link`: the doctype to pick from, and the field shown as the label (default name). */
+  link?: { doctype: string; titleField?: string; filters?: FrappeFilter[] }
   required?: boolean
   /** Show as a table column. Default true. */
   inTable?: boolean
   /** Show in the create/edit form. Default true. */
   inForm?: boolean
+  /** Shown when the field is empty (رقم → employee_number, else the record name). */
+  fallbackField?: string
+  /** Render as Apex status cell: green dot + «نشط» / grey dot + «غير نشط». */
+  statusDot?: { on: string; onLabel?: string; offLabel?: string }
 }
 
 export interface ListModuleConfig {
@@ -45,6 +52,26 @@ export interface ListModuleConfig {
    * for doctypes the HR role set cannot read directly (Activity Log). Implies readOnly.
    */
   method?: string
+  /**
+   * Apex «الاجراءات ▾» bulk menu (تنشيط / إلغاء التنشيط / حذف). `active` names the
+   * status field and its on/off values; omit it and the menu only offers حذف.
+   */
+  actionsMenu?: boolean
+  active?: { field: string; on: string; off: string }
+  /** Hide the running «م» index column (Apex lists that have their own code column). */
+  noIndex?: boolean
+  /** Show the print dropdown (only some Apex lists have it). Default true. */
+  print?: boolean
+  /** Full-page form instead of the dialog: where «اضافة» goes, and where ✎ goes. */
+  addHref?: string
+  editHref?: (name: string) => string
+  /** Column whose cell links to editHref (Apex: اسم الفرع / إسم الدوام are links). */
+  linkField?: string
+  /** Apex «box» empty state with a call-to-action that opens the add form. */
+  emptyText?: string
+  emptyAction?: string
+  /** Apex «بحث متقدم» drawer filters (client-side over the loaded rows). */
+  drawerFilters?: DrawerFilter[]
 }
 
 export interface SettingsModuleConfig {
@@ -60,17 +87,155 @@ export type ModuleConfig = ListModuleConfig | SettingsModuleConfig
 
 export const HR_MODULES: Record<string, ModuleConfig> = {
   // ── البيانات الاساسية ────────────────────────────────────────────────────
+  employees: {
+    kind: 'list',
+    title: 'الموظفين',
+    subtitle: 'إدارة موظفي مؤسستك',
+    doctype: 'Employee',
+    orderBy: 'employee_number desc, employee_name asc',
+    addLabel: 'اضافة موظف',
+    searchPlaceholder: 'ابحث باسم او كود الموظف',
+    actionsMenu: true,
+    active: { field: 'status', on: 'Active', off: 'Inactive' },
+    noIndex: true,
+    addHref: '/employee/new',
+    editHref: (name) => `/employee/${encodeURIComponent(name)}`,
+    linkField: 'employee_name',
+    drawerFilters: [
+      { field: 'branch', label: 'الفروع', source: 'branches' },
+      { field: 'department', label: 'الإدارة', source: 'departments' },
+      { field: 'designation', label: 'الوظائف', source: 'designations' },
+      { field: 'default_shift', label: 'الدوام', source: 'shifts' },
+      { field: 'status', label: 'الحالة', options: ['Active', 'Inactive', 'Suspended', 'Left'] },
+    ],
+    fields: [
+      { field: 'employee_number', label: 'رقم', fallbackField: 'name' },
+      { field: 'employee_name', label: 'اسم الموظف', required: true },
+      { field: 'designation', label: 'الوظيفة' },
+      { field: 'branch', label: 'فرع' },
+      { field: 'default_shift', label: 'الدوام' },
+      { field: 'status', label: 'الحالة', statusDot: { on: 'Active' } },
+      { field: 'department', label: 'الإدارة', inTable: false, inForm: false },
+    ],
+  },
+
+  branches: {
+    kind: 'list',
+    title: 'الفروع',
+    subtitle: 'فروع الشركة',
+    doctype: 'Branch',
+    method: 'base_meena.api.hr_lists.branches',
+    addLabel: 'اضافة فرع',
+    searchPlaceholder: 'البحث باسم او كود الفرع',
+    actionsMenu: true,
+    noIndex: true,
+    print: false,
+    linkField: 'branch',
+    fields: [
+      { field: 'idx', label: 'رقم', inForm: false },
+      { field: 'branch', label: 'اسم الفرع', required: true },
+      { field: 'employees', label: 'الموظفين', inForm: false },
+      { field: 'manager', label: 'مدير الفرع', inForm: false },
+      { field: 'departments', label: 'الادارات', inForm: false },
+      { field: 'status', label: 'الحالة', inForm: false, statusDot: { on: 'Active' } },
+    ],
+  },
+
+  'shift-management': {
+    kind: 'list',
+    title: 'أوقات العمل',
+    subtitle: 'أوقات الدوام',
+    doctype: 'Shift Type',
+    method: 'base_meena.api.hr_lists.shifts',
+    addLabel: 'إضافة دوام',
+    searchPlaceholder: 'إبحث بإسم الدوام',
+    actionsMenu: true,
+    noIndex: true,
+    print: false,
+    linkField: 'name',
+    fields: [
+      { field: 'name', label: 'إسم الدوام', required: true },
+      { field: 'shift_kind', label: 'نوع الدوام', inForm: false },
+      { field: 'hours', label: 'الساعات', inForm: false },
+      { field: 'start_time', label: 'بداية الدوام', type: 'time', inTable: false },
+      { field: 'end_time', label: 'نهاية الدوام', type: 'time', inTable: false },
+      { field: 'enable_late_entry_marking', label: 'احتساب التأخير', type: 'checkbox', inTable: false },
+      { field: 'late_entry_grace_period', label: 'سماحية التأخير (دقيقة)', type: 'number', inTable: false },
+      { field: 'enable_early_exit_marking', label: 'احتساب الانصراف المبكر', type: 'checkbox', inTable: false },
+      { field: 'early_exit_grace_period', label: 'سماحية الانصراف (دقيقة)', type: 'number', inTable: false },
+    ],
+  },
+
+  devices: {
+    kind: 'list',
+    title: 'الاجهزة',
+    subtitle: 'أجهزة البصمة',
+    doctype: 'Biometric Device',
+    method: 'base_meena.api.hr_lists.devices',
+    addLabel: 'اضافة',
+    searchPlaceholder: 'ابحث بالاسم',
+    noIndex: true,
+    fields: [
+      { field: 'idx', label: 'م', inForm: false },
+      { field: 'serial', label: 'الرقم التسلسلي', inForm: false },
+      { field: 'serial_number', label: 'الرقم التسلسلي', required: true, inTable: false },
+      { field: 'device_name', label: 'اسم الجهاز', required: true },
+      { field: 'branch', label: 'فرع', inForm: false },
+      { field: 'location', label: 'الفرع / الموقع', inTable: false },
+      { field: 'status', label: 'الحالة', inForm: false },
+    ],
+  },
+
+  users: {
+    kind: 'list',
+    title: 'المستخدمين',
+    subtitle: 'مستخدمو النظام',
+    doctype: 'User',
+    method: 'base_meena.api.hr_lists.users',
+    addLabel: 'اضافة مستخدم',
+    searchPlaceholder: 'ابحث باسم الموظف او اسم المستخدم',
+    noIndex: true,
+    print: false,
+    fields: [
+      { field: 'employee_name', label: 'اسم الموظف', inForm: false },
+      { field: 'email', label: 'البريد الالكتروني', required: true, inTable: false },
+      { field: 'first_name', label: 'الاسم', required: true, inTable: false },
+      { field: 'username', label: 'اسم المستخدم' },
+      { field: 'roles', label: 'اخري', inForm: false },
+      { field: 'enabled', label: 'الحالة', type: 'checkbox', statusDot: { on: 1 as any } },
+    ],
+  },
+
+  permissions: {
+    kind: 'list',
+    title: 'الصلاحيات',
+    subtitle: 'أدوار المستخدمين',
+    doctype: 'Role',
+    method: 'base_meena.api.hr_lists.roles',
+    addLabel: 'اضافة صلاحية',
+    searchPlaceholder: 'ابحث باسم الصلاحية',
+    noIndex: true,
+    print: false,
+    fields: [
+      { field: 'role_name', label: 'اسم الصلاحية', required: true },
+      { field: 'perms', label: 'الصلاحيات', inForm: false },
+      { field: 'users', label: 'المستخدمين', inForm: false },
+    ],
+  },
+
   jobs: {
     kind: 'list',
     title: 'الوظائف',
     subtitle: 'إدارة المسميات الوظيفية',
     doctype: 'Designation',
     orderBy: 'name asc',
-    addLabel: 'إضافة وظيفة',
-    searchPlaceholder: 'إبحث بإسم الوظيفة',
+    addLabel: 'اضافة وظيفة',
+    searchPlaceholder: 'ابحث باسم او كود الوظيفة',
+    actionsMenu: true,
+    print: false,
     fields: [
-      { field: 'designation_name', label: 'المسمى الوظيفي', required: true },
-      { field: 'description', label: 'الوصف', type: 'textarea' },
+      { field: 'designation_name', label: 'اسم الوظيفة', required: true },
+      { field: 'description', label: 'الوصف', type: 'textarea', inTable: false },
     ],
   },
 
@@ -81,14 +246,18 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     doctype: 'Employee',
     orderBy: 'employee_name asc',
     filters: [['user_id', 'is', 'not set']],
-    searchPlaceholder: 'إبحث بإسم الموظف',
+    searchPlaceholder: 'ابحث بالكود',
     addLabel: 'إضافة موظف',
+    actionsMenu: true,
+    active: { field: 'status', on: 'Active', off: 'Inactive' },
+    noIndex: true,
+    print: false,
     fields: [
       { field: 'name', label: 'الكود', inForm: false },
       { field: 'employee_name', label: 'الاسم', required: true },
-      { field: 'designation', label: 'الوظيفة' },
-      { field: 'branch', label: 'الفرع' },
-      { field: 'status', label: 'الحالة', type: 'select', options: ['Active', 'Inactive', 'Suspended', 'Left'] },
+      { field: 'default_shift', label: 'الدوام' },
+      { field: 'attendance_device_id', label: 'جهاز البصمة' },
+      { field: 'status', label: 'الحالة', type: 'select', options: ['Active', 'Inactive', 'Suspended', 'Left'], inTable: false },
     ],
   },
 
@@ -98,11 +267,13 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     subtitle: 'مشاريع الشركة',
     doctype: 'Project',
     orderBy: 'modified desc',
-    addLabel: 'إضافة مشروع',
-    searchPlaceholder: 'إبحث بإسم المشروع',
+    addLabel: 'اضافة مشروع',
+    searchPlaceholder: 'ابحث باسم المشروع',
+    actionsMenu: true,
+    print: false,
     fields: [
       { field: 'name', label: 'الكود', inForm: false },
-      { field: 'project_name', label: 'إسم المشروع', required: true },
+      { field: 'project_name', label: 'اسم المشروع', required: true },
       { field: 'status', label: 'الحالة', type: 'select', options: ['Open', 'Completed', 'Cancelled'] },
       { field: 'expected_end_date', label: 'تاريخ الانتهاء', type: 'date' },
     ],
@@ -114,8 +285,10 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     subtitle: 'إدارة المهام',
     doctype: 'Task',
     orderBy: 'modified desc',
-    addLabel: 'إضافة مهمة',
-    searchPlaceholder: 'إبحث في المهام',
+    addLabel: 'اضافة مهمة',
+    searchPlaceholder: 'ابحث باسم المهمة',
+    actionsMenu: true,
+    print: false,
     fields: [
       { field: 'name', label: 'الكود', inForm: false },
       { field: 'subject', label: 'الموضوع', required: true },
@@ -131,10 +304,10 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     subtitle: 'المواقع ومجموعاتها',
     doctype: 'Location',
     orderBy: 'name asc',
-    addLabel: 'إضافة موقع',
-    searchPlaceholder: 'إبحث بإسم الموقع',
+    addLabel: 'اضافة مجموعة المواقع',
+    searchPlaceholder: 'ابحث باسم مجموعة المواقع',
     fields: [
-      { field: 'location_name', label: 'إسم الموقع', required: true },
+      { field: 'location_name', label: 'اسم المجموعة', required: true },
       { field: 'parent_location', label: 'الموقع الأب' },
       { field: 'is_group', label: 'مجموعة', type: 'checkbox' },
     ],
@@ -146,9 +319,11 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     subtitle: 'تجميع الموظفين في مجموعات',
     doctype: 'Employee Group',
     orderBy: 'name asc',
-    addLabel: 'إضافة مجموعة',
-    searchPlaceholder: 'إبحث بإسم المجموعة',
-    fields: [{ field: 'employee_group_name', label: 'إسم المجموعة', required: true }],
+    addLabel: 'إضافة مجموعة الموظفين',
+    searchPlaceholder: 'ابحث باسم مجموعة الموظفين',
+    actionsMenu: true,
+    print: false,
+    fields: [{ field: 'employee_group_name', label: 'اسم المجموعة', required: true }],
   },
 
   nationality: {
@@ -157,11 +332,14 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     subtitle: 'قائمة الدول/الجنسيات',
     doctype: 'Country',
     orderBy: 'country_name asc',
-    addLabel: 'إضافة جنسية',
-    searchPlaceholder: 'إبحث بإسم الجنسية',
+    addLabel: 'اضافة جنسية',
+    searchPlaceholder: 'ابحث باسم الجنسية',
+    actionsMenu: true,
+    noIndex: true,
+    print: false,
     fields: [
-      { field: 'country_name', label: 'الجنسية', required: true },
-      { field: 'code', label: 'الرمز' },
+      { field: 'country_name', label: 'اسم الجنسية', required: true },
+      { field: 'code', label: 'الرمز', inTable: false },
     ],
   },
 
@@ -171,10 +349,12 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     subtitle: 'قوائم العطلات الرسمية',
     doctype: 'Holiday List',
     orderBy: 'from_date desc',
-    addLabel: 'إضافة قائمة عطلات',
-    searchPlaceholder: 'إبحث بإسم القائمة',
+    addLabel: 'اضافة عطلة رسمية',
+    searchPlaceholder: 'ابحث باسم العطلة الرسمية',
+    actionsMenu: true,
+    print: false,
     fields: [
-      { field: 'holiday_list_name', label: 'إسم القائمة', required: true },
+      { field: 'holiday_list_name', label: 'اسم العطلة', required: true },
       { field: 'from_date', label: 'من تاريخ', type: 'date' },
       { field: 'to_date', label: 'إلى تاريخ', type: 'date' },
       { field: 'weekly_off', label: 'العطلة الأسبوعية', type: 'select', options: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] },
@@ -183,37 +363,95 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
 
   'leave-types': {
     kind: 'list',
-    title: 'أنواع الإجازات',
+    title: 'انواع الاجازات',
     subtitle: 'تعريف أنواع الإجازات',
     doctype: 'Leave Type',
     orderBy: 'name asc',
-    addLabel: 'إضافة نوع إجازة',
-    searchPlaceholder: 'إبحث بإسم النوع',
+    addLabel: 'اضافة اجازة',
+    searchPlaceholder: 'ابحث باسم نوع الاجازة',
+    actionsMenu: true,
+    noIndex: true,
+    print: false,
     fields: [
-      { field: 'leave_type_name', label: 'نوع الإجازة', required: true },
-      { field: 'max_leaves_allowed', label: 'أقصى عدد أيام', type: 'number' },
-      { field: 'is_carry_forward', label: 'يُرحّل', type: 'checkbox' },
-      { field: 'is_lwp', label: 'بدون راتب', type: 'checkbox' },
-      { field: 'include_holiday', label: 'يشمل العطلات', type: 'checkbox' },
+      { field: 'leave_type_name', label: 'اسم الاجازة', required: true },
+      { field: 'max_leaves_allowed', label: 'أقصى عدد أيام', type: 'number', inTable: false },
+      { field: 'is_carry_forward', label: 'يُرحّل', type: 'checkbox', inTable: false },
+      { field: 'is_lwp', label: 'بدون راتب', type: 'checkbox', inTable: false },
+      { field: 'include_holiday', label: 'يشمل العطلات', type: 'checkbox', inTable: false },
     ],
   },
 
   // ── الحضور والانصراف ─────────────────────────────────────────────────────
+  'add-leave': {
+    kind: 'list',
+    title: 'اضافة اجازة',
+    subtitle: 'اجازات الموظفين',
+    doctype: 'Leave Application',
+    orderBy: 'from_date desc',
+    addLabel: 'اضافة اجازة',
+    searchPlaceholder: 'ابحث بالكود او اسم الموظف',
+    actionsMenu: true,
+    active: { field: 'status', on: 'Approved', off: 'Rejected' },
+    noIndex: true,
+    drawerFilters: [
+      { field: 'leave_type', label: 'نوع الاجازة', source: 'leave_types' },
+      { field: 'status', label: 'الحالة', options: ['Open', 'Approved', 'Rejected', 'Cancelled'] },
+      { field: 'from_date', label: 'التاريخ', date: true },
+    ],
+    fields: [
+      { field: 'employee', label: 'الموظف', type: 'link', link: { doctype: 'Employee', titleField: 'employee_name', filters: [['status', '=', 'Active']] }, required: true, inTable: false },
+      { field: 'employee_name', label: 'اسم الموظف', inForm: false },
+      { field: 'leave_type', label: 'نوع الاجازة', type: 'link', link: { doctype: 'Leave Type' }, required: true },
+      { field: 'from_date', label: 'من تاريخ', type: 'date', required: true },
+      { field: 'to_date', label: 'إلى تاريخ', type: 'date', required: true },
+      { field: 'total_leave_days', label: 'عدد الأيام', type: 'number', inForm: false },
+      { field: 'status', label: 'الحالة', type: 'select', options: ['Open', 'Approved', 'Rejected', 'Cancelled'] },
+      { field: 'description', label: 'السبب', type: 'textarea', inTable: false },
+    ],
+  },
+
+  'fingerprint-requests': {
+    kind: 'list',
+    title: 'البصمات',
+    subtitle: 'طلبات إضافة بصمة',
+    doctype: 'Attendance Request',
+    orderBy: 'from_date desc',
+    addLabel: 'اضافة طلب بصمة',
+    searchPlaceholder: 'ابحث بالكود او اسم الموظف',
+    actionsMenu: true,
+    noIndex: true,
+    fields: [
+      { field: 'employee', label: 'الموظف', type: 'link', link: { doctype: 'Employee', titleField: 'employee_name', filters: [['status', '=', 'Active']] }, required: true, inTable: false },
+      { field: 'employee_name', label: 'اسم الموظف', inForm: false },
+      { field: 'from_date', label: 'من تاريخ', type: 'date', required: true },
+      { field: 'to_date', label: 'إلى تاريخ', type: 'date', required: true },
+      { field: 'reason', label: 'السبب', type: 'select', options: ['Work From Home', 'On Duty'] },
+      { field: 'explanation', label: 'التفاصيل', type: 'textarea', inTable: false },
+    ],
+  },
+
   'add-permission': {
     kind: 'list',
-    title: 'إضافة إذن',
+    title: 'اضافة اذن',
     subtitle: 'أذونات الموظفين',
     doctype: 'Permission Request',
     orderBy: 'modified desc',
-    addLabel: 'إضافة إذن',
-    searchPlaceholder: 'إبحث بإسم الموظف',
+    addLabel: 'اضافة اذن',
+    searchPlaceholder: 'ابحث بالكود او اسم الموظف',
+    actionsMenu: true,
+    active: { field: 'status', on: 'Approved', off: 'Rejected' },
+    noIndex: true,
+    drawerFilters: [
+      { field: 'status', label: 'الحالة', options: ['Draft', 'Pending', 'Approved', 'Rejected'] },
+      { field: 'permission_date', label: 'التاريخ', date: true },
+    ],
     fields: [
       { field: 'name', label: 'الرقم', inForm: false },
-      { field: 'employee', label: 'الموظف', required: true },
-      { field: 'employee_name', label: 'إسم الموظف', inTable: false },
-      { field: 'permission_date', label: 'تاريخ الإذن', type: 'date', required: true },
-      { field: 'from_time', label: 'من الساعة' },
-      { field: 'to_time', label: 'إلى الساعة' },
+      { field: 'employee', label: 'الموظف', type: 'link', link: { doctype: 'Employee', titleField: 'employee_name', filters: [['status', '=', 'Active']] }, required: true, inTable: false },
+      { field: 'employee_name', label: 'اسم الموظف', inForm: false },
+      { field: 'permission_date', label: 'التاريخ', type: 'date', required: true },
+      { field: 'from_time', label: 'من الساعة', type: 'time' },
+      { field: 'to_time', label: 'إلى الساعة', type: 'time' },
       { field: 'reason', label: 'السبب', type: 'textarea' },
       { field: 'status', label: 'الحالة', type: 'select', options: ['Draft', 'Pending', 'Approved', 'Rejected'] },
     ],
@@ -244,14 +482,35 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     subtitle: 'إعدادات ساعات العمل في رمضان',
     doctype: 'Ramadan Settings',
     orderBy: 'modified desc',
-    addLabel: 'إضافة إعداد',
-    searchPlaceholder: 'إبحث بالإسم',
+    addLabel: 'اضافة',
+    searchPlaceholder: 'بحث بالاسم',
+    noIndex: true,
+    emptyText: 'لم يتم اضافة اى دوام لرمضان من قبل',
+    emptyAction: 'تفعيل اول دوام رمضان',
     fields: [
       { field: 'name', label: 'الرقم', inForm: false },
       { field: 'company', label: 'الشركة' },
       { field: 'ramadan_start', label: 'بداية رمضان', type: 'date' },
       { field: 'ramadan_end', label: 'نهاية رمضان', type: 'date' },
       { field: 'reduced_daily_hours', label: 'ساعات العمل المخفّضة', type: 'number' },
+    ],
+  },
+
+  locations: {
+    kind: 'list',
+    title: 'المواقع',
+    subtitle: 'مواقع تسجيل الحضور من الجوال',
+    doctype: 'Location',
+    orderBy: 'location_name asc',
+    filters: [['is_group', '=', 0]],
+    addLabel: 'اضافة موقع',
+    searchPlaceholder: 'ابحث بالاسم',
+    noIndex: true,
+    print: false,
+    fields: [
+      { field: 'location_name', label: 'اسم الموقع', required: true },
+      { field: 'latitude', label: 'خط العرض', type: 'number' },
+      { field: 'longitude', label: 'خط الطول', type: 'number' },
     ],
   },
 
@@ -275,13 +534,17 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
 
   'requests-settings': {
     kind: 'list',
-    title: 'إعدادات الطلبات',
+    title: 'اعدادات الطلبات',
     subtitle: 'قواعد اعتماد طلبات الموارد البشرية',
     doctype: 'HR Approval Rule',
     orderBy: 'name asc',
-    searchPlaceholder: 'إبحث بإسم القاعدة',
-    readOnly: true,
-    fields: [{ field: 'name', label: 'قاعدة الاعتماد' }],
+    searchPlaceholder: 'ابحث باسم نوع الطلب',
+    noIndex: true,
+    print: false,
+    fields: [
+      { field: 'request_type', label: 'انواع الطلبات', required: true },
+      { field: 'enabled', label: 'صلاحيات الاعتماد', type: 'checkbox' },
+    ],
   },
 
   'company-data': {
@@ -290,15 +553,19 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     subtitle: 'البيانات الأساسية للشركة',
     doctype: 'Company',
     fields: [
-      { field: 'company_name', label: 'إسم الشركة' },
-      { field: 'abbr', label: 'الاختصار' },
-      { field: 'country', label: 'الدولة' },
-      { field: 'default_currency', label: 'العملة' },
-      { field: 'default_holiday_list', label: 'قائمة العطلات الافتراضية' },
-      { field: 'phone_no', label: 'الهاتف' },
-      { field: 'email', label: 'البريد الإلكتروني' },
-      { field: 'website', label: 'الموقع' },
+      { field: 'company_name', label: 'اسم الشركة بالعربية', required: true },
+      { field: 'custom_company_name_en', label: 'اسم الشركة بالانجليزية' },
+      { field: 'domain', label: 'مجال العمل بالعربية' },
+      { field: 'company_description', label: 'مجال العمل بالانجليزية' },
+      { field: 'registration_details', label: 'السجل التجاري' },
       { field: 'tax_id', label: 'الرقم الضريبي' },
+      { field: 'phone_no', label: 'رقم الهاتف 1' },
+      { field: 'custom_phone_2', label: 'رقم الهاتف 2' },
+      { field: 'fax', label: 'رقم الفاكس' },
+      { field: 'website', label: 'الموقع الالكتروني' },
+      { field: 'email', label: 'البريد الالكتروني' },
+      { field: 'custom_address_ar', label: 'العنوان بالعربيه' },
+      { field: 'custom_address_en', label: 'العنوان بالانجليزية' },
     ],
   },
 
@@ -320,7 +587,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
 }
 
 /** Modules that have a bespoke page instead of the generic list/settings renderer. */
-export const BESPOKE_MODULES = new Set(['cancel-transactions'])
+export const BESPOKE_MODULES = new Set(['cancel-transactions', 'attendance-settings', 'settings', 'subscription-info'])
 
 export function getModuleConfig(id: string): ModuleConfig | undefined {
   return HR_MODULES[id]

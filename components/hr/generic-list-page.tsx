@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Search, Plus, Pencil, Trash2, MoreVertical, Loader2, Printer,
   ChevronDown, ChevronRight, ChevronLeft, Filter, AlertCircle,
@@ -21,10 +22,21 @@ import {
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { FieldInput, toFormValue, toPayload } from '@/components/hr/field-input'
 import type { ListModuleConfig } from '@/lib/hr-modules'
+import { ApexEmptyState, BoxIllustration } from '@/components/hr/apex-empty-state'
+import { AdvancedSearchDrawer, applyDrawer, type DrawerValues } from '@/components/hr/advanced-search-drawer'
 
 type Row = Record<string, any> & { name: string }
 
 const PAGE_SIZES = [5, 10, 20, 50]
+
+/** Arabic labels for the Frappe status values that show up in list cells. */
+const VALUE_AR: Record<string, string> = {
+  Approved: 'معتمد', Rejected: 'مرفوض', Open: 'مفتوح', Cancelled: 'ملغي', Draft: 'مسودة', Pending: 'قيد الانتظار',
+  Active: 'نشط', Inactive: 'غير نشط', Suspended: 'موقوف', Left: 'منتهي', Completed: 'مكتمل', Working: 'قيد العمل',
+  'Pending Review': 'قيد المراجعة', Low: 'منخفضة', Medium: 'متوسطة', High: 'عالية', Urgent: 'عاجلة',
+  'Work From Home': 'عمل من المنزل', 'On Duty': 'مهمة عمل',
+}
+const ar = (v: any) => (typeof v === 'string' && VALUE_AR[v]) || v
 
 /**
  * Apex list screen — same shape as the reference:
@@ -33,6 +45,7 @@ const PAGE_SIZES = [5, 10, 20, 50]
  */
 export function GenericListPage({ config }: { config: ListModuleConfig }) {
   const { toast } = useToast()
+  const router = useRouter()
   const { isAuthenticated, isLoading: authLoading } = useAuthSafe()
   const [rows, setRows] = useState<Row[]>([])
   const [loading, setLoading] = useState(true)
@@ -45,6 +58,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
   const [pageSize, setPageSize] = useState(PAGE_SIZES[1])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showFilter, setShowFilter] = useState(false)
+  const [drawer, setDrawer] = useState<DrawerValues>({})
   const [printOpen, setPrintOpen] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
 
@@ -52,6 +66,34 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
   const [editing, setEditing] = useState<Row | null>(null)
   const [form, setForm] = useState<Record<string, any>>({})
   const [deleteTarget, setDeleteTarget] = useState<Row | null>(null)
+  const [actionsOpen, setActionsOpen] = useState(false)
+  const [bulkDelete, setBulkDelete] = useState(false)
+
+  const bulkActive = async (on: boolean) => {
+    if (!config.active) return
+    setActionsOpen(false)
+    const { field, on: onV, off } = config.active
+    let ok = 0
+    for (const name of selected) {
+      try { await frappeClient.put(config.doctype, name, { [field]: on ? onV : off }); ok++ } catch { /* keep going */ }
+    }
+    toast({ title: on ? `تم تنشيط ${ok}` : `تم إلغاء تنشيط ${ok}` })
+    setSelected(new Set())
+    load()
+  }
+
+  const confirmBulkDelete = async () => {
+    setDeleting(true)
+    let ok = 0, failed = 0
+    for (const name of selected) {
+      try { await frappeClient.delete(config.doctype, name); ok++ } catch { failed++ }
+    }
+    setDeleting(false)
+    setBulkDelete(false)
+    setSelected(new Set())
+    toast({ title: `تم حذف ${ok}`, description: failed ? `تعذّر حذف ${failed}` : undefined, variant: failed ? 'destructive' : undefined })
+    load()
+  }
 
   const tableFields = useMemo(() => config.fields.filter((f) => f.inTable !== false), [config.fields])
   const formFields = useMemo(() => config.fields.filter((f) => f.inForm !== false), [config.fields])
@@ -97,9 +139,10 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((r) => tableFields.some((f) => String(r[f.field] ?? '').toLowerCase().includes(q)))
-  }, [rows, search, tableFields])
+    const base = config.drawerFilters ? applyDrawer(rows, config.drawerFilters, drawer) : rows
+    if (!q) return base
+    return base.filter((r) => tableFields.some((f) => String(r[f.field] ?? '').toLowerCase().includes(q)))
+  }, [rows, search, tableFields, config.drawerFilters, drawer])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const currentPage = Math.min(page, totalPages)
@@ -121,6 +164,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
   })
 
   const openAdd = () => {
+    if (config.addHref) { router.push(config.addHref); return }
     const initial: Record<string, any> = {}
     for (const f of formFields) initial[f.field] = f.type === 'checkbox' ? false : ''
     setEditing(null)
@@ -129,6 +173,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
   }
 
   const openEdit = (row: Row) => {
+    if (config.editHref) { router.push(config.editHref(row.name)); return }
     const initial: Record<string, any> = {}
     for (const f of formFields) initial[f.field] = toFormValue(f, row[f.field])
     setEditing(row)
@@ -183,7 +228,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     return out
   }, [currentPage, totalPages])
 
-  const colSpan = tableFields.length + 3 // checkbox + index + actions
+  const colSpan = tableFields.length + (config.noIndex ? 2 : 3) // checkbox + index + actions
 
   return (
     <div dir="rtl" className="space-y-3 p-4 font-[family-name:var(--font-arabic)]">
@@ -200,19 +245,44 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
                 <Plus className="h-4 w-4 ml-1" strokeWidth={3} />
                 {config.addLabel || 'اضافة'}
               </Button>
-              <Button
-                variant="outline"
-                disabled={selected.size === 0}
-                onClick={() => setSelected(new Set())}
-                className="rounded px-4 h-9 font-bold text-[13px] shrink-0 border-slate-300 text-red-500 disabled:text-slate-300"
-              >
-                <Trash2 className="h-4 w-4 ml-1" />
-                حذف
-              </Button>
+              {config.actionsMenu ? (
+                <div className="relative shrink-0">
+                  <Button
+                    variant="outline"
+                    disabled={selected.size === 0}
+                    onClick={() => setActionsOpen((v) => !v)}
+                    className="rounded px-4 h-9 font-bold text-[13px] border-slate-300 text-slate-500 disabled:text-slate-300 min-w-[120px] justify-between"
+                  >
+                    الاجراءات
+                    <ChevronDown className="h-3.5 w-3.5 mr-1" />
+                  </Button>
+                  {actionsOpen && selected.size > 0 && (
+                    <div className="absolute z-20 mt-1 w-40 rounded border border-slate-200 bg-white shadow-lg py-1 text-[13px]">
+                      {config.active && (
+                        <>
+                          <button className="block w-full text-right px-3 py-1.5 hover:bg-slate-50" onClick={() => bulkActive(true)}>تنشيط</button>
+                          <button className="block w-full text-right px-3 py-1.5 hover:bg-slate-50" onClick={() => bulkActive(false)}>إلغاء التنشيط</button>
+                        </>
+                      )}
+                      <button className="block w-full text-right px-3 py-1.5 hover:bg-slate-50 text-red-600" onClick={() => { setActionsOpen(false); setBulkDelete(true) }}>حذف</button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  disabled={selected.size === 0}
+                  onClick={() => setBulkDelete(true)}
+                  className="rounded px-4 h-9 font-bold text-[13px] shrink-0 border-slate-300 text-red-500 disabled:text-slate-300"
+                >
+                  <Trash2 className="h-4 w-4 ml-1" />
+                  حذف
+                </Button>
+              )}
             </>
           )}
 
-          <div className="relative shrink-0">
+          {config.print !== false && <div className="relative shrink-0">
             <Button
               variant="outline"
               onClick={() => setPrintOpen((v) => !v)}
@@ -228,13 +298,13 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
                 <button className="block w-full text-right px-3 py-1.5 hover:bg-slate-50" onClick={() => { setPrintOpen(false); window.print() }}>طباعة الكل</button>
               </div>
             )}
-          </div>
+          </div>}
 
           <Button
             variant="outline"
-            onClick={() => { setShowFilter((v) => !v); searchRef.current?.focus() }}
+            onClick={() => { if (config.drawerFilters) setShowFilter(true); else searchRef.current?.focus() }}
             title="تصفية"
-            className={`rounded h-9 w-9 p-0 shrink-0 border-slate-300 ${showFilter ? 'bg-[#2e71c8] text-white hover:bg-[#2e71c8]' : 'text-[#2e71c8]'}`}
+            className={`rounded h-9 w-9 p-0 shrink-0 border-slate-300 ${Object.values(drawer).some(Boolean) ? 'bg-[#2e71c8] text-white hover:bg-[#2e71c8]' : 'text-[#2e71c8]'}`}
           >
             <Filter className="h-4 w-4" />
           </Button>
@@ -278,7 +348,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
                     />
                   </th>
                 )}
-                <th className="px-3 w-10 text-center font-bold">م</th>
+                {!config.noIndex && <th className="px-3 w-10 text-center font-bold">م</th>}
                 {tableFields.map((f) => (
                   <th key={f.field} className="px-3 font-bold whitespace-nowrap">{f.label}</th>
                 ))}
@@ -289,7 +359,19 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
               {loading ? (
                 <tr><td colSpan={colSpan} className="py-14 text-center"><Loader2 className="h-8 w-8 animate-spin text-[#2e71c8] mx-auto" /></td></tr>
               ) : pageRows.length === 0 ? (
-                <tr><td colSpan={colSpan} className="py-14 text-center text-slate-500">لا توجد بيانات</td></tr>
+                <tr><td colSpan={colSpan} className="py-10">
+                  {config.emptyText ? (
+                    <div className="flex flex-col items-center gap-6 py-6">
+                      <BoxIllustration />
+                      <p className="text-[18px] font-bold text-slate-800">{config.emptyText}</p>
+                      {config.emptyAction && !config.readOnly && (
+                        <button type="button" onClick={openAdd} className="h-[42px] px-5 rounded bg-[#3d9b6a] text-white text-[15px] flex items-center gap-2 hover:bg-[#35895d]">
+                          <Plus className="h-4 w-4" strokeWidth={3} />{config.emptyAction}
+                        </button>
+                      )}
+                    </div>
+                  ) : <ApexEmptyState />}
+                </td></tr>
               ) : (
                 pageRows.map((row, i) => (
                   <tr key={row.name} className="border-b border-slate-100 hover:bg-slate-50/70 h-[52px]">
@@ -304,21 +386,29 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
                         />
                       </td>
                     )}
-                    <td className="px-3 text-center text-slate-500">{(currentPage - 1) * pageSize + i + 1}</td>
+                    {!config.noIndex && <td className="px-3 text-center text-slate-500">{(currentPage - 1) * pageSize + i + 1}</td>}
                     {tableFields.map((f) => (
                       <td key={f.field} className="px-3 text-slate-700">
-                        {f.type === 'checkbox' ? (row[f.field] ? 'نعم' : 'لا') : (row[f.field] ?? '—')}
+                        {f.statusDot ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <span className={`h-2 w-2 rounded-full ${row[f.field] === f.statusDot.on ? 'bg-[#28a745]' : 'bg-slate-400'}`} />
+                            {row[f.field] === f.statusDot.on ? (f.statusDot.onLabel || 'نشط') : (f.statusDot.offLabel || 'غير نشط')}
+                          </span>
+                        ) : config.linkField === f.field && config.editHref ? (
+                          <button type="button" onClick={() => openEdit(row)} className="text-[#2960b6] hover:underline">{row[f.field] ?? '—'}</button>
+                        ) : f.type === 'checkbox' ? (row[f.field] ? 'نعم' : 'لا') : (ar(row[f.field]) || (f.fallbackField ? row[f.fallbackField] : undefined) || '—')}
                       </td>
                     ))}
                     <td className="px-3">
+                      {/* Apex order (RTL, from the right): ✎ · 🗑 · ⋮ */}
                       <div className="flex items-center justify-center gap-1">
-                        <button title="خيارات" className="text-slate-500 hover:text-slate-700 px-1"><MoreVertical className="h-[18px] w-[18px]" /></button>
                         {!config.readOnly && (
                           <>
-                            <button onClick={() => setDeleteTarget(row)} title="حذف" className="text-slate-400 hover:text-red-600 px-1"><Trash2 className="h-[17px] w-[17px]" /></button>
                             <button onClick={() => openEdit(row)} title="تعديل" className="text-[#28a745] hover:text-[#1e7e34] px-1"><Pencil className="h-[17px] w-[17px]" /></button>
+                            <button onClick={() => setDeleteTarget(row)} title="حذف" className="text-slate-400 hover:text-red-600 px-1"><Trash2 className="h-[17px] w-[17px]" /></button>
                           </>
                         )}
+                        <button title="خيارات" className="text-slate-500 hover:text-slate-700 px-1"><MoreVertical className="h-[18px] w-[18px]" /></button>
                       </div>
                     </td>
                   </tr>
@@ -398,6 +488,20 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
         loading={deleting}
         onConfirm={confirmDelete}
       />
+      <ConfirmDialog
+        open={bulkDelete}
+        onOpenChange={setBulkDelete}
+        title="حذف السجلات المحددة"
+        description={`سيتم حذف ${selected.size} سجل نهائياً.`}
+        confirmLabel="حذف"
+        cancelLabel="رجوع"
+        loading={deleting}
+        variant="destructive"
+        onConfirm={confirmBulkDelete}
+      />
+      {config.drawerFilters && (
+        <AdvancedSearchDrawer open={showFilter} onClose={() => setShowFilter(false)} filters={config.drawerFilters} values={drawer} onApply={(v) => { setDrawer(v); setPage(1) }} />
+      )}
     </div>
   )
 }

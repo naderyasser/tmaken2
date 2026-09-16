@@ -7,8 +7,6 @@ import type { ModuleType } from '@/components/sidebar'
 import { BranchSwitcher } from '@/components/branch/branch-switcher'
 import { PublicHrDashboard } from '@/components/hr-dashboard-public'
 import { EmployeeProfile } from '@/components/employee/employee-profile'
-import { EmployeesList } from '@/components/employee/employees-list'
-import { EmployeeCheckinList } from '@/components/employee/employee-checkin-list'
 import { LeaveList } from '@/components/leave/leave-list'
 import { ExpenseList } from '@/components/expense-list'
 
@@ -28,6 +26,10 @@ const ShiftCalendar = lazy(() => import('@/components/calendar/shift-calendar').
 const AnnouncementsBoard = lazy(() => import('@/components/announcements/announcements-board').then(m => ({ default: m.AnnouncementsBoard })))
 const ModulePage = lazy(() => import('@/components/hr/module-page').then(m => ({ default: m.ModulePage })))
 import { HR_TEAM_CONFIG } from '@/components/module-team-manager'
+import { getReportConfig } from '@/lib/hr-reports'
+const MovementsPageLazy = lazy(() => import('@/components/hr/movements-page').then(m => ({ default: m.MovementsPage })))
+const RequestsTabsLazy = lazy(() => import('@/components/hr/requests-tabs-page').then(m => ({ default: m.RequestsTabsPage })))
+const ReportPage = lazy(() => import('@/components/hr/report-page').then(m => ({ default: m.ReportPage })))
 
 // ── All valid module slugs (existing + new sidebar modules) ──────────────────
 const VALID_MODULES: ModuleType[] = [
@@ -42,7 +44,7 @@ const VALID_MODULES: ModuleType[] = [
   'location-groups', 'employee-groups', 'nationality', 'official-holidays', 'leave-types',
   'add-leave', 'add-permission', 'cancel-transactions',
   'user-transactions', 'ramadan-schedule', 'attendance-settings',
-  'requests-settings', 'company-data', 'subscription-info',
+  'requests-settings', 'company-data', 'subscription-info', 'locations',
 ]
 
 // Content-shaped skeleton shown while a module's chunk + first data load
@@ -88,7 +90,7 @@ function HRContent() {
       router.replace('/payroll')
       return
     }
-    if (module && VALID_MODULES.includes(module as ModuleType)) {
+    if (module && (VALID_MODULES.includes(module as ModuleType) || getReportConfig(module))) {
       setActiveModule(module as ModuleType)
     } else if (!searchParams.get('module')) {
       setActiveModule('dashboard')
@@ -108,26 +110,11 @@ function HRContent() {
 
   return (
     <>
-      {/* Branch Switcher — hidden on the main dashboard */}
-      {activeModule !== 'dashboard' && (
-        <div className="px-8 pt-6 pb-0">
-          <BranchSwitcher value={selectedBranch} onChange={setSelectedBranch} />
-        </div>
-      )}
-
       {/* ── لوحة التحكم ── */}
       {activeModule === 'dashboard' && <PublicHrDashboard />}
 
       {/* ── البيانات الاساسية ── */}
-      {activeModule === 'employees' && (
-        <div className="p-4 sm:p-6 lg:p-8">
-          <EmployeesList
-            branch={selectedBranch}
-            onEmployeeSelect={(emp) => router.push(`/employee/${encodeURIComponent(emp.name)}`)}
-            onAddEmployee={() => router.push('/employee/new')}
-          />
-        </div>
-      )}
+      {activeModule === 'employees' && <Module id="employees" />}
       {activeModule === 'new-employee' && (
         <EmployeeProfile onBack={() => handleModuleChange('employees')} />
       )}
@@ -143,9 +130,12 @@ function HRContent() {
 
       {/* ── الحضور والانصراف ── */}
       {activeModule === 'attendance' && (
-        <div className="p-4 sm:p-6 lg:p-8">
-          <EmployeeCheckinList />
-        </div>
+        <Suspense fallback={<ModuleLoader />}><MovementsPageLazy /></Suspense>
+      )}
+      {getReportConfig(activeModule) && (
+        <Suspense fallback={<ModuleLoader />}>
+          <ReportPage config={getReportConfig(activeModule)!} />
+        </Suspense>
       )}
       {activeModule === 'attendance-report' && (
         <Suspense fallback={<ModuleLoader />}>
@@ -154,11 +144,7 @@ function HRContent() {
           </div>
         </Suspense>
       )}
-      {activeModule === 'add-leave' && (
-        <div className="p-4 sm:p-6 lg:p-8">
-          <LeaveList />
-        </div>
-      )}
+      {activeModule === 'add-leave' && <Module id="add-leave" />}
       {activeModule === 'add-permission' && <Module id="add-permission" />}
       {activeModule === 'cancel-transactions' && <Module id="cancel-transactions" />}
       {activeModule === 'leaves' && (
@@ -168,7 +154,7 @@ function HRContent() {
       )}
       {activeModule === 'requests' && (
         <Suspense fallback={<ModuleLoader />}>
-          <RequestPicker />
+          <RequestsTabsLazy />
         </Suspense>
       )}
       {activeModule === 'discipline' && (
@@ -219,13 +205,10 @@ function HRContent() {
         </Suspense>
       )}
       {activeModule === 'user-transactions' && <Module id="user-transactions" />}
+      {activeModule === 'locations' && <Module id="locations" />}
 
       {/* ── الاعدادات ── */}
-      {activeModule === 'settings' && (
-        <Suspense fallback={<ModuleLoader />}>
-          <HRSettingsList />
-        </Suspense>
-      )}
+      {activeModule === 'settings' && <Module id="settings" />}
       {activeModule === 'ramadan-schedule' && <Module id="ramadan-schedule" />}
       {activeModule === 'attendance-settings' && <Module id="attendance-settings" />}
       {activeModule === 'requests-settings' && <Module id="requests-settings" />}

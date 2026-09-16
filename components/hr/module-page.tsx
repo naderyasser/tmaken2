@@ -6,6 +6,9 @@ import { useCompanySafe } from '@/hooks/use-company'
 import { GenericListPage } from '@/components/hr/generic-list-page'
 import { GenericSettingsPage } from '@/components/hr/generic-settings-page'
 import { CancelTransactionsPage } from '@/components/hr/cancel-transactions-page'
+import { AttendanceSettingsPage } from '@/components/hr/attendance-settings-page'
+import { GeneralSettingsPage } from '@/components/hr/general-settings-page'
+import { SubscriptionPage } from '@/components/hr/subscription-page'
 
 /**
  * Renders the page for one HR sidebar module id. Bespoke screens are matched
@@ -15,6 +18,9 @@ export function ModulePage({ moduleId }: { moduleId: string }) {
   const { company } = useCompanySafe()
 
   if (moduleId === 'cancel-transactions') return <CancelTransactionsPage />
+  if (moduleId === 'attendance-settings') return <AttendanceSettingsPage />
+  if (moduleId === 'settings') return <GeneralSettingsPage />
+  if (moduleId === 'subscription-info') return <SubscriptionPage />
 
   const config = getModuleConfig(moduleId)
   if (!config) {

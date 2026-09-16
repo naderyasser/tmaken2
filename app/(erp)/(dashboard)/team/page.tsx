@@ -1,12 +1,13 @@
+/**
+ * «المستخدمين» — Apex list screen inside the unified HR shell (HrGuard owns the gate).
+ * Columns and toolbar mirror the reference; rows come from base_meena.api.hr_lists.
+ */
+
 'use client'
 
-import { CompanyUsersPanel } from '@/components/company/company-users'
+import { GenericListPage } from '@/components/hr/generic-list-page'
+import { getModuleConfig, type ListModuleConfig } from '@/lib/hr-modules'
 
-// Tenant-local company self-service Users & Team panel. Renders inside the Jisr
-// shell (HrShell) with the HR gate RELAXED (see SHELL_NON_HR_PREFIXES) — this
-// surface is for Company Admins, who may not be HR users. The Company-Admin gate
-// is enforced inside CompanyUsersPanel and, authoritatively, by the backend.
-// `hideHeader` drops the panel's own <Header> since the shell provides the top bar.
-export default function TeamPage() {
-    return <CompanyUsersPanel hideHeader />
+export default function Page() {
+  return <GenericListPage config={getModuleConfig('users') as ListModuleConfig} />
 }

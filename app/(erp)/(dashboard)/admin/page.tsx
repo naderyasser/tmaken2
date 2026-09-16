@@ -21,7 +21,7 @@ import { Header } from '@/components/header'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { ModuleTeamManager, ADMIN_TEAM_CONFIG } from '@/components/module-team-manager'
-import { HRManagersPanel } from '@/app/(erp)/(dashboard)/hr-managers/page'
+import { HRManagersPanel } from '@/components/hr-managers-panel'
 import {
     LayoutGrid,
     Settings,
