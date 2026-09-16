@@ -1,6 +1,6 @@
 import React from "react"
 import type { Metadata } from 'next'
-import { Inter, IBM_Plex_Sans_Arabic, Noto_Nastaliq_Urdu, Amiri } from 'next/font/google'
+import { Inter, IBM_Plex_Sans_Arabic, Noto_Nastaliq_Urdu, Amiri, Noto_Kufi_Arabic } from 'next/font/google'
 
 import './globals.css'
 
@@ -13,6 +13,9 @@ const notoNastaliqUrdu = Noto_Nastaliq_Urdu({ subsets: ['arabic'], variable: '--
 // var ONLY; nothing applies it except `.theme-lazaa h1/h2/h3` (globals.css), so every
 // other tenant's typography is untouched.
 const amiriNaskh = Amiri({ subsets: ['arabic'], variable: '--font-naskh', weight: ['400', '700'] })
+// Noto Kufi Arabic — the Apex ERP reference's own typeface. Exposed as a CSS var
+// ONLY; applied via `.theme-hr` in globals.css so no other tenant/vertical is touched.
+const notoKufiArabic = Noto_Kufi_Arabic({ subsets: ['arabic'], variable: '--font-kufi', weight: ['400', '500', '600', '700'] })
 
 export const metadata: Metadata = {
   title: 'تمكين - Human Resources Management',
@@ -35,7 +38,7 @@ export default function RootLayout({
   // (See i18n-html-lang-dir.test.tsx for the locked behavior.)
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
-      <body className={`${inter.variable} ${ibmPlexArabic.variable} ${notoNastaliqUrdu.variable} ${amiriNaskh.variable}`} suppressHydrationWarning>
+      <body className={`${inter.variable} ${ibmPlexArabic.variable} ${notoNastaliqUrdu.variable} ${amiriNaskh.variable} ${notoKufiArabic.variable}`} suppressHydrationWarning>
         {children}
       </body>
     </html>

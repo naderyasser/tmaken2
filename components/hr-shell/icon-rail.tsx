@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { ChevronDown, ChevronUp, Search } from 'lucide-react'
@@ -23,10 +23,24 @@ export function IconRail() {
   const searchParams = useSearchParams()
   const moduleParam = searchParams.get('module')
 
-  // Apex: every section starts collapsed; the one holding the active page opens itself.
+  // Apex: every section starts collapsed on a fresh load — confirmed against the
+  // live reference (a hard reload on any page, including one whose own section
+  // e.g. الاعدادات, leaves every card closed). It does not auto-open the active
+  // page's section; it only remembers whatever the visitor toggled themselves,
+  // via sessionStorage (mirrored here so a reload keeps the same state).
   const [open, setOpen] = useState<Record<string, boolean>>({})
+  useEffect(() => {
+    try {
+      const saved = sessionStorage.getItem('railOpen')
+      if (saved) setOpen(JSON.parse(saved))
+    } catch { /* storage unavailable */ }
+  }, [])
   const [query, setQuery] = useState('')
-  const toggle = (id: string, isOpen: boolean) => setOpen((prev) => ({ ...prev, [id]: !isOpen }))
+  const toggle = (id: string, isOpen: boolean) => setOpen((prev) => {
+    const next = { ...prev, [id]: !isOpen }
+    try { sessionStorage.setItem('railOpen', JSON.stringify(next)) } catch { /* storage unavailable */ }
+    return next
+  })
 
   const sections = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -65,8 +79,7 @@ export function IconRail() {
       <nav className="flex-1 overflow-y-auto pt-3 pb-12">
         {sections.map((section) => {
           const SectionIcon = section.icon
-          const hasActive = section.items.some((i) => itemActive(i, pathname, moduleParam))
-          const isOpen = searching || (section.id in open ? open[section.id] : hasActive)
+          const isOpen = searching || !!open[section.id]
           return (
             <div key={section.id} className="mb-px">
               <button
@@ -74,7 +87,7 @@ export function IconRail() {
                 onClick={() => toggle(section.id, isOpen)}
                 className={cn(
                   'relative w-full h-[57px] px-2 flex items-center justify-between text-white transition-colors',
-                  isOpen || hasActive ? 'bg-[#2e71c8]' : 'bg-[#2960b6] hover:bg-[#2b68bf]'
+                  isOpen ? 'bg-[#2e71c8]' : 'bg-[#2960b6] hover:bg-[#2b68bf]'
                 )}
               >
                 {isOpen ? (
@@ -106,10 +119,6 @@ export function IconRail() {
   )
 }
 
-function itemActive(item: RailItem, pathname: string, moduleParam: string | null): boolean {
-  return item.match(pathname, moduleParam) || (item.children ?? []).some((c) => itemActive(c, pathname, moduleParam))
-}
-
 /**
  * One sidebar entry — a link, or (Apex «التقارير») a nested collapsible group.
  * Items are right-aligned, 55px tall, and light up with a pale pill on hover/active.
@@ -122,19 +131,28 @@ function RailEntry({ item, pathname, moduleParam, depth }: {
   const active = item.match(pathname, moduleParam)
   const [groupOpen, setGroupOpen] = useState<boolean | null>(null)
   const isGroup = !!item.children?.length
-  const childActive = isGroup && (item.children ?? []).some((c) => itemActive(c, pathname, moduleParam))
-  const opened = groupOpen ?? childActive
+  // Matches the section-level rule: nested groups (التقارير) also start closed
+  // on a fresh load, even when they hold the active page — verified against
+  // the live reference on /hr/daystatus.
+  useEffect(() => {
+    if (groupOpen !== null) return
+    try {
+      const saved = sessionStorage.getItem(`railGroup:${item.id}`)
+      if (saved) setGroupOpen(saved === '1')
+    } catch { /* storage unavailable */ }
+  }, [])
+  const opened = !!groupOpen
 
   const rowClass = cn(
     'flex items-center justify-between h-[55px] mx-2 px-4 rounded text-[16px] transition-colors',
-    active && !isGroup ? 'bg-[#dbe7f7] text-[#2960b6]' : 'text-white hover:bg-[#dbe7f7] hover:text-[#2960b6]'
+    active && !isGroup ? 'bg-[#bcdcf8] text-[#212529]' : 'text-white hover:bg-[#bcdcf8] hover:text-[#212529]'
   )
   const indent = { paddingRight: `${16 + depth * 16}px` }
 
   if (isGroup) {
     return (
       <div>
-        <button type="button" onClick={() => setGroupOpen(!opened)} className={cn(rowClass, 'w-[calc(100%-16px)]')} style={indent}>
+        <button type="button" onClick={() => { const next = !opened; setGroupOpen(next); try { sessionStorage.setItem(`railGroup:${item.id}`, next ? '1' : '0') } catch {} }} className={cn(rowClass, 'w-[calc(100%-16px)]')} style={indent}>
           <span>{label}</span>
           {opened ? <ChevronUp className="h-[18px] w-[18px]" /> : <ChevronDown className="h-[18px] w-[18px]" />}
         </button>

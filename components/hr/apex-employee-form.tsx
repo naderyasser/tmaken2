@@ -149,10 +149,10 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
           <span>{isNew ? 'اضافة موظف' : 'تعديل موظف'}</span>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => router.push('/employees')} className="h-[40px] px-4 rounded bg-[#dc3545] text-white text-[14px] flex items-center gap-1.5 hover:bg-[#c82333]">
+          <button type="button" onClick={() => router.push('/employees')} className="h-[40px] px-4 rounded bg-[#f95f5f] text-white text-[14px] flex items-center gap-1.5 hover:bg-[#e54a4a]">
             <X className="h-4 w-4" />اغلاق
           </button>
-          <button type="button" onClick={save} disabled={saving || loading} className="h-[40px] px-4 rounded bg-[#3d9b6a] text-white text-[14px] flex items-center gap-1.5 hover:bg-[#35895d] disabled:opacity-60">
+          <button type="button" onClick={save} disabled={saving || loading} className="h-[40px] px-4 rounded bg-[#2eaf7d] text-white text-[14px] flex items-center gap-1.5 hover:bg-[#279568] disabled:opacity-60">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : isNew ? <Plus className="h-4 w-4" /> : <Check className="h-4 w-4" />}
             {isNew ? 'اضافة' : 'حفظ'}
           </button>

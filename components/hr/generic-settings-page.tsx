@@ -104,12 +104,12 @@ export function GenericSettingsPage({ config, recordName }: { config: SettingsMo
 
         <div className="flex items-center gap-2 shrink-0">
           <Button onClick={save} disabled={saving || loading}
-            className="bg-[#28a745] hover:bg-[#218838] text-white rounded px-5 h-9 font-bold text-[13px]">
+            className="bg-[#2eaf7d] hover:bg-[#279568] text-white rounded px-5 h-9 font-bold text-[13px]">
             {saving ? <Loader2 className="h-4 w-4 ml-1.5 animate-spin" /> : <Check className="h-4 w-4 ml-1.5" strokeWidth={3} />}
             حفظ
           </Button>
-          <Button onClick={load} disabled={saving || loading} variant="outline"
-            className="border-red-300 text-red-500 hover:bg-red-50 rounded px-5 h-9 font-bold text-[13px]">
+          <Button onClick={load} disabled={saving || loading}
+            className="bg-[#f95f5f] hover:bg-[#e54a4a] text-white rounded px-5 h-9 font-bold text-[13px]">
             <X className="h-4 w-4 ml-1.5" strokeWidth={3} />
             اغلاق
           </Button>

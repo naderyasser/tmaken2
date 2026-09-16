@@ -64,7 +64,7 @@ export function MovementsPage() {
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="h-[38px] px-4 rounded bg-[#3d9b6a] text-white text-[14px] flex items-center gap-1.5 hover:bg-[#35895d]"
+            className="h-[38px] px-4 rounded bg-[#2eaf7d] text-white text-[14px] flex items-center gap-1.5 hover:bg-[#279568]"
           >
             <Plus className="h-4 w-4" />
             اضافة
@@ -110,7 +110,7 @@ export function MovementsPage() {
             </div>
           </div>
           <DialogFooter className="gap-2 sm:justify-start">
-            <Button onClick={save} disabled={saving} className="bg-[#3d9b6a] hover:bg-[#35895d]">
+            <Button onClick={save} disabled={saving} className="bg-[#2eaf7d] hover:bg-[#279568]">
               {saving && <Loader2 className="h-4 w-4 animate-spin ml-1" />}حفظ
             </Button>
             <Button variant="outline" onClick={() => setOpen(false)}>اغلاق</Button>

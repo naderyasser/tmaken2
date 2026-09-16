@@ -138,7 +138,7 @@ export function AttendanceSettingsPage() {
                 type="button"
                 onClick={save}
                 disabled={saving}
-                className="h-[42px] px-5 rounded bg-[#3d9b6a] text-white text-[15px] flex items-center gap-2 hover:bg-[#35895d] disabled:opacity-60"
+                className="h-[42px] px-5 rounded bg-[#2eaf7d] text-white text-[15px] flex items-center gap-2 hover:bg-[#279568] disabled:opacity-60"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 حفظ

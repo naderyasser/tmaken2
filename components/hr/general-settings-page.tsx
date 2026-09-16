@@ -22,7 +22,7 @@ function Accordion({ title, open, onToggle, children }: { title: string; open: b
 function SaveBtn({ onClick, busy, label = 'حفظ' }: { onClick: () => void; busy?: boolean; label?: string }) {
   return (
     <button type="button" onClick={onClick} disabled={busy}
-      className="h-[40px] px-4 rounded bg-[#3d9b6a] text-white text-[14px] flex items-center gap-2 hover:bg-[#35895d] disabled:opacity-60">
+      className="h-[40px] px-4 rounded bg-[#2eaf7d] text-white text-[14px] flex items-center gap-2 hover:bg-[#279568] disabled:opacity-60">
       {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
       {label}
     </button>

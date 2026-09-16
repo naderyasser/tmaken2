@@ -116,7 +116,7 @@ export function CancelTransactionsPage() {
           type="button"
           disabled={!preview?.length || working}
           onClick={() => setConfirm(true)}
-          className="h-[42px] px-5 rounded text-white text-[15px] bg-[#e9a3a3] disabled:opacity-90 enabled:bg-[#dc3545] enabled:hover:bg-[#c82333]"
+          className="h-[42px] px-5 rounded text-white text-[15px] bg-[#e9a3a3] disabled:opacity-90 enabled:bg-[#f95f5f] enabled:hover:bg-[#e54a4a]"
         >
           إلغاء ترحيل الحركات
         </button>
@@ -132,7 +132,7 @@ export function CancelTransactionsPage() {
           ) : (
             <table className="w-full text-[14px]">
               <thead>
-                <tr className="bg-[#c8d3e5] text-slate-800">
+                <tr className="bg-[#bcc2d1] text-slate-800">
                   <th className="py-3 px-3 text-right">الكود</th>
                   <th className="py-3 px-3 text-right">الموظف</th>
                   <th className="py-3 px-3 text-right">التاريخ</th>

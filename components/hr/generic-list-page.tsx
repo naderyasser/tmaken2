@@ -243,7 +243,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
             <>
               <Button
                 onClick={openAdd}
-                className="bg-[#28a745] hover:bg-[#218838] text-white rounded px-4 h-9 font-bold text-[13px] shrink-0"
+                className="bg-[#2eaf7d] hover:bg-[#279568] text-white rounded px-4 h-9 font-bold text-[13px] shrink-0"
               >
                 <Plus className="h-4 w-4 ml-1" strokeWidth={3} />
                 {config.addLabel || 'اضافة'}
@@ -254,7 +254,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
                     variant="outline"
                     disabled={selected.size === 0}
                     onClick={() => setActionsOpen((v) => !v)}
-                    className="rounded px-4 h-9 font-bold text-[13px] border-slate-300 text-slate-500 disabled:text-slate-300 min-w-[120px] justify-between"
+                    className="rounded px-4 h-9 font-bold text-[13px] border-[#6a7592] text-[#6a7592] disabled:opacity-50 min-w-[120px] justify-between"
                   >
                     الاجراءات
                     <ChevronDown className="h-3.5 w-3.5 mr-1" />
@@ -276,7 +276,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
                   variant="outline"
                   disabled={selected.size === 0}
                   onClick={() => setBulkDelete(true)}
-                  className="rounded px-4 h-9 font-bold text-[13px] shrink-0 border-slate-300 text-red-500 disabled:text-slate-300"
+                  className="rounded px-4 h-9 font-bold text-[13px] shrink-0 border-[#6a7592] text-[#6a7592] disabled:opacity-50"
                 >
                   <Trash2 className="h-4 w-4 ml-1" />
                   حذف
@@ -289,7 +289,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
             <Button
               variant="outline"
               onClick={() => setPrintOpen((v) => !v)}
-              className="rounded px-4 h-9 font-bold text-[13px] border-slate-300"
+              className="rounded px-4 h-9 font-bold text-[13px] border-[#6a7592] text-[#6a7592]"
             >
               <Printer className="h-4 w-4 ml-1" />
               الطباعة
@@ -307,7 +307,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
             variant="outline"
             onClick={() => { if (config.drawerFilters) setShowFilter(true); else searchRef.current?.focus() }}
             title="تصفية"
-            className={`rounded h-9 w-9 p-0 shrink-0 border-slate-300 ${Object.values(drawer).some(Boolean) ? 'bg-[#2e71c8] text-white hover:bg-[#2e71c8]' : 'text-[#2e71c8]'}`}
+            className={`rounded h-9 w-9 p-0 shrink-0 border-[#2e71c8] ${Object.values(drawer).some(Boolean) ? 'bg-[#2e71c8] text-white hover:bg-[#2e71c8]' : 'text-[#2960b6]'}`}
           >
             <Filter className="h-4 w-4" />
           </Button>
@@ -339,7 +339,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
         <div className="overflow-x-auto">
           <table className="w-full text-[13px] text-right">
             <thead>
-              <tr className="bg-[#cfd8e3] text-slate-700 border-y border-slate-300 h-11">
+              <tr className="bg-[#bcc2d1] text-[#212529] border-y border-slate-300 h-11">
                 {!config.readOnly && (
                   <th className="px-3 w-10 text-center">
                     <input
@@ -368,7 +368,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
                       <BoxIllustration />
                       <p className="text-[18px] font-bold text-slate-800">{config.emptyText}</p>
                       {config.emptyAction && !config.readOnly && (
-                        <button type="button" onClick={openAdd} className="h-[42px] px-5 rounded bg-[#3d9b6a] text-white text-[15px] flex items-center gap-2 hover:bg-[#35895d]">
+                        <button type="button" onClick={openAdd} className="h-[42px] px-5 rounded bg-[#2eaf7d] text-white text-[15px] flex items-center gap-2 hover:bg-[#279568]">
                           <Plus className="h-4 w-4" strokeWidth={3} />{config.emptyAction}
                         </button>
                       )}
@@ -394,7 +394,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
                       <td key={f.field} className="px-3 text-slate-700">
                         {f.statusDot ? (
                           <span className="inline-flex items-center gap-1.5">
-                            <span className={`h-2 w-2 rounded-full ${row[f.field] === f.statusDot.on ? 'bg-[#28a745]' : 'bg-slate-400'}`} />
+                            <span className={`h-2 w-2 rounded-full ${row[f.field] === f.statusDot.on ? 'bg-[#2eaf7d]' : 'bg-slate-400'}`} />
                             {row[f.field] === f.statusDot.on ? (f.statusDot.onLabel || 'نشط') : (f.statusDot.offLabel || 'غير نشط')}
                           </span>
                         ) : config.linkField === f.field && config.editHref ? (
@@ -407,7 +407,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
                       <div className="flex items-center justify-center gap-1">
                         {!config.readOnly && (
                           <>
-                            <button onClick={() => openEdit(row)} title="تعديل" className="text-[#28a745] hover:text-[#1e7e34] px-1"><Pencil className="h-[17px] w-[17px]" /></button>
+                            <button onClick={() => openEdit(row)} title="تعديل" className="text-[#2eaf7d] hover:text-[#1e7e34] px-1"><Pencil className="h-[17px] w-[17px]" /></button>
                             <button onClick={() => setDeleteTarget(row)} title="حذف" className="text-slate-400 hover:text-red-600 px-1"><Trash2 className="h-[17px] w-[17px]" /></button>
                           </>
                         )}
@@ -473,7 +473,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>إلغاء</Button>
-            <Button onClick={save} disabled={saving} className="bg-[#28a745] hover:bg-[#218838] text-white">
+            <Button onClick={save} disabled={saving} className="bg-[#2eaf7d] hover:bg-[#279568] text-white">
               {saving && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
               حفظ
             </Button>

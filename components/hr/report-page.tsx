@@ -206,7 +206,7 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
         <div className="overflow-x-auto rounded-sm">
           <table className="w-full text-[14px] border-collapse">
             <thead>
-              <tr className="bg-[#c8d3e5] text-slate-800">
+              <tr className="bg-[#bcc2d1] text-slate-800">
                 <th className="w-10 py-3" rowSpan={hasChildren ? 2 : 1} />
                 {data.columns.map((c) => (
                   <th key={c.key} colSpan={c.children?.length || 1} rowSpan={hasChildren && !c.children?.length ? 2 : 1}
@@ -214,7 +214,7 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
                 ))}
               </tr>
               {hasChildren && (
-                <tr className="bg-[#c8d3e5] text-slate-800">
+                <tr className="bg-[#bcc2d1] text-slate-800">
                   {data.columns.flatMap((c) => c.children ?? []).map((c) => (
                     <th key={c.key} className={cn('py-2 px-2 font-bold text-right bg-white', c.key.startsWith('out') ? 'text-red-600' : 'text-[#2960b6]')}>{c.label}</th>
                   ))}
@@ -290,7 +290,7 @@ function GroupRows({ g, gi, cols, collapsed, onToggle }: {
   return (
     <>
       {g.title && (
-        <tr className="bg-[#dbe7f7] text-slate-800">
+        <tr className="bg-[#c0defa] text-slate-800">
           <td className="py-2 px-2">
             <button type="button" onClick={onToggle} className="h-6 w-6 rounded bg-[#2960b6] text-white flex items-center justify-center" aria-label="طي">
               {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}

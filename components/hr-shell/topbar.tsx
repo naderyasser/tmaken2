@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronDown, UserCircle2, Calendar, Globe, LogOut } from 'lucide-react'
+import { ChevronDown, UserCircle2, Calendar, LogOut } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/auth-context'
 import { useBrand } from '@/hooks/use-brand'
@@ -118,7 +118,6 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
             onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
             className="hidden xl:flex items-center gap-1.5 text-[12.5px] font-medium hover:text-white/80 transition-colors shrink-0 whitespace-nowrap"
           >
-            <Globe className="h-4 w-4" />
             <span>{lang === 'ar' ? 'العربية' : 'English'}</span>
             <ChevronDown className="h-3.5 w-3.5" />
           </button>
