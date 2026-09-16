@@ -71,7 +71,16 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
         {/* ── Right (start): hamburger + logo ── */}
         <div className="flex items-center gap-3 shrink-0">
           <button
-            onClick={onOpenMobileNav}
+            onClick={() => {
+              // Matches the live reference: the hamburger only substitutes for the
+              // full rail below its `lg` breakpoint (aside is `hidden lg:flex`
+              // there too) — clicking it at desktop width does nothing in Apex
+              // (verified against the reference), because the full sidebar is
+              // already showing; opening the mobile drawer on top of it there
+              // is what produced the "two sidebars" bug.
+              if (typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches) return
+              onOpenMobileNav()
+            }}
             title="القائمة"
             className="flex items-center justify-center w-9 h-9 rounded hover:bg-white/10 transition-colors shrink-0"
           >

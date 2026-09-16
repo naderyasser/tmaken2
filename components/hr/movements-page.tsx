@@ -40,9 +40,9 @@ export function MovementsPage() {
     if (!form.employee) { toast({ title: 'اختر الموظف', variant: 'destructive' }); return }
     setSaving(true)
     try {
-      await frappeClient.createEmployeeCheckin({
-        employee: form.employee, time: `${form.date} ${form.time}:00`, log_type: form.log_type,
-      } as any)
+      await frappeClient.call('base_meena.api.hr_reports.add_movement', {
+        employee: form.employee, date: form.date, time: form.time, log_type: form.log_type,
+      })
       toast({ title: 'تمت إضافة الحركة' })
       setOpen(false)
       setReloadKey((k) => k + 1)
