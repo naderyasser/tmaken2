@@ -44,8 +44,8 @@ export function AdvancedSearchDrawer({ open, onClose, filters, values, onApply }
       <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
       <aside className="fixed top-0 left-0 z-50 h-full w-[300px] bg-white shadow-xl overflow-y-auto" dir="rtl">
         <div className="flex items-center justify-between px-4 h-[80px]">
-          <h3 className="text-[26px] font-bold text-[#2960b6]">بحث متقدم</h3>
-          <button type="button" onClick={onClose} className="text-[#2960b6]" aria-label="اغلاق"><X className="h-6 w-6" /></button>
+          <h3 className="text-[26px] font-bold text-[var(--apex-blue)]">بحث متقدم</h3>
+          <button type="button" onClick={onClose} className="text-[var(--apex-blue)]" aria-label="اغلاق"><X className="h-6 w-6" /></button>
         </div>
         <div className="px-4 pb-6 space-y-0">
           <div className="border border-slate-200 rounded">
@@ -54,7 +54,7 @@ export function AdvancedSearchDrawer({ open, onClose, filters, values, onApply }
               return (
                 <div key={f.field} className="border-b border-slate-200 last:border-0">
                   <button type="button" onClick={() => setExpanded((e) => ({ ...e, [f.field]: !isOpen }))}
-                    className="w-full h-[48px] px-3 flex items-center justify-between text-[15px] text-[#2960b6]">
+                    className="w-full h-[48px] px-3 flex items-center justify-between text-[15px] text-[var(--apex-blue)]">
                     <span>{f.label}{local[f.field] || local[`${f.field}_from`] ? ' •' : ''}</span>
                     {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </button>
@@ -78,7 +78,7 @@ export function AdvancedSearchDrawer({ open, onClose, filters, values, onApply }
             })}
           </div>
           <div className="pt-4 flex gap-2">
-            <button type="button" onClick={() => { onApply(local); onClose() }} className="h-[42px] px-6 rounded bg-[#2960b6] text-white text-[15px]">بحث</button>
+            <button type="button" onClick={() => { onApply(local); onClose() }} className="h-[42px] px-6 rounded bg-[var(--apex-blue)] text-white text-[15px]">بحث</button>
             <button type="button" onClick={() => { setLocal({}); onApply({}) }} className="h-[42px] px-4 rounded border border-slate-300 text-slate-600 text-[14px]">مسح</button>
           </div>
         </div>

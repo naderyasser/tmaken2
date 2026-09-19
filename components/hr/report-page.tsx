@@ -119,8 +119,17 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
 
   return (
     <div className="px-4 pt-3 pb-8" dir="rtl">
+      {/* Print-only header — shown only inside @media print (app/globals.css),
+          while the breadcrumb/toolbar/filters/screen chrome below are hidden. */}
+      {data && (
+        <div className="hidden print:block mb-4">
+          <h1 className="text-lg font-bold mb-1">{config.title}</h1>
+          <p className="text-xs text-slate-500">{new Date().toLocaleDateString('ar-EG')}</p>
+        </div>
+      )}
+
       {/* breadcrumb + toolbar */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex items-center justify-between mb-5 print:hidden">
         <div className="text-[14px] text-slate-700">
           {[...breadcrumb, config.title].map((b, i, arr) => (
             <span key={i}>
@@ -133,7 +142,7 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
           <button
             type="button"
             onClick={() => setShowFilters((s) => !s)}
-            className="h-[38px] px-3 rounded border border-[#8fa6cc] bg-white text-[14px] text-[#2960b6] flex items-center gap-1"
+            className="h-[38px] px-3 rounded border border-[var(--apex-blue-border)] bg-white text-[14px] text-[var(--apex-blue)] flex items-center gap-1"
           >
             <ChevronDown className="h-4 w-4" />
             {showFilters ? 'اخفاء البحث' : 'اظهار البحث'}
@@ -142,7 +151,7 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
             <button
               type="button"
               onClick={() => setExportOpen((o) => !o)}
-              className="h-[38px] px-3 min-w-[120px] rounded border border-[#8fa6cc] bg-white text-[14px] text-[#2960b6] flex items-center justify-between gap-3"
+              className="h-[38px] px-3 min-w-[120px] rounded border border-[var(--apex-blue-border)] bg-white text-[14px] text-[var(--apex-blue)] flex items-center justify-between gap-3"
             >
               <ChevronDown className="h-4 w-4" />
               <span>تصدير</span>
@@ -160,12 +169,15 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
 
       {/* filter grid */}
       {showFilters && (
-        <div className="space-y-4 mb-6">
+        <div className="space-y-4 mb-6 print:hidden">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <Txt value={f.employee} onChange={set('employee')} label="كود أو إسم الموظف" />
             <Sel value={f.branch} onChange={set('branch')} label="الفروع" items={opts.branches} />
             <Sel value={f.department} onChange={set('department')} label="الإدارة" items={opts.departments} />
-            <Sel value={f.section} onChange={set('section')} label="القسم" items={opts.departments} />
+            {/* «القسم» used to reuse opts.departments verbatim — an exact duplicate
+                of «الإدارة» right next to it, not a distinct filter. get_filter_options
+                has no separate custom_section catalogue to back a real one, so the
+                duplicate is dropped rather than kept broken. */}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <Sel value={f.project} onChange={set('project')} label="المشروع" items={opts.projects} />
@@ -184,7 +196,7 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
                 type="button"
                 onClick={run}
                 disabled={loading}
-                className="h-[42px] w-[42px] rounded bg-[#2960b6] text-white flex items-center justify-center disabled:opacity-60"
+                className="h-[42px] w-[42px] rounded bg-[var(--apex-blue)] text-white flex items-center justify-center disabled:opacity-60"
                 aria-label="بحث"
               >
                 {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
@@ -206,7 +218,7 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
         <div className="overflow-x-auto rounded-sm">
           <table className="w-full text-[14px] border-collapse">
             <thead>
-              <tr className="bg-[#bcc2d1] text-slate-800">
+              <tr className="bg-[var(--apex-thead)] text-slate-800">
                 <th className="w-10 py-3" rowSpan={hasChildren ? 2 : 1} />
                 {data.columns.map((c) => (
                   <th key={c.key} colSpan={c.children?.length || 1} rowSpan={hasChildren && !c.children?.length ? 2 : 1}
@@ -214,9 +226,9 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
                 ))}
               </tr>
               {hasChildren && (
-                <tr className="bg-[#bcc2d1] text-slate-800">
+                <tr className="bg-[var(--apex-thead)] text-slate-800">
                   {data.columns.flatMap((c) => c.children ?? []).map((c) => (
-                    <th key={c.key} className={cn('py-2 px-2 font-bold text-right bg-white', c.key.startsWith('out') ? 'text-red-600' : 'text-[#2960b6]')}>{c.label}</th>
+                    <th key={c.key} className={cn('py-2 px-2 font-bold text-right bg-white', c.key.startsWith('out') ? 'text-red-600' : 'text-[var(--apex-blue)]')}>{c.label}</th>
                   ))}
                 </tr>
               )}
@@ -247,7 +259,7 @@ function Sel({ value, onChange, label, items }: { value: string; onChange: Chang
         value={value}
         onChange={onChange}
         className={cn(
-          'w-full h-[42px] rounded border border-[#ced4da] bg-white px-3 text-[14px] text-slate-800 appearance-none',
+          'w-full h-[42px] rounded border border-[var(--apex-border)] bg-white px-3 text-[14px] text-slate-800 appearance-none',
           !value && 'text-slate-400',
         )}
       >
@@ -265,7 +277,7 @@ function Txt({ value, onChange, label }: { value: string; onChange: Change; labe
       value={value}
       onChange={onChange}
       placeholder={label}
-      className="w-full h-[42px] rounded border border-[#ced4da] bg-white px-3 text-[14px] text-slate-800 placeholder:text-slate-400 outline-none focus:border-[#2960b6]"
+      className="w-full h-[42px] rounded border border-[var(--apex-border)] bg-white px-3 text-[14px] text-slate-800 placeholder:text-slate-400 outline-none focus:border-[var(--apex-blue)]"
     />
   )
 }
@@ -278,7 +290,7 @@ function DateF({ value, onChange, label }: { value: string; onChange: Change; la
         type="date"
         value={value}
         onChange={onChange}
-        className="w-full h-[42px] rounded border border-[#ced4da] bg-white px-3 text-[14px] text-slate-800 outline-none focus:border-[#2960b6]"
+        className="w-full h-[42px] rounded border border-[var(--apex-border)] bg-white px-3 text-[14px] text-slate-800 outline-none focus:border-[var(--apex-blue)]"
       />
     </div>
   )
@@ -290,9 +302,9 @@ function GroupRows({ g, gi, cols, collapsed, onToggle }: {
   return (
     <>
       {g.title && (
-        <tr className="bg-[#c0defa] text-slate-800">
+        <tr className="bg-[var(--apex-row-group)] text-slate-800">
           <td className="py-2 px-2">
-            <button type="button" onClick={onToggle} className="h-6 w-6 rounded bg-[#2960b6] text-white flex items-center justify-center" aria-label="طي">
+            <button type="button" onClick={onToggle} className="h-6 w-6 rounded bg-[var(--apex-blue)] text-white flex items-center justify-center" aria-label="طي">
               {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
             </button>
           </td>
@@ -336,25 +348,25 @@ export function ReportIllustration() {
   return (
     <div className="flex justify-center py-14">
       <svg width="270" height="260" viewBox="0 0 270 260" fill="none" aria-hidden="true">
-        <rect x="8" y="30" width="200" height="150" rx="6" fill="#fff" stroke="#2e3f66" strokeWidth="6" />
-        <rect x="30" y="52" width="70" height="8" rx="3" fill="#2e3f66" />
-        <rect x="30" y="70" width="90" height="8" rx="3" fill="#2e3f66" />
-        <rect x="30" y="88" width="60" height="8" rx="3" fill="#2e3f66" />
-        <rect x="30" y="106" width="80" height="8" rx="3" fill="#2e3f66" />
-        <rect x="34" y="140" width="16" height="30" rx="2" fill="#fff" stroke="#2e3f66" strokeWidth="5" />
-        <rect x="60" y="126" width="16" height="44" rx="2" fill="#4caf50" stroke="#2e3f66" strokeWidth="5" />
-        <rect x="86" y="118" width="16" height="52" rx="2" fill="#fff" stroke="#2e3f66" strokeWidth="5" />
-        <rect x="112" y="136" width="16" height="34" rx="2" fill="#4caf50" stroke="#2e3f66" strokeWidth="5" />
-        <polyline points="130,120 152,100 172,110 196,80 214,70" fill="none" stroke="#2e3f66" strokeWidth="6" strokeLinecap="round" />
-        <circle cx="130" cy="120" r="7" fill="#4a7ad9" stroke="#2e3f66" strokeWidth="4" />
-        <circle cx="152" cy="100" r="7" fill="#4a7ad9" stroke="#2e3f66" strokeWidth="4" />
-        <circle cx="172" cy="110" r="7" fill="#4a7ad9" stroke="#2e3f66" strokeWidth="4" />
-        <circle cx="196" cy="80" r="7" fill="#4a7ad9" stroke="#2e3f66" strokeWidth="4" />
-        <circle cx="228" cy="50" r="22" fill="#4a7ad9" stroke="#2e3f66" strokeWidth="6" />
-        <circle cx="190" cy="205" r="40" fill="#fff" stroke="#2e3f66" strokeWidth="6" />
-        <path d="M190 165 A40 40 0 0 1 230 205 L210 205 A20 20 0 0 0 190 185 Z" fill="#4a7ad9" />
-        <path d="M150 205 A40 40 0 0 1 190 165 L190 185 A20 20 0 0 0 170 205 Z" fill="#4caf50" />
-        <circle cx="190" cy="205" r="14" fill="#fff" stroke="#2e3f66" strokeWidth="6" />
+        <rect x="8" y="30" width="200" height="150" rx="6" fill="#fff" stroke="var(--apex-navy)" strokeWidth="6" />
+        <rect x="30" y="52" width="70" height="8" rx="3" fill="var(--apex-navy)" />
+        <rect x="30" y="70" width="90" height="8" rx="3" fill="var(--apex-navy)" />
+        <rect x="30" y="88" width="60" height="8" rx="3" fill="var(--apex-navy)" />
+        <rect x="30" y="106" width="80" height="8" rx="3" fill="var(--apex-navy)" />
+        <rect x="34" y="140" width="16" height="30" rx="2" fill="#fff" stroke="var(--apex-navy)" strokeWidth="5" />
+        <rect x="60" y="126" width="16" height="44" rx="2" fill="var(--apex-success)" stroke="var(--apex-navy)" strokeWidth="5" />
+        <rect x="86" y="118" width="16" height="52" rx="2" fill="#fff" stroke="var(--apex-navy)" strokeWidth="5" />
+        <rect x="112" y="136" width="16" height="34" rx="2" fill="var(--apex-success)" stroke="var(--apex-navy)" strokeWidth="5" />
+        <polyline points="130,120 152,100 172,110 196,80 214,70" fill="none" stroke="var(--apex-navy)" strokeWidth="6" strokeLinecap="round" />
+        <circle cx="130" cy="120" r="7" fill="var(--apex-blue-accent)" stroke="var(--apex-navy)" strokeWidth="4" />
+        <circle cx="152" cy="100" r="7" fill="var(--apex-blue-accent)" stroke="var(--apex-navy)" strokeWidth="4" />
+        <circle cx="172" cy="110" r="7" fill="var(--apex-blue-accent)" stroke="var(--apex-navy)" strokeWidth="4" />
+        <circle cx="196" cy="80" r="7" fill="var(--apex-blue-accent)" stroke="var(--apex-navy)" strokeWidth="4" />
+        <circle cx="228" cy="50" r="22" fill="var(--apex-blue-accent)" stroke="var(--apex-navy)" strokeWidth="6" />
+        <circle cx="190" cy="205" r="40" fill="#fff" stroke="var(--apex-navy)" strokeWidth="6" />
+        <path d="M190 165 A40 40 0 0 1 230 205 L210 205 A20 20 0 0 0 190 185 Z" fill="var(--apex-blue-accent)" />
+        <path d="M150 205 A40 40 0 0 1 190 165 L190 185 A20 20 0 0 0 170 205 Z" fill="var(--apex-success)" />
+        <circle cx="190" cy="205" r="14" fill="#fff" stroke="var(--apex-navy)" strokeWidth="6" />
       </svg>
     </div>
   )

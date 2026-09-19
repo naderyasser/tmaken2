@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { EmptyState } from '@/components/hr/ui/empty-state'
 import { cn } from '@/lib/utils'
 
 interface Emp { name: string; employee_name: string; employee_number?: string; branch?: string }
@@ -14,7 +15,7 @@ interface AttendanceRow { name: string; employee: string; employee_name?: string
 
 function today() { return new Date().toISOString().slice(0, 10) }
 
-const FIELD = 'h-[42px] rounded border border-[#ced4da] bg-white px-3 text-[14px] text-slate-800 outline-none focus:border-[#2960b6]'
+const FIELD = 'h-[42px] rounded border border-[var(--apex-border)] bg-white px-3 text-[14px] text-slate-800 outline-none focus:border-[var(--apex-blue)]'
 
 /**
  * «إلغاء ترحيل الحركات» — Apex layout: من تاريخ | إلى تاريخ | [+ تحديد الموظفين]
@@ -107,7 +108,7 @@ export function CancelTransactionsPage() {
         <button
           type="button"
           onClick={() => setPickerOpen(true)}
-          className="h-[58px] px-5 rounded bg-[#2960b6] text-white text-[15px] flex items-center gap-2 hover:bg-[#2455a3]"
+          className="h-[58px] px-5 rounded bg-[var(--apex-blue)] text-white text-[15px] flex items-center gap-2 hover:bg-[var(--apex-blue-hover)]"
         >
           <Plus className="h-4 w-4" />
           <span className="text-center leading-tight">تحديد<br />الموظفين{selected.size ? ` (${selected.size})` : ''}</span>
@@ -116,7 +117,7 @@ export function CancelTransactionsPage() {
           type="button"
           disabled={!preview?.length || working}
           onClick={() => setConfirm(true)}
-          className="h-[42px] px-5 rounded text-white text-[15px] bg-[#e9a3a3] disabled:opacity-90 enabled:bg-[#f95f5f] enabled:hover:bg-[#e54a4a]"
+          className="h-[42px] px-5 rounded text-white text-[15px] bg-[var(--apex-red-muted)] disabled:opacity-90 enabled:bg-[var(--apex-red)] enabled:hover:bg-[var(--apex-red-dark)]"
         >
           إلغاء ترحيل الحركات
         </button>
@@ -126,13 +127,16 @@ export function CancelTransactionsPage() {
       {preview && (
         <div className="mt-6 bg-white rounded-sm shadow-sm">
           {loading ? (
-            <div className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-[#2960b6]" /></div>
+            <div className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-[var(--apex-blue)]" /></div>
           ) : preview.length === 0 ? (
-            <div className="py-8 text-center text-slate-500 text-[14px]">لا توجد حركات مرحّلة للموظفين المحددين في هذه الفترة</div>
+            <EmptyState
+              title="لا توجد حركات مرحّلة في هذه الفترة"
+              description="اختر موظفين ونطاق تاريخ ثم اضغط معاينة"
+            />
           ) : (
             <table className="w-full text-[14px]">
               <thead>
-                <tr className="bg-[#bcc2d1] text-slate-800">
+                <tr className="bg-[var(--apex-thead)] text-slate-800">
                   <th className="py-3 px-3 text-right">الكود</th>
                   <th className="py-3 px-3 text-right">الموظف</th>
                   <th className="py-3 px-3 text-right">التاريخ</th>
@@ -163,7 +167,7 @@ export function CancelTransactionsPage() {
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           </div>
           <div className="flex items-center justify-between text-[13px] text-slate-600 px-1">
-            <button type="button" className="text-[#2960b6]" onClick={() => setSelected(new Set(filteredEmps.map((e) => e.name)))}>تحديد الكل</button>
+            <button type="button" className="text-[var(--apex-blue)]" onClick={() => setSelected(new Set(filteredEmps.map((e) => e.name)))}>تحديد الكل</button>
             <button type="button" className="text-red-600 flex items-center gap-1" onClick={() => setSelected(new Set())}><X className="h-3.5 w-3.5" />إلغاء التحديد</button>
           </div>
           <div className="max-h-80 overflow-y-auto border rounded">
@@ -177,7 +181,7 @@ export function CancelTransactionsPage() {
             ))}
           </div>
           <DialogFooter className="sm:justify-start">
-            <Button onClick={() => setPickerOpen(false)} className="bg-[#2960b6] hover:bg-[#2455a3]">تم ({selected.size})</Button>
+            <Button onClick={() => setPickerOpen(false)} className="bg-[var(--apex-blue)] hover:bg-[var(--apex-blue-hover)]">تم ({selected.size})</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

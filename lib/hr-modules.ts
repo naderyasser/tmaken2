@@ -33,6 +33,21 @@ export interface FieldDef {
   fallbackField?: string
   /** Render as Apex status cell: green dot + «نشط» / grey dot + «غير نشط». */
   statusDot?: { on: string; onLabel?: string; offLabel?: string }
+  /**
+   * Render as an Apex doc-lifecycle pill (مسودة / معتمد / مرفوض / ملغي) derived
+   * from `docstatus` (+ `status` when the doctype carries one) instead of the
+   * raw field text. Requires `docstatus` to also be listed in `fields` so it's
+   * fetched. Used on the submittable HR request lists.
+   */
+  statusBadge?: boolean
+  /** Only shown/sent on CREATE — hidden from the edit dialog entirely (e.g. an
+   *  initial password, or a one-time role picker that doesn't apply to an
+   *  already-existing account). */
+  createOnly?: boolean
+  /** Shown (disabled) on the edit dialog but excluded from the PUT payload —
+   *  for fields where the same write op would have an unwanted side effect
+   *  (e.g. changing `email` on User renames the account). */
+  lockedOnEdit?: boolean
 }
 
 export interface ListModuleConfig {
@@ -74,6 +89,42 @@ export interface ListModuleConfig {
   drawerFilters?: DrawerFilter[]
   /** Doctype requires `company` on create; inject the active company automatically. */
   needsCompany?: boolean
+  /**
+   * Whitelisted method to call (with the form payload as args) instead of a
+   * plain POST on create — for doctypes where inserting the record isn't the
+   * whole story (Biometric Device also needs a gateway route; see
+   * base_meena.biometric_management.adms.register_device).
+   */
+  createMethod?: string
+  /** Same idea for delete: called with { [deleteArgField || 'name']: row.name }. */
+  deleteMethod?: string
+  deleteArgField?: string
+  /** Always-visible info banner above the table (e.g. device network-setup steps). */
+  noteBanner?: string
+  /**
+   * One of the submittable HR request doctypes (Leave Application, Attendance
+   * Request, Permission Request). Turns on the per-row «اعتماد / رفض / إلغاء»
+   * menu items and the «تنشيط ▾» bulk actions, both calling
+   * base_meena.api.hr_requests.{approve_request,reject_request,cancel_request}
+   * with { doctype: config.doctype, name }.
+   */
+  requestActions?: boolean
+  /**
+   * Transform the built create payload right before it's sent to
+   * `createMethod` (create only — never applied on edit/PUT). Use it when the
+   * whitelisted method's kwargs don't line up 1:1 with the form's field names
+   * (renames, Arabic-label → backend-value translation, bundling several
+   * fields into one array param, …).
+   */
+  mapCreatePayload?: (payload: Record<string, any>) => Record<string, any>
+  /**
+   * Compute extra synthetic fields on each row right after it's fetched, for
+   * use as a `drawerFilters` field when the raw value doesn't equality-match a
+   * nice option label (booleans, empty checks) — the drawer's filter is plain
+   * string equality, so this is the escape hatch instead of teaching it new
+   * comparison kinds.
+   */
+  deriveFields?: { as: string; from: (row: Record<string, any>) => string }[]
 }
 
 export interface SettingsModuleConfig {
@@ -86,6 +137,25 @@ export interface SettingsModuleConfig {
 }
 
 export type ModuleConfig = ListModuleConfig | SettingsModuleConfig
+
+/** «العطلة الأسبوعية» select shows Arabic weekday names; create_holiday_list
+ *  wants the English Frappe weekday value. */
+const WEEKDAY_AR_TO_EN: Record<string, string> = {
+  'الأحد': 'Sunday', 'الاثنين': 'Monday', 'الثلاثاء': 'Tuesday', 'الأربعاء': 'Wednesday',
+  'الخميس': 'Thursday', 'الجمعة': 'Friday', 'السبت': 'Saturday',
+}
+
+/** «الصلاحية» select on the new-user dialog shows Arabic module names;
+ *  company_create_user wants the module id it maps to concrete roles itself. */
+const ROLE_LABEL_TO_MODULE: Record<string, string> = {
+  'الموارد البشرية': 'hr',
+  'المحاسبة': 'accounting',
+  'المبيعات': 'cashier',
+  'المناديب': 'salesReps',
+  'المخزون': 'inventory',
+  'المشتريات': 'purchases',
+  'العقارات': 'realEstate',
+}
 
 export const HR_MODULES: Record<string, ModuleConfig> = {
   // ── البيانات الاساسية ────────────────────────────────────────────────────
@@ -103,12 +173,16 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     addHref: '/employee/new',
     editHref: (name) => `/employee/${encodeURIComponent(name)}`,
     linkField: 'employee_name',
+    deriveFields: [
+      { as: '_no_device', from: (r) => (r.attendance_device_id ? '' : 'نعم') },
+    ],
     drawerFilters: [
       { field: 'branch', label: 'الفروع', source: 'branches' },
       { field: 'department', label: 'الإدارة', source: 'departments' },
       { field: 'designation', label: 'الوظائف', source: 'designations' },
       { field: 'default_shift', label: 'الدوام', source: 'shifts' },
       { field: 'status', label: 'الحالة', options: ['Active', 'Inactive', 'Suspended', 'Left'] },
+      { field: '_no_device', label: 'بلا رقم بصمة', options: ['نعم'] },
     ],
     fields: [
       { field: 'employee_number', label: 'رقم', fallbackField: 'name' },
@@ -116,6 +190,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'designation', label: 'الوظيفة' },
       { field: 'branch', label: 'فرع' },
       { field: 'default_shift', label: 'الدوام' },
+      { field: 'attendance_device_id', label: 'رقم البصمة' },
       { field: 'status', label: 'الحالة', statusDot: { on: 'Active' } },
       { field: 'department', label: 'الإدارة', inTable: false, inForm: false },
     ],
@@ -134,6 +209,9 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     print: false,
     linkField: 'branch',
     needsCompany: true,
+    drawerFilters: [
+      { field: 'status', label: 'الحالة', options: ['Active', 'Inactive'] },
+    ],
     fields: [
       { field: 'idx', label: 'رقم', inForm: false },
       { field: 'branch', label: 'اسم الفرع', required: true },
@@ -160,32 +238,12 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'name', label: 'إسم الدوام', required: true },
       { field: 'shift_kind', label: 'نوع الدوام', inForm: false },
       { field: 'hours', label: 'الساعات', inForm: false },
-      { field: 'start_time', label: 'بداية الدوام', type: 'time', inTable: false },
-      { field: 'end_time', label: 'نهاية الدوام', type: 'time', inTable: false },
+      { field: 'start_time', label: 'بداية الدوام', type: 'time', inTable: false, required: true },
+      { field: 'end_time', label: 'نهاية الدوام', type: 'time', inTable: false, required: true },
       { field: 'enable_late_entry_marking', label: 'احتساب التأخير', type: 'checkbox', inTable: false },
       { field: 'late_entry_grace_period', label: 'سماحية التأخير (دقيقة)', type: 'number', inTable: false },
       { field: 'enable_early_exit_marking', label: 'احتساب الانصراف المبكر', type: 'checkbox', inTable: false },
       { field: 'early_exit_grace_period', label: 'سماحية الانصراف (دقيقة)', type: 'number', inTable: false },
-    ],
-  },
-
-  devices: {
-    kind: 'list',
-    title: 'الاجهزة',
-    subtitle: 'أجهزة البصمة',
-    doctype: 'Biometric Device',
-    method: 'base_meena.api.hr_lists.devices',
-    addLabel: 'اضافة',
-    searchPlaceholder: 'ابحث بالاسم',
-    noIndex: true,
-    fields: [
-      { field: 'idx', label: 'م', inForm: false },
-      { field: 'serial', label: 'الرقم التسلسلي', inForm: false },
-      { field: 'serial_number', label: 'الرقم التسلسلي', required: true, inTable: false },
-      { field: 'device_name', label: 'اسم الجهاز', required: true },
-      { field: 'branch', label: 'فرع', inForm: false },
-      { field: 'location', label: 'الفرع / الموقع', inTable: false },
-      { field: 'status', label: 'الحالة', inForm: false },
     ],
   },
 
@@ -199,10 +257,31 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     searchPlaceholder: 'ابحث باسم الموظف او اسم المستخدم',
     noIndex: true,
     print: false,
+    // Company-scoped user creation goes through the same safe, role-mapping
+    // endpoint the company-admin panel uses — a plain POST /api/resource/User
+    // both 417s (missing required doctype fields) and would let a caller set
+    // arbitrary roles directly. See base_meena.base_meena.api.company_create_user.
+    createMethod: 'base_meena.base_meena.api.company_create_user',
+    mapCreatePayload: (p) => ({
+      email: p.email,
+      full_name: p.first_name,
+      username: p.username || undefined,
+      password: p.password || undefined,
+      modules: [ROLE_LABEL_TO_MODULE[p.role] || 'hr'],
+    }),
+    deriveFields: [
+      { as: '_enabled_label', from: (r) => (r.enabled ? 'نشط' : 'غير نشط') },
+    ],
+    drawerFilters: [
+      { field: '_enabled_label', label: 'الحالة', options: ['نشط', 'غير نشط'] },
+    ],
     fields: [
       { field: 'employee_name', label: 'اسم الموظف', inForm: false },
-      { field: 'email', label: 'البريد الالكتروني', required: true, inTable: false },
+      // `email` renames the User doctype's own name on PUT — locked once created.
+      { field: 'email', label: 'البريد الالكتروني', required: true, inTable: false, lockedOnEdit: true },
       { field: 'first_name', label: 'الاسم', required: true, inTable: false },
+      { field: 'password', label: 'كلمة المرور', required: true, inTable: false, inForm: true, createOnly: true },
+      { field: 'role', label: 'الصلاحية', type: 'select', options: Object.keys(ROLE_LABEL_TO_MODULE), required: true, inTable: false, createOnly: true },
       { field: 'username', label: 'اسم المستخدم' },
       { field: 'roles', label: 'اخري', inForm: false },
       { field: 'enabled', label: 'الحالة', type: 'checkbox', statusDot: { on: 1 as any } },
@@ -219,6 +298,8 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     searchPlaceholder: 'ابحث باسم الصلاحية',
     noIndex: true,
     print: false,
+    editHref: (name) => `/hr/role-permissions/${encodeURIComponent(name)}`,
+    linkField: 'perms',
     fields: [
       { field: 'role_name', label: 'اسم الصلاحية', required: true },
       { field: 'perms', label: 'الصلاحيات', inForm: false },
@@ -251,6 +332,11 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     filters: [['user_id', 'is', 'not set']],
     searchPlaceholder: 'ابحث بالكود',
     addLabel: 'إضافة موظف',
+    // The generic add dialog only ever collects the fields listed below, which
+    // omits several DB-required Employee fields (e.g. date_of_joining) — every
+    // create 417d. Route to the same full employee form the `employees` module
+    // uses instead of a bespoke dialog.
+    addHref: '/employee/new',
     actionsMenu: true,
     active: { field: 'status', on: 'Active', off: 'Inactive' },
     noIndex: true,
@@ -357,11 +443,23 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     searchPlaceholder: 'ابحث باسم العطلة الرسمية',
     actionsMenu: true,
     print: false,
+    needsCompany: true,
+    // Inserting the Holiday List row directly never generates its actual
+    // `holidays` child rows — the list of dates HRMS attendance/leave logic
+    // reads. Go through the endpoint that builds them from from/to + weekly_off.
+    createMethod: 'base_meena.api.hr_requests.create_holiday_list',
+    mapCreatePayload: (p) => ({
+      holiday_list_name: p.holiday_list_name,
+      from_date: p.from_date,
+      to_date: p.to_date,
+      weekly_off: WEEKDAY_AR_TO_EN[p.weekly_off] || p.weekly_off,
+      company: p.company,
+    }),
     fields: [
       { field: 'holiday_list_name', label: 'اسم العطلة', required: true },
       { field: 'from_date', label: 'من تاريخ', type: 'date', required: true },
       { field: 'to_date', label: 'إلى تاريخ', type: 'date', required: true },
-      { field: 'weekly_off', label: 'العطلة الأسبوعية', type: 'select', options: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] },
+      { field: 'weekly_off', label: 'العطلة الأسبوعية', type: 'select', required: true, options: Object.keys(WEEKDAY_AR_TO_EN) },
     ],
   },
 
@@ -397,6 +495,10 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     searchPlaceholder: 'ابحث بالكود او اسم الموظف',
     actionsMenu: true,
     active: { field: 'status', on: 'Approved', off: 'Rejected' },
+    requestActions: true,
+    // Inserting the Leave Application row directly skips the Leave Allocation
+    // balance check/creation the real request flow needs.
+    createMethod: 'base_meena.api.hr_requests.create_leave_application',
     noIndex: true,
     drawerFilters: [
       { field: 'leave_type', label: 'نوع الاجازة', source: 'leave_types' },
@@ -410,8 +512,13 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'from_date', label: 'من تاريخ', type: 'date', required: true },
       { field: 'to_date', label: 'إلى تاريخ', type: 'date', required: true },
       { field: 'total_leave_days', label: 'عدد الأيام', type: 'number', inForm: false },
-      { field: 'status', label: 'الحالة', type: 'select', options: ['Open', 'Approved', 'Rejected', 'Cancelled'] },
+      // Approval now happens through the ⋮ menu / bulk «تنشيط» (approve_request /
+      // reject_request / cancel_request) — the create form no longer sets it,
+      // and create_leave_application doesn't take a `status` kwarg anyway.
+      { field: 'status', label: 'الحالة', inForm: false, statusBadge: true },
+      { field: 'docstatus', label: 'docstatus', inTable: false, inForm: false },
       { field: 'description', label: 'السبب', type: 'textarea', inTable: false },
+      { field: 'half_day', label: 'نصف يوم', type: 'checkbox', inTable: false },
     ],
   },
 
@@ -425,7 +532,22 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     addLabel: 'اضافة طلب بصمة',
     searchPlaceholder: 'ابحث بالكود او اسم الموظف',
     actionsMenu: true,
+    requestActions: true,
     noIndex: true,
+    // Inserting the row directly through /api/resource surfaces the raw English
+    // overlap-validation error (D2, round-1). Route through the wrapped
+    // endpoint so HRMS errors come back translated to Arabic.
+    createMethod: 'base_meena.api.hr_requests.create_request',
+    mapCreatePayload: (p) => ({ doctype: 'Attendance Request', values: p }),
+    // Attendance Request carries no `status` field (only docstatus) — derive a
+    // matching label so the drawer can still filter by lifecycle state.
+    deriveFields: [
+      { as: '_status_label', from: (r) => (Number(r.docstatus ?? 0) === 2 ? 'ملغي' : Number(r.docstatus ?? 0) === 1 ? 'معتمد' : 'مسودة') },
+    ],
+    drawerFilters: [
+      { field: '_status_label', label: 'الحالة', options: ['مسودة', 'معتمد', 'ملغي'] },
+      { field: 'from_date', label: 'التاريخ', date: true },
+    ],
     fields: [
       { field: 'employee', label: 'الموظف', type: 'link', link: { doctype: 'Employee', titleField: 'employee_name', filters: [['status', '=', 'Active']] }, required: true, inTable: false },
       { field: 'employee_name', label: 'اسم الموظف', inForm: false },
@@ -433,6 +555,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'to_date', label: 'إلى تاريخ', type: 'date', required: true },
       { field: 'reason', label: 'السبب', type: 'select', options: ['Work From Home', 'On Duty'], required: true },
       { field: 'explanation', label: 'التفاصيل', type: 'textarea', inTable: false },
+      { field: 'docstatus', label: 'docstatus', inTable: false, inForm: false },
     ],
   },
 
@@ -446,7 +569,12 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     searchPlaceholder: 'ابحث بالكود او اسم الموظف',
     actionsMenu: true,
     active: { field: 'status', on: 'Approved', off: 'Rejected' },
+    requestActions: true,
     noIndex: true,
+    // Same fix as fingerprint-requests (D2, round-1): route creation through the
+    // wrapped endpoint so HRMS validation errors come back translated to Arabic.
+    createMethod: 'base_meena.api.hr_requests.create_request',
+    mapCreatePayload: (p) => ({ doctype: 'Permission Request', values: p }),
     drawerFilters: [
       { field: 'status', label: 'الحالة', options: ['Draft', 'Pending', 'Approved', 'Rejected'] },
       { field: 'permission_date', label: 'التاريخ', date: true },
@@ -456,10 +584,11 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'employee', label: 'الموظف', type: 'link', link: { doctype: 'Employee', titleField: 'employee_name', filters: [['status', '=', 'Active']] }, required: true, inTable: false },
       { field: 'employee_name', label: 'اسم الموظف', inForm: false },
       { field: 'permission_date', label: 'التاريخ', type: 'date', required: true },
-      { field: 'from_time', label: 'من الساعة', type: 'time' },
-      { field: 'to_time', label: 'إلى الساعة', type: 'time' },
+      { field: 'from_time', label: 'من الساعة', type: 'time', required: true },
+      { field: 'to_time', label: 'إلى الساعة', type: 'time', required: true },
       { field: 'reason', label: 'السبب', type: 'textarea', required: true },
-      { field: 'status', label: 'الحالة', type: 'select', options: ['Draft', 'Pending', 'Approved', 'Rejected'] },
+      { field: 'status', label: 'الحالة', type: 'select', options: ['Draft', 'Pending', 'Approved', 'Rejected'], statusBadge: true },
+      { field: 'docstatus', label: 'docstatus', inTable: false, inForm: false },
     ],
   },
 
@@ -521,24 +650,6 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     ],
   },
 
-  'attendance-settings': {
-    kind: 'list',
-    title: 'إعدادات الحضور والانصراف',
-    subtitle: 'قواعد التأخير والخروج المبكر والعمل الإضافي لكل مناوبة',
-    doctype: 'Shift Type',
-    orderBy: 'name asc',
-    addLabel: 'إضافة مناوبة',
-    searchPlaceholder: 'إبحث بإسم المناوبة',
-    fields: [
-      { field: 'name', label: 'المناوبة', required: true },
-      { field: 'enable_late_entry_marking', label: 'تسجيل التأخير', type: 'checkbox' },
-      { field: 'late_entry_grace_period', label: 'سماحية التأخير (د)', type: 'number' },
-      { field: 'enable_early_exit_marking', label: 'تسجيل الخروج المبكر', type: 'checkbox' },
-      { field: 'early_exit_grace_period', label: 'سماحية الخروج (د)', type: 'number' },
-      { field: 'allow_overtime', label: 'السماح بالعمل الإضافي', type: 'checkbox' },
-    ],
-  },
-
   'requests-settings': {
     kind: 'list',
     title: 'اعدادات الطلبات',
@@ -575,26 +686,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'custom_address_en', label: 'العنوان بالانجليزية' },
     ],
   },
-
-  'subscription-info': {
-    kind: 'list',
-    title: 'معلومات الاشتراك',
-    subtitle: 'اشتراكات الجهات والأطراف',
-    doctype: 'Subscription',
-    orderBy: 'modified desc',
-    searchPlaceholder: 'إبحث بإسم الاشتراك',
-    fields: [
-      { field: 'name', label: 'الاشتراك' },
-      { field: 'party', label: 'الجهة' },
-      { field: 'status', label: 'الحالة' },
-      { field: 'start_date', label: 'من تاريخ', type: 'date' },
-      { field: 'end_date', label: 'إلى تاريخ', type: 'date' },
-    ],
-  },
 }
-
-/** Modules that have a bespoke page instead of the generic list/settings renderer. */
-export const BESPOKE_MODULES = new Set(['cancel-transactions', 'attendance-settings', 'settings', 'subscription-info'])
 
 export function getModuleConfig(id: string): ModuleConfig | undefined {
   return HR_MODULES[id]

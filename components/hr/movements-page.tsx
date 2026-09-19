@@ -64,7 +64,7 @@ export function MovementsPage() {
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="h-[38px] px-4 rounded bg-[#2eaf7d] text-white text-[14px] flex items-center gap-1.5 hover:bg-[#279568]"
+            className="h-[38px] px-4 rounded bg-[var(--apex-green)] text-white text-[14px] flex items-center gap-1.5 hover:bg-[var(--apex-green-dark)]"
           >
             <Plus className="h-4 w-4" />
             اضافة
@@ -81,7 +81,7 @@ export function MovementsPage() {
               <select
                 value={form.employee}
                 onChange={(e) => setForm((f) => ({ ...f, employee: e.target.value }))}
-                className="w-full h-10 rounded border border-[#ced4da] bg-white px-3 text-[14px]"
+                className="w-full h-10 rounded border border-[var(--apex-border)] bg-white px-3 text-[14px]"
               >
                 <option value="">اختر الموظف</option>
                 {emps.map((e) => <option key={e.name} value={e.name}>{e.employee_number || e.name} — {e.employee_name}</option>)}
@@ -102,7 +102,7 @@ export function MovementsPage() {
               <select
                 value={form.log_type}
                 onChange={(e) => setForm((f) => ({ ...f, log_type: e.target.value }))}
-                className="w-full h-10 rounded border border-[#ced4da] bg-white px-3 text-[14px]"
+                className="w-full h-10 rounded border border-[var(--apex-border)] bg-white px-3 text-[14px]"
               >
                 <option value="IN">حضور</option>
                 <option value="OUT">إنصراف</option>
@@ -110,7 +110,7 @@ export function MovementsPage() {
             </div>
           </div>
           <DialogFooter className="gap-2 sm:justify-start">
-            <Button onClick={save} disabled={saving} className="bg-[#2eaf7d] hover:bg-[#279568]">
+            <Button onClick={save} disabled={saving} className="bg-[var(--apex-green)] hover:bg-[var(--apex-green-dark)]">
               {saving && <Loader2 className="h-4 w-4 animate-spin ml-1" />}حفظ
             </Button>
             <Button variant="outline" onClick={() => setOpen(false)}>اغلاق</Button>

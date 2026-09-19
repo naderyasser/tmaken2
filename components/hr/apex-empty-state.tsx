@@ -1,8 +1,20 @@
-/** Apex list empty state — magnifier illustration + «لا يوجد نتائج للبحث ابحث مرة اخري». */
-export function ApexEmptyState({ text = 'لا يوجد نتائج للبحث ابحث مرة اخري' }: { text?: string }) {
+/** Apex list empty state — magnifier illustration + «لا يوجد نتائج للبحث ابحث مرة اخري».
+ *  `action` is optional and additive (e.g. an «اضافة» button) — omitting it
+ *  renders byte-identical to before. The svg keeps its exact 300x300 look at
+ *  sm+ (unchanged desktop); below that it's capped at 220px so it doesn't
+ *  overflow narrow screens. */
+export function ApexEmptyState({
+  text = 'لا يوجد نتائج للبحث ابحث مرة اخري',
+  action,
+}: { text?: string; action?: React.ReactNode }) {
   return (
     <div className="flex flex-col items-center justify-center gap-8 py-6 text-center">
-      <svg width="300" height="300" viewBox="0 0 300 300" fill="none" aria-hidden="true">
+      <svg
+        viewBox="0 0 300 300"
+        fill="none"
+        aria-hidden="true"
+        className="h-[220px] w-[220px] sm:h-[300px] sm:w-[300px]"
+      >
         <g stroke="#3a4a63" strokeWidth="9" strokeLinecap="round">
           <line x1="60" y1="70" x2="78" y2="86" />
           <line x1="150" y1="40" x2="150" y2="62" />
@@ -19,6 +31,7 @@ export function ApexEmptyState({ text = 'لا يوجد نتائج للبحث ا�
         <path d="M212 262 l7 -15 l7 15 l15 7 l-15 7 l-7 15 l-7 -15 l-15 -7 z" fill="#d6ecc6" />
       </svg>
       <p className="text-[22px] font-bold text-slate-800">{text}</p>
+      {action && <div>{action}</div>}
     </div>
   )
 }

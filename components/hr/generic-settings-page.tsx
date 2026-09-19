@@ -104,12 +104,12 @@ export function GenericSettingsPage({ config, recordName }: { config: SettingsMo
 
         <div className="flex items-center gap-2 shrink-0">
           <Button onClick={save} disabled={saving || loading}
-            className="bg-[#2eaf7d] hover:bg-[#279568] text-white rounded px-5 h-9 font-bold text-[13px]">
+            className="bg-[var(--apex-green)] hover:bg-[var(--apex-green-dark)] text-white rounded px-5 h-9 font-bold text-[13px]">
             {saving ? <Loader2 className="h-4 w-4 ml-1.5 animate-spin" /> : <Check className="h-4 w-4 ml-1.5" strokeWidth={3} />}
             حفظ
           </Button>
           <Button onClick={load} disabled={saving || loading}
-            className="bg-[#f95f5f] hover:bg-[#e54a4a] text-white rounded px-5 h-9 font-bold text-[13px]">
+            className="bg-[var(--apex-red)] hover:bg-[var(--apex-red-dark)] text-white rounded px-5 h-9 font-bold text-[13px]">
             <X className="h-4 w-4 ml-1.5" strokeWidth={3} />
             اغلاق
           </Button>
@@ -126,7 +126,7 @@ export function GenericSettingsPage({ config, recordName }: { config: SettingsMo
       {/* ── Form ── */}
       <div className="bg-white rounded shadow-sm border border-slate-200/60 p-6">
         {loading ? (
-          <div className="py-16 text-center"><Loader2 className="h-8 w-8 animate-spin text-[#2e71c8] mx-auto" /></div>
+          <div className="py-16 text-center"><Loader2 className="h-8 w-8 animate-spin text-[var(--apex-blue-light)] mx-auto" /></div>
         ) : (
           <div className="space-y-8">
             <section className="space-y-5">

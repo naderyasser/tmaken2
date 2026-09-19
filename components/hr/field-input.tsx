@@ -57,51 +57,73 @@ export function toPayload(fields: FieldDef[], form: Record<string, any>): Record
   return out
 }
 
-/** A single labelled field editor used by both the list form and settings pages. */
+/** A single labelled field editor used by both the list form and settings pages.
+ *  `error`, when set, renders a small red line under the control (in addition
+ *  to any toast) — used for inline required-field validation. Everything else
+ *  is unchanged from before: same markup, same classes, same look. */
 export function FieldInput({
-  field, value, onChange,
-}: { field: FieldDef; value: any; onChange: (v: any) => void }) {
+  field, value, onChange, error,
+}: { field: FieldDef; value: any; onChange: (v: any) => void; error?: string }) {
   if (field.type === 'checkbox') {
     return (
-      <div className="flex items-center gap-2 h-9">
-        <Checkbox checked={!!value} onCheckedChange={(v) => onChange(!!v)} id={`f-${field.field}`} />
-        <Label htmlFor={`f-${field.field}`} className="text-[13px] text-slate-600">{field.label}</Label>
+      <div>
+        <div className="flex items-center gap-2 h-9">
+          <Checkbox checked={!!value} onCheckedChange={(v) => onChange(!!v)} id={`f-${field.field}`} aria-invalid={!!error || undefined} />
+          <Label htmlFor={`f-${field.field}`} className="text-[13px] text-slate-600">{field.label}</Label>
+        </div>
+        {error && <p className="text-[12px] text-red-500 mt-1">{error}</p>}
       </div>
     )
   }
   if (field.type === 'textarea') {
     return (
-      <Textarea
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value)}
-        rows={3}
-        className="rounded-sm border-slate-300 text-right"
-      />
+      <>
+        <Textarea
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value)}
+          rows={3}
+          aria-invalid={!!error || undefined}
+          className="rounded-sm border-slate-300 text-right"
+        />
+        {error && <p className="text-[12px] text-red-500 mt-1">{error}</p>}
+      </>
     )
   }
   if (field.type === 'link' && field.link) {
-    return <LinkSelect field={field} value={value} onChange={onChange} />
+    return (
+      <>
+        <LinkSelect field={field} value={value} onChange={onChange} />
+        {error && <p className="text-[12px] text-red-500 mt-1">{error}</p>}
+      </>
+    )
   }
   if (field.type === 'select') {
     return (
-      <Select value={value ?? ''} onValueChange={onChange}>
-        <SelectTrigger className="rounded-sm border-slate-300 text-right">
-          <SelectValue placeholder="اختر…" />
-        </SelectTrigger>
-        <SelectContent>
-          {(field.options || []).map((o) => (
-            <SelectItem key={o} value={o}>{o}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <>
+        <Select value={value ?? ''} onValueChange={onChange}>
+          <SelectTrigger aria-invalid={!!error || undefined} className="rounded-sm border-slate-300 text-right">
+            <SelectValue placeholder="اختر…" />
+          </SelectTrigger>
+          <SelectContent>
+            {(field.options || []).map((o) => (
+              <SelectItem key={o} value={o}>{o}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {error && <p className="text-[12px] text-red-500 mt-1">{error}</p>}
+      </>
     )
   }
   return (
-    <Input
-      type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'time' ? 'time' : 'text'}
-      value={value ?? ''}
-      onChange={(e) => onChange(e.target.value)}
-      className="rounded-sm border-slate-300 text-right"
-    />
+    <>
+      <Input
+        type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'time' ? 'time' : 'text'}
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+        aria-invalid={!!error || undefined}
+        className="rounded-sm border-slate-300 text-right"
+      />
+      {error && <p className="text-[12px] text-red-500 mt-1">{error}</p>}
+    </>
   )
 }

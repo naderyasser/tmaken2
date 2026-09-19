@@ -26,7 +26,7 @@ const DEFAULTS: Rules = {
 /** Apex number spinner: value on the right, ▲▼ stacked on the left. */
 function Spinner({ value, onChange, disabled }: { value: number; onChange: (v: number) => void; disabled?: boolean }) {
   return (
-    <div className={`flex items-center h-[42px] w-[160px] rounded border border-[#ced4da] bg-white ${disabled ? 'opacity-50' : ''}`}>
+    <div className={`flex items-center h-[42px] w-[160px] rounded border border-[var(--apex-border)] bg-white ${disabled ? 'opacity-50' : ''}`}>
       <input
         type="number"
         value={value}
@@ -35,8 +35,8 @@ function Spinner({ value, onChange, disabled }: { value: number; onChange: (v: n
         className="flex-1 min-w-0 w-0 h-full px-3 text-[15px] text-right outline-none bg-transparent [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
       />
       <div className="flex flex-col border-r border-slate-200 h-full w-9 shrink-0">
-        <button type="button" disabled={disabled} onClick={() => onChange(value + 1)} className="flex-1 flex items-center justify-center text-slate-500 hover:bg-slate-50"><ChevronUp className="h-4 w-4" /></button>
-        <button type="button" disabled={disabled} onClick={() => onChange(Math.max(0, value - 1))} className="flex-1 flex items-center justify-center text-slate-500 hover:bg-slate-50"><ChevronDown className="h-4 w-4" /></button>
+        <button type="button" disabled={disabled} onClick={() => onChange(value + 1)} aria-label="زيادة" className="flex-1 flex items-center justify-center text-slate-500 hover:bg-slate-50"><ChevronUp className="h-4 w-4" /></button>
+        <button type="button" disabled={disabled} onClick={() => onChange(Math.max(0, value - 1))} aria-label="إنقاص" className="flex-1 flex items-center justify-center text-slate-500 hover:bg-slate-50"><ChevronDown className="h-4 w-4" /></button>
       </div>
     </div>
   )
@@ -49,7 +49,7 @@ function Row({ label, children, check, onCheck }: {
     <div className="flex items-center justify-between gap-6 py-3">
       <label className="flex items-center gap-3 text-[16px] text-slate-800 cursor-pointer">
         {onCheck && (
-          <input type="checkbox" checked={!!check} onChange={(e) => onCheck(e.target.checked ? 1 : 0)} className="h-[18px] w-[18px] accent-[#2960b6]" />
+          <input type="checkbox" checked={!!check} onChange={(e) => onCheck(e.target.checked ? 1 : 0)} className="h-[18px] w-[18px] accent-[var(--apex-blue)]" />
         )}
         <span>{label}</span>
       </label>
@@ -108,7 +108,7 @@ export function AttendanceSettingsPage() {
         </div>
 
         {open && (loading ? (
-          <div className="py-12 text-center"><Loader2 className="h-7 w-7 animate-spin mx-auto text-[#2960b6]" /></div>
+          <div className="py-12 text-center"><Loader2 className="h-7 w-7 animate-spin mx-auto text-[var(--apex-blue)]" /></div>
         ) : (
           <div className="divide-y-0">
             <Row label="وقت اهمال الحركات بالدقائق"><Spinner value={r.ignore_window_minutes} onChange={set('ignore_window_minutes')} /></Row>
@@ -138,7 +138,7 @@ export function AttendanceSettingsPage() {
                 type="button"
                 onClick={save}
                 disabled={saving}
-                className="h-[42px] px-5 rounded bg-[#2eaf7d] text-white text-[15px] flex items-center gap-2 hover:bg-[#279568] disabled:opacity-60"
+                className="h-[42px] px-5 rounded bg-[var(--apex-green)] text-white text-[15px] flex items-center gap-2 hover:bg-[var(--apex-green-dark)] disabled:opacity-60"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                 حفظ

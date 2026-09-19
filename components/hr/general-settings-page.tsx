@@ -5,7 +5,7 @@ import { Check, ChevronDown, ChevronUp, Loader2, Paperclip } from 'lucide-react'
 import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 
-const FIELD = 'w-full h-[42px] rounded border border-[#ced4da] bg-white px-3 text-[14px] text-slate-800 outline-none focus:border-[#2960b6]'
+const FIELD = 'w-full h-[42px] rounded border border-[var(--apex-border)] bg-white px-3 text-[14px] text-slate-800 outline-none focus:border-[var(--apex-blue)]'
 
 function Accordion({ title, open, onToggle, children }: { title: string; open: boolean; onToggle: () => void; children?: React.ReactNode }) {
   return (
@@ -22,7 +22,7 @@ function Accordion({ title, open, onToggle, children }: { title: string; open: b
 function SaveBtn({ onClick, busy, label = 'حفظ' }: { onClick: () => void; busy?: boolean; label?: string }) {
   return (
     <button type="button" onClick={onClick} disabled={busy}
-      className="h-[40px] px-4 rounded bg-[#2eaf7d] text-white text-[14px] flex items-center gap-2 hover:bg-[#279568] disabled:opacity-60">
+      className="h-[40px] px-4 rounded bg-[var(--apex-green)] text-white text-[14px] flex items-center gap-2 hover:bg-[var(--apex-green-dark)] disabled:opacity-60">
       {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
       {label}
     </button>
@@ -63,10 +63,23 @@ export function GeneralSettingsPage() {
 
   const ddmmyyyy = (iso: string) => iso ? iso.split('-').reverse().join('/') : ''
 
+  const testEmailConnection = async () => {
+    setBusy('test-conn')
+    try {
+      const r: any = await frappeClient.call('base_meena.api.hr_settings.test_email_settings')
+      const res = r?.message ?? {}
+      toast(res.ok ? { title: res.message } : { title: 'فشل', description: res.message, variant: 'destructive' })
+    } catch (e: any) {
+      toast({ title: 'فشل', description: e?.message, variant: 'destructive' })
+    } finally {
+      setBusy(null)
+    }
+  }
+
   return (
     <div className="p-4 pt-6" dir="rtl">
       <Accordion title="السنة المالية" open={!!open.fy} onToggle={() => toggle('fy')}>
-        {loading ? <Loader2 className="h-6 w-6 animate-spin text-[#2960b6]" /> : (
+        {loading ? <Loader2 className="h-6 w-6 animate-spin text-[var(--apex-blue)]" /> : (
           <div className="space-y-5">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
@@ -100,9 +113,15 @@ export function GeneralSettingsPage() {
               </div>
             </L>
           </div>
-          <SaveBtn busy={busy === 'em'} onClick={() => run('em', () => frappeClient.call('base_meena.api.hr_settings.save_email_settings', {
-            email_id: em.email_id, smtp_server: em.smtp_server, display_name: em.display_name, port: em.port, secure: em.secure, password: em.password || undefined,
-          }), 'تم حفظ إعدادات البريد')} />
+          <div className="flex items-center gap-3">
+            <SaveBtn busy={busy === 'em'} onClick={() => run('em', () => frappeClient.call('base_meena.api.hr_settings.save_email_settings', {
+              email_id: em.email_id, smtp_server: em.smtp_server, display_name: em.display_name, port: em.port, secure: em.secure, password: em.password || undefined,
+            }), 'تم حفظ إعدادات البريد')} />
+            <button type="button" disabled={busy === 'test-conn'} onClick={testEmailConnection} className="h-[40px] px-4 rounded border border-[var(--apex-blue)] text-[var(--apex-blue)] text-[14px] flex items-center gap-2 hover:bg-[var(--apex-blue)]/5 disabled:opacity-60">
+              {busy === 'test-conn' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              اختبار الاتصال
+            </button>
+          </div>
 
           <div className="pt-4 space-y-4">
             <h4 className="text-[16px] text-slate-800">تجربه الارسال</h4>
@@ -110,16 +129,12 @@ export function GeneralSettingsPage() {
               <span className="text-[15px] text-slate-800">البريد الالكتروني</span>
               <input value={testTo} onChange={(e) => setTestTo(e.target.value)} className={FIELD} />
               <div className="flex items-center gap-3">
-                <a href="https://support.google.com/mail/answer/7126229" target="_blank" rel="noreferrer" className="text-[#2960b6] text-[14px] flex items-center gap-1"><Paperclip className="h-4 w-4" />اعدادات Gmail</a>
+                <a href="https://support.google.com/mail/answer/7126229" target="_blank" rel="noreferrer" className="text-[var(--apex-blue)] text-[14px] flex items-center gap-1"><Paperclip className="h-4 w-4" />اعدادات Gmail</a>
                 <SaveBtn label="ارسال" busy={busy === 'test'} onClick={() => run('test', () => frappeClient.call('base_meena.api.hr_settings.send_test_email', { to: testTo }), 'تم الإرسال')} />
               </div>
             </div>
           </div>
         </div>
-      </Accordion>
-
-      <Accordion title="اخري" open={!!open.other} onToggle={() => toggle('other')}>
-        <p className="text-[14px] text-slate-500 py-2">لا توجد إعدادات إضافية.</p>
       </Accordion>
     </div>
   )

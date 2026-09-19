@@ -41,15 +41,16 @@ export function RequestsTabsPage() {
               key={t.id}
               type="button"
               onClick={() => setTab(t.id)}
+              aria-current={tab === t.id ? 'page' : undefined}
               className={cn(
                 'relative px-8 h-[70px] text-[19px] font-bold flex items-center gap-2 transition-colors',
-                tab === t.id ? 'text-[#2960b6]' : 'text-slate-500 hover:text-slate-700',
+                tab === t.id ? 'text-[var(--apex-blue)]' : 'text-slate-500 hover:text-slate-700',
               )}
             >
               <span>{t.label}</span>
               <span className={cn('min-w-[22px] h-[22px] rounded-full text-white text-[12px] flex items-center justify-center px-1',
-                tab === t.id ? 'bg-[#2960b6]' : 'bg-slate-400')}>{counts[t.id] ?? 0}</span>
-              {tab === t.id && <span className="absolute bottom-0 right-0 left-0 h-[3px] bg-[#2960b6]" />}
+                tab === t.id ? 'bg-[var(--apex-blue)]' : 'bg-slate-400')}>{counts[t.id] ?? 0}</span>
+              {tab === t.id && <span className="absolute bottom-0 right-0 left-0 h-[3px] bg-[var(--apex-blue)]" />}
             </button>
           ))}
         </div>
