@@ -54,7 +54,7 @@ function connectionStatusAr(data?: { connected?: boolean; seconds_ago?: number; 
   }
   if (typeof data?.seconds_ago === 'number') {
     const minutes = Math.max(0, Math.round(data.seconds_ago / 60))
-    return { title: 'الجهاز غير متصل', description: `غير متصل — آخر ظهور منذ ${minutes} دقيقة` }
+    return { title: 'الجهاز غير متصل', description: `آخر ظهور منذ ${minutes} دقيقة` }
   }
   const known = data?.message ? ADMS_MESSAGE_AR[data.message] : undefined
   return { title: 'الجهاز غير متصل', description: known || 'لم يصل أي اتصال من الجهاز بعد' }
@@ -466,7 +466,7 @@ export function DevicesPage() {
           <div className="flex items-center gap-2 order-2 lg:order-1">
             <span className="font-bold text-slate-700">عدد الصفوف</span>
             <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1) }}>
-              <SelectTrigger className="w-[70px] h-9 rounded border-slate-300"><SelectValue /></SelectTrigger>
+              <SelectTrigger aria-label="عدد الصفوف" className="w-[70px] h-9 rounded border-slate-300"><SelectValue /></SelectTrigger>
               <SelectContent>{PAGE_SIZES.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
             </Select>
           </div>
