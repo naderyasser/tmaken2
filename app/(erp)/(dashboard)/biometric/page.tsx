@@ -1,13 +1,13 @@
 /**
- * «الاجهزة» — Apex list screen inside the unified HR shell (HrGuard owns the gate).
- * Columns and toolbar mirror the reference; rows come from base_meena.api.hr_lists.
+ * «الاجهزة» — bespoke fingerprint-device management screen inside the unified HR shell
+ * (HrGuard owns the gate). Registration, status, sync logs and device-ID↔employee
+ * mapping all live in DevicesPage — see components/hr/devices-page.tsx.
  */
 
 'use client'
 
-import { GenericListPage } from '@/components/hr/generic-list-page'
-import { getModuleConfig, type ListModuleConfig } from '@/lib/hr-modules'
+import { DevicesPage } from '@/components/hr/devices-page'
 
 export default function Page() {
-  return <GenericListPage config={getModuleConfig('devices') as ListModuleConfig} />
+  return <DevicesPage />
 }

@@ -240,12 +240,12 @@ const L = {
     checkinMethod: 'Check-in Method',
     manual: 'Manual (Simple Click)',
     photo: 'Photo (Selfie Required)',
-    biometric: 'Biometric (Coming Soon - Hardware Device)',
-    photoBiometric: 'Photo + Biometric (Coming Soon)',
+    biometric: 'Biometric (fingerprint device)',
+    photoBiometric: 'Photo + Biometric',
     manualDesc: '✓ Simple button click for check-in/out',
     photoDesc: '📸 Employee must take selfie for verification',
-    biometricDesc: '⚠️ Requires biometric hardware device (coming soon)',
-    photoBiometricDesc: '⚠️ Requires both photo and biometric (coming soon)',
+    deviceLinkedDesc: (id: string) => `✓ Linked to fingerprint device (device ID: ${id})`,
+    deviceNotLinkedDesc: '⚠️ Not linked to a fingerprint device yet — link it from الاجهزة',
     defaultShift: 'Default Shift',
     noDefaultShift: 'No Default Shift',
     enableTracking: 'Enable Tracking',
@@ -573,12 +573,12 @@ const L = {
     checkinMethod: 'طريقة تسجيل الحضور',
     manual: 'يدوي (نقرة بسيطة)',
     photo: 'صورة (سيلفي مطلوب)',
-    biometric: 'بصمة (قريباً - جهاز بصمة)',
-    photoBiometric: 'صورة + بصمة (قريباً)',
+    biometric: 'بصمة (جهاز البصمة)',
+    photoBiometric: 'صورة + بصمة',
     manualDesc: '✓ نقرة بسيطة لتسجيل الحضور والانصراف',
     photoDesc: '📸 يجب على الموظف التقاط صورة سيلفي للتحقق',
-    biometricDesc: '⚠️ يتطلب جهاز بصمة (قريباً)',
-    photoBiometricDesc: '⚠️ يتطلب صورة وبصمة معاً (قريباً)',
+    deviceLinkedDesc: (id: string) => `✓ مرتبط بجهاز البصمة (رقم الموظف على الجهاز: ${id})`,
+    deviceNotLinkedDesc: '⚠️ غير مربوط بجهاز بصمة بعد — اربطه من صفحة الاجهزة',
     defaultShift: 'الوردية الافتراضية',
     noDefaultShift: 'بدون وردية افتراضية',
     enableTracking: 'تفعيل التتبع',
@@ -1096,6 +1096,8 @@ export function EmployeeProfile({ onBack, employeeId }: EmployeeProfileProps) {
   const [custodyForm, setCustodyForm] = useState({ item_category: '', item_name: '', serial_no: '', status: 'Active' })
   const [showLeaveDialog, setShowLeaveDialog] = useState(false)
   const CUSTODY_CATEGORIES = ['Phone', 'SIM Card', 'Laptop', 'Tablet', 'Uniform', 'Keys', 'Vehicle', 'Tools', 'Other']
+  // Read-only fingerprint-device mapping, shown in Work Settings (device management lives on /biometric)
+  const [deviceId, setDeviceId] = useState<string>('')
 
   const handleAddCustody = async () => {
     if (!effectiveEmployeeId || !custodyForm.item_category || !custodyForm.item_name) return
@@ -1338,6 +1340,7 @@ export function EmployeeProfile({ onBack, employeeId }: EmployeeProfileProps) {
           custom_emergency_3_relation: employee.custom_emergency_3_relation || '',
           custom_emergency_3_phone: employee.custom_emergency_3_phone || '',
         }))
+        setDeviceId((employee as any).attendance_device_id || '')
 
         // Don't set imagePreview here — form.image is set above
         // and frappeImageUrl() will resolve it for display.
@@ -3097,8 +3100,9 @@ export function EmployeeProfile({ onBack, employeeId }: EmployeeProfileProps) {
                   <p className="text-xs text-muted-foreground mt-1">
                     {form.checkin_method === 'Manual' && tr.manualDesc}
                     {form.checkin_method === 'Photo' && tr.photoDesc}
-                    {form.checkin_method === 'Biometric' && tr.biometricDesc}
-                    {form.checkin_method === 'Photo + Biometric' && tr.photoBiometricDesc}
+                    {(form.checkin_method === 'Biometric' || form.checkin_method === 'Photo + Biometric') && (
+                      deviceId ? tr.deviceLinkedDesc(deviceId) : tr.deviceNotLinkedDesc
+                    )}
                   </p>
                 </div>
                 <div className="space-y-2">

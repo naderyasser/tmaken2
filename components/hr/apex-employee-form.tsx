@@ -16,14 +16,23 @@ import { cn, frappeImageUrl } from '@/lib/utils'
 
 type F = Record<string, any>
 
-const FIELD = 'w-full h-[44px] rounded border border-[#ced4da] bg-white px-3 text-[14px] text-slate-800 outline-none focus:border-[#2960b6] placeholder:text-slate-400'
+const FIELD = 'w-full h-[44px] rounded border border-[var(--apex-border)] bg-white px-3 text-[14px] text-slate-800 outline-none focus:border-[var(--apex-blue)] placeholder:text-slate-400'
 
 const STATUS = [['Active', 'نشط'], ['Inactive', 'غير نشط'], ['Suspended', 'موقوف'], ['Left', 'منتهي']]
+const GENDER = [['Male', 'ذكر'], ['Female', 'أنثى'], ['Other', 'آخر']]
 
 interface Opts { designations: string[]; branches: string[]; shifts: string[]; departments: string[]; groups: string[]; projects: string[]; employees: { name: string; employee_name: string }[]; countries: string[] }
 const EMPTY: Opts = { designations: [], branches: [], shifts: [], departments: [], groups: [], projects: [], employees: [], countries: [] }
 
-const REQUIRED = ['employee_number', 'status', 'employee_name', 'custom_branch_access', 'branch', 'default_shift', 'custom_attendance_method']
+// employee_number / custom_branch_access / custom_attendance_method are NOT required by the
+// Employee doctype — requiring them here used to block saving existing employees that predate
+// those custom fields. gender and date_of_birth ARE required on the doctype, so they belong here.
+const REQUIRED = ['status', 'employee_name', 'branch', 'default_shift', 'gender', 'date_of_birth']
+/** Which collapsible section to open (so the field is actually in the DOM) when scrolling a
+ *  failed-validation field into view. Fields in the always-open top block need no entry. */
+const FIELD_SECTION: Record<string, 'info' | 'personal' | 'ot' | undefined> = {
+  branch: 'info', default_shift: 'info', gender: 'personal', date_of_birth: 'personal',
+}
 
 export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
   const router = useRouter()
@@ -42,7 +51,9 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
     const list = (dt: string, fields = ['name'], filters?: any) =>
       frappeClient.getList<any>(dt, { fields, filters, order_by: `${fields[fields.length - 1]} asc`, limit_page_length: 0 }).catch(() => [])
     Promise.all([
-      list('Designation'), list('Branch'), list('Shift Type'), list('Department', ['name'], [['is_group', '=', 0]]),
+      // No is_group filter: an employee already assigned to a group department must still
+      // see that value in the select (otherwise it renders blank and gets wiped on save).
+      list('Designation'), list('Branch'), list('Shift Type'), list('Department'),
       list('Employee Group'), list('Project'), list('Employee', ['name', 'employee_name'], [['status', '=', 'Active']]), list('Country'),
     ]).then(([d, b, s, dep, g, p, e, c]) => setOpts({
       designations: d.map((x: any) => x.name), branches: b.map((x: any) => x.name), shifts: s.map((x: any) => x.name),
@@ -65,29 +76,48 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
   }, [employeeId, toast])
   useEffect(() => { load() }, [load])
 
+  /** Scroll+focus the first invalid field (in addition to the toast) — on /employee/new the
+   *  invalid fields can be below the fold and the toast alone is easy to miss. */
+  const focusInvalidField = (k: string) => {
+    const sec = FIELD_SECTION[k]
+    if (sec) setOpen((o) => ({ ...o, [sec]: true }))
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        const el = document.querySelector<HTMLElement>(`[name="${k}"]`)
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el?.focus()
+      }, sec ? 60 : 0)
+    })
+  }
+
   const save = async () => {
     for (const k of REQUIRED) {
-      if (!f[k]) { toast({ title: 'حقول مطلوبة', description: 'أكمل الحقول المعلّمة بـ *', variant: 'destructive' }); return }
+      if (!f[k]) {
+        toast({ title: 'حقول مطلوبة', description: 'أكمل الحقول المعلّمة بـ *', variant: 'destructive' })
+        focusInvalidField(k)
+        return
+      }
     }
     setSaving(true)
     try {
       const payload: F = {
         company: f.company || company || undefined,
         employee_number: f.employee_number, status: f.status, employee_name: f.employee_name, first_name: f.employee_name,
+        middle_name: '', last_name: '',
         custom_employee_name_en: f.custom_employee_name_en || '', designation: f.designation || '', custom_branch_access: f.custom_branch_access,
         branch: f.branch, default_shift: f.default_shift, department: f.department || '', custom_employee_group: f.custom_employee_group || '',
         custom_section: f.custom_section || '', reports_to: f.reports_to || '', custom_project: f.custom_project || '', custom_task: f.custom_task || '',
         custom_attendance_method: f.custom_attendance_method, custom_mobile_app: f.custom_mobile_app || 'لا',
+        attendance_device_id: f.attendance_device_id || '',
+        gender: f.gender, date_of_birth: f.date_of_birth,
         custom_nationality: f.custom_nationality || '', custom_national_id: f.custom_national_id || '', custom_religion: f.custom_religion || '',
-        date_of_birth: f.date_of_birth || null, cell_number: f.cell_number || '', personal_email: f.personal_email || '', current_address: f.current_address || '',
+        cell_number: f.cell_number || '', personal_email: f.personal_email || '', current_address: f.current_address || '',
         custom_ot_deduct_late: f.custom_ot_deduct_late ? 1 : 0, custom_ot_before_shift: f.custom_ot_before_shift ? 1 : 0,
         custom_ot_after_shift: f.custom_ot_after_shift ? 1 : 0, custom_ot_holidays: f.custom_ot_holidays ? 1 : 0,
         custom_checkout_without_punch: f.custom_checkout_without_punch ? 1 : 0,
       }
       if (isNew) {
-        payload.gender = f.gender || 'Male'
         payload.date_of_joining = f.date_of_joining || new Date().toISOString().slice(0, 10)
-        payload.date_of_birth = f.date_of_birth || '1990-01-01'
         await frappeClient.post('Employee', payload)
         toast({ title: 'تمت إضافة الموظف' })
       } else {
@@ -96,6 +126,9 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
       }
       router.push('/employees')
     } catch (e: any) {
+      // e?.message already carries the backend's error text verbatim — including the
+      // attendance_device_id uniqueness violation (that field is `unique: 1` on Employee),
+      // which Frappe reports in whatever language the site is set to.
       toast({ title: 'فشل الحفظ', description: e?.message, variant: 'destructive' })
     } finally {
       setSaving(false)
@@ -107,13 +140,13 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
     <span className="block text-[13px] text-slate-700 mb-1">{t}{req && <span className="text-red-500"> *</span>}</span>
   )
   const Txt = (k: string, label: string, req?: boolean, type = 'text') => (
-    <div>{lbl(label, req)}<input type={type} value={f[k] ?? ''} onChange={set(k)} placeholder={label} className={FIELD} /></div>
+    <div>{lbl(label, req)}<input name={k} type={type} value={f[k] ?? ''} onChange={set(k)} placeholder={label} className={FIELD} /></div>
   )
   const Sel = (k: string, label: string, items: (string | [string, string])[], req?: boolean) => (
     <div>
       {lbl(label, req)}
       <div className="relative">
-        <select value={f[k] ?? ''} onChange={set(k)} className={cn(FIELD, 'appearance-none', !f[k] && 'text-slate-400')}>
+        <select name={k} aria-label={label} value={f[k] ?? ''} onChange={set(k)} className={cn(FIELD, 'appearance-none', !f[k] && 'text-slate-400')}>
           <option value="">{label}</option>
           {items.map((o) => Array.isArray(o) ? <option key={o[0]} value={o[0]}>{o[1]}</option> : <option key={o} value={o}>{o}</option>)}
         </select>
@@ -123,7 +156,7 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
   )
   const Chk = (k: string, label: string) => (
     <label className="flex items-center gap-3 text-[15px] font-semibold text-slate-800 cursor-pointer py-1">
-      <input type="checkbox" checked={!!f[k]} onChange={set(k)} className="h-[18px] w-[18px] accent-[#2960b6]" />
+      <input type="checkbox" checked={!!f[k]} onChange={set(k)} className="h-[18px] w-[18px] accent-[var(--apex-blue)]" />
       {label}
     </label>
   )
@@ -131,8 +164,8 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
     <div className="mt-8">
       <button type="button" onClick={() => setOpen((o) => ({ ...o, [id]: !o[id] }))}
         className="w-full flex items-center justify-between bg-white rounded px-4 h-[52px] shadow-sm mb-5">
-        <span className="text-[18px] font-bold text-[#2960b6]">{title}</span>
-        {open[id] ? <ChevronUp className="h-5 w-5 text-[#2960b6]" /> : <ChevronDown className="h-5 w-5 text-[#2960b6]" />}
+        <span className="text-[18px] font-bold text-[var(--apex-blue)]">{title}</span>
+        {open[id] ? <ChevronUp className="h-5 w-5 text-[var(--apex-blue)]" /> : <ChevronDown className="h-5 w-5 text-[var(--apex-blue)]" />}
       </button>
       {open[id] && children}
     </div>
@@ -142,17 +175,17 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
   return (
     <div className="pb-10" dir="rtl">
       {/* action bar */}
-      <div className="flex items-center justify-between px-6 h-[62px] bg-[#f4f6f9]">
+      <div className="flex items-center justify-between px-6 h-[62px] bg-[var(--apex-form-bar-bg)]">
         <div className="text-[14px] text-slate-700">
           <span className="text-slate-600">البيانات الاساسية</span><span className="mx-2 text-slate-400">/</span>
-          <button type="button" onClick={() => router.push('/employees')} className="text-[#2960b6]">الموظفين</button><span className="mx-2 text-slate-400">/</span>
+          <button type="button" onClick={() => router.push('/employees')} className="text-[var(--apex-blue)]">الموظفين</button><span className="mx-2 text-slate-400">/</span>
           <span>{isNew ? 'اضافة موظف' : 'تعديل موظف'}</span>
         </div>
         <div className="flex items-center gap-2">
-          <button type="button" onClick={() => router.push('/employees')} className="h-[40px] px-4 rounded bg-[#f95f5f] text-white text-[14px] flex items-center gap-1.5 hover:bg-[#e54a4a]">
+          <button type="button" onClick={() => router.push('/employees')} className="h-[40px] px-4 rounded bg-[var(--apex-red)] text-white text-[14px] flex items-center gap-1.5 hover:bg-[var(--apex-red-dark)]">
             <X className="h-4 w-4" />اغلاق
           </button>
-          <button type="button" onClick={save} disabled={saving || loading} className="h-[40px] px-4 rounded bg-[#2eaf7d] text-white text-[14px] flex items-center gap-1.5 hover:bg-[#279568] disabled:opacity-60">
+          <button type="button" onClick={save} disabled={saving || loading} className="h-[40px] px-4 rounded bg-[var(--apex-green)] text-white text-[14px] flex items-center gap-1.5 hover:bg-[var(--apex-green-dark)] disabled:opacity-60">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : isNew ? <Plus className="h-4 w-4" /> : <Check className="h-4 w-4" />}
             {isNew ? 'اضافة' : 'حفظ'}
           </button>
@@ -160,7 +193,7 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
       </div>
 
       {loading ? (
-        <div className="py-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-[#2960b6]" /></div>
+        <div className="py-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-[var(--apex-blue)]" /></div>
       ) : (
         <div className="px-4">
           {/* avatar */}
@@ -172,12 +205,12 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
 
           <h2 className="text-[20px] font-bold text-slate-800 px-4 mt-10 mb-5">تعريف الموظف</h2>
           <div className={grid}>
-            {Txt('employee_number', 'كود الموظف', true)}
+            {Txt('employee_number', 'كود الموظف', REQUIRED.includes('employee_number'))}
             {Sel('status', 'حالة الموظف', STATUS as [string, string][], true)}
             {Txt('employee_name', 'اسم الموظف بالعربية', true)}
             {Txt('custom_employee_name_en', 'اسم الموظف بالانجليزية')}
             {Sel('designation', 'الوظيفة', opts.designations)}
-            {Sel('custom_branch_access', 'صلاحية الموظف بالفروع', ['فرعه فقط', 'كل الفروع'], true)}
+            {Sel('custom_branch_access', 'صلاحية الموظف بالفروع', ['فرعه فقط', 'كل الفروع'], REQUIRED.includes('custom_branch_access'))}
           </div>
 
           {section('info', 'معلومات الموظف', (
@@ -191,16 +224,29 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
               {Sel('custom_project', 'المشروع', opts.projects)}
               {Txt('custom_task', 'المهمة')}
               {Sel('custom_attendance_method', 'طريقة الحضور', ['جهاز البصمة', 'تطبيق الجوال', 'الاثنين'], true)}
+              <div>
+                {lbl('رقم الموظف على جهاز البصمة')}
+                <input
+                  name="attendance_device_id"
+                  type="text"
+                  inputMode="numeric"
+                  value={f.attendance_device_id ?? ''}
+                  onChange={(e) => setF((p) => ({ ...p, attendance_device_id: e.target.value.replace(/[^0-9]/g, '') }))}
+                  placeholder="رقم الموظف على جهاز البصمة"
+                  className={FIELD}
+                />
+              </div>
               {Sel('custom_mobile_app', 'تفعيل تطبيق الجوال', ['لا', 'نعم'])}
             </div>
           ))}
 
           {section('personal', 'معلومات شخصية', (
             <div className={grid}>
+              {Sel('gender', 'الجنس', GENDER as [string, string][], true)}
               {Sel('custom_nationality', 'الجنسية', opts.countries)}
               {Txt('custom_national_id', 'رقم الهوية')}
               {Sel('custom_religion', 'الديانة', ['مسلم', 'غير مسلم'])}
-              {Txt('date_of_birth', 'عيد الميلاد', false, 'date')}
+              {Txt('date_of_birth', 'عيد الميلاد', true, 'date')}
               {Txt('cell_number', 'رقم الجوال')}
               {Txt('personal_email', 'البريد الالكترونى', false, 'email')}
               <div className="md:col-span-2">{Txt('current_address', 'العنوان')}</div>
