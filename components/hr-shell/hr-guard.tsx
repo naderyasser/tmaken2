@@ -8,9 +8,9 @@ import { useI18n } from '@/lib/i18n'
 import { LoginPage } from '@/components/login-page'
 
 /**
- * Access gate for the HR shell. There is no login wall: a missing session is
- * renewed through the walkthrough endpoint (LoginPage = auto-session), so the
- * only thing this guard can actually refuse is a session without HR roles.
+ * Access gate for the HR shell. A missing session is redirected to /login
+ * (LoginPage), so the only thing this guard can actually refuse is a real
+ * session without HR roles.
  */
 export function HrGuard({ requireHR = true, children }: { requireHR?: boolean; children: ReactNode }) {
   const { isAuthenticated, isLoading, isHRUser } = useAuth()

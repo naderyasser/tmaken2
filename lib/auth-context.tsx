@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react'
 import { login as apiLogin, logout as apiLogout, getCurrentUser, getUserRoles, getUserInfo } from '@/lib/api'
 import { frappeClient } from '@/lib/api-client'
-import { renewWalkthroughSession } from '@/lib/public-access'
+import { redirectToLogin } from '@/lib/public-access'
 
 interface User {
     email: string
@@ -291,9 +291,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             try {
                 const currentUser = await getCurrentUser()
                 if (!currentUser || currentUser === 'Guest') {
-                    // Session expired — reopen the walkthrough session in place (no login screen)
+                    // Session expired — send the visitor back to sign in.
                     setUser(null)
-                    renewWalkthroughSession()
+                    redirectToLogin()
                 }
             } catch {
                 // Network error — don't clear session, just skip this check
@@ -309,14 +309,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const result = await apiLogin(email, password)
 
             if (result.message === 'Logged In' || result.message === 'logged in') {
+                // `email` is whatever the visitor typed — with `allow_login_using_user_name`
+                // on (true here), that can be a `username` alias (e.g. "admin") rather than
+                // the User doctype's real name/email. get_roles and the User resource both
+                // key on the real name, so resolve it via the session Frappe just set
+                // (get_logged_user) instead of assuming the typed value is it — otherwise
+                // roles/full_name/user_image silently come back empty for anyone who logged
+                // in with a username alias.
+                const resolvedUser = (await getCurrentUser().catch(() => null)) || email
                 const [roles, userInfo] = await Promise.all([
-                    getUserRoles(email),
-                    getUserInfo(email),
+                    getUserRoles(resolvedUser),
+                    getUserInfo(resolvedUser),
                 ])
 
                 setUser({
-                    email,
-                    full_name: userInfo.full_name || result.full_name || email,
+                    email: resolvedUser,
+                    full_name: userInfo.full_name || result.full_name || resolvedUser,
                     user_image: userInfo.user_image || undefined,
                     roles,
                 })

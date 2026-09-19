@@ -3,7 +3,6 @@ import { Toaster } from '@/components/ui/toaster'
 import { Providers } from '../providers'
 import { TenantGate } from '@/components/tenant-gate'
 import { BrandWarmup } from '@/components/brand-warmup'
-import { WalkthroughSession } from '@/components/walkthrough-session'
 
 /**
  * ERP application layout. Holds the client Providers (I18nProvider with the full
@@ -24,7 +23,6 @@ export default function ErpLayout({ children }: { children: React.ReactNode }) {
     <Providers>
       <TenantGate />
       <BrandWarmup />
-      <WalkthroughSession />
       {children}
       <Toaster />
     </Providers>
