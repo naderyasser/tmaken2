@@ -1,12 +1,10 @@
 "use client"
 
 import { useState, useEffect, use } from "react"
-import { useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -14,9 +12,7 @@ import {
   MapPin, Clock, TrendingUp, Users, FileText, Award, ShieldAlert, Gift
 } from "lucide-react"
 import { callMethod } from "@/lib/api"
-import { useAuth } from "@/lib/auth-context"
-import { LoginPage } from "@/components/login-page"
-import { I18nProvider, useI18n } from "@/lib/i18n"
+import { useI18n } from "@/lib/i18n"
 import { dualDate } from "@/lib/format"
 import { translateDepartment } from "@/lib/enums"
 import { EmployeeContractCard } from "@/components/employee/employee-contract-card"

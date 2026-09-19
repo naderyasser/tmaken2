@@ -3,14 +3,17 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronDown, UserCircle2, Calendar, LogOut } from 'lucide-react'
+import { ChevronDown, Check, UserCircle2, Calendar, LogOut } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/auth-context'
+import { logout as apiLogout } from '@/lib/api'
+import { frappeClient } from '@/lib/api-client'
 import { useBrand } from '@/hooks/use-brand'
 import { useCompanySafe } from '@/hooks/use-company'
 import { NotificationsPanel } from '@/components/notifications-panel'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { TOPBAR_ACTIONS } from './routes'
-import { accountingApi } from '@/lib/accounting-api'
+import { accountingApi, type FiscalYear } from '@/lib/accounting-api'
 
 /**
  * Apex ERP Topbar — single dark-navy bar, matching the reference:
@@ -34,14 +37,25 @@ function roleLabel(roles?: string[]): string {
 
 const SHOW_COMPANY_NAME = false
 
+/** dd-mm-yyyy → dd/mm/yyyy, matching the reference's fiscal-period label. */
+const fmtDMY = (d: string) => {
+  const [y, m, day] = d.split('-')
+  return `${day}/${m}/${y}`
+}
+
 export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
-  const { t, lang, setLang } = useI18n()
+  const { t } = useI18n()
   const { user } = useAuth()
   const brand = useBrand()
   const { company: activeCompany } = useCompanySafe()
 
   // ── Fiscal year from backend ──────────────────────────────────────────────
   const [fiscalLabel, setFiscalLabel] = useState<string>('')
+  const [currentFyName, setCurrentFyName] = useState<string>('')
+  const [fiscalYears, setFiscalYears] = useState<FiscalYear[]>([])
+  const [fyOpen, setFyOpen] = useState(false)
+  const [fySaving, setFySaving] = useState(false)
+  const [fyRefreshTick, setFyRefreshTick] = useState(0)
 
   // Auth/brand/company data only exists on the client. Rendering it during SSR and
   // again with data on hydration breaks Radix ids, so auth-derived bits mount-only.
@@ -50,25 +64,46 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
 
   useEffect(() => {
     let cancelled = false
-    accountingApi.getCurrentFiscalYear(activeCompany ?? undefined)
-      .then((fy) => {
-        if (cancelled || !fy) return
-        const fmt = (d: string) => {
-          const [y, m, day] = d.split('-')
-          return `${day}/${m}/${y}`
+    Promise.all([
+      accountingApi.getCurrentFiscalYear(activeCompany ?? undefined),
+      accountingApi.getFiscalYears(),
+    ])
+      .then(([fy, years]) => {
+        if (cancelled) return
+        if (fy) {
+          setFiscalLabel(`${fmtDMY(fy.year_end_date)} - ${fmtDMY(fy.year_start_date)}`)
+          setCurrentFyName(fy.name)
         }
-        setFiscalLabel(`${fmt(fy.year_end_date)} - ${fmt(fy.year_start_date)}`)
+        setFiscalYears(years)
       })
       .catch(() => { /* non-blocking */ })
     return () => { cancelled = true }
-  }, [activeCompany])
+  }, [activeCompany, fyRefreshTick])
+
+  const selectFiscalYear = async (fy: FiscalYear) => {
+    if (fySaving) return
+    if (fy.name === currentFyName) { setFyOpen(false); return }
+    setFySaving(true)
+    try {
+      await frappeClient.call('base_meena.api.hr_settings.save_fiscal_year', {
+        start: fy.year_start_date,
+        end: fy.year_end_date,
+      })
+      setFyOpen(false)
+      setFyRefreshTick((n) => n + 1)
+    } catch (e) {
+      console.error('Failed to switch fiscal year:', e)
+    } finally {
+      setFySaving(false)
+    }
+  }
 
   const userName = mounted ? (user?.full_name || user?.email || 'مدير النظام') : 'مدير النظام'
   const userRole = mounted ? roleLabel(user?.roles) : 'مدير النظام'
 
   return (
     <header className="shrink-0 z-40" dir="rtl">
-      <div className="h-[55px] bg-[#2e71c8] text-white flex items-center justify-between gap-3 px-4 shadow-sm">
+      <div className="h-[55px] bg-[var(--apex-blue-light)] text-white flex items-center justify-between gap-3 px-4 shadow-sm">
 
         {/* ── Right (start): hamburger + logo ── */}
         <div className="flex items-center gap-3 shrink-0">
@@ -84,6 +119,7 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
               onOpenMobileNav()
             }}
             title="القائمة"
+            aria-label="القائمة"
             className="flex items-center justify-center w-9 h-9 rounded hover:bg-white/10 transition-colors shrink-0"
           >
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -99,7 +135,7 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
             ) : (
               <>
                 <span className="font-serif italic font-bold text-[24px] leading-none tracking-wide">Apex</span>
-                <span className="bg-white text-[#1b3f7d] rounded px-1.5 py-[3px] text-[11px] font-extrabold not-italic leading-none">ERP</span>
+                <span className="bg-white text-[var(--apex-blue-deep)] rounded px-1.5 py-[3px] text-[11px] font-extrabold not-italic leading-none">ERP</span>
               </>
             )}
           </Link>
@@ -111,11 +147,39 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
           {mounted && fiscalLabel && (
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-[12px] font-bold whitespace-nowrap">{t('nav.fiscal_period') || 'الفترة المالية'}</span>
-              <button className="flex items-center gap-1.5 bg-white text-[#1b3f7d] rounded px-2.5 py-1 text-[12px] font-bold whitespace-nowrap">
-                <Calendar className="h-3.5 w-3.5" />
-                <span>{fiscalLabel}</span>
-                <ChevronDown className="h-3.5 w-3.5" />
-              </button>
+              {fiscalYears.length > 1 ? (
+                <Popover open={fyOpen} onOpenChange={setFyOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      disabled={fySaving}
+                      className="flex items-center gap-1.5 bg-white text-[var(--apex-blue-deep)] rounded px-2.5 py-1 text-[12px] font-bold whitespace-nowrap disabled:opacity-60"
+                    >
+                      <Calendar className="h-3.5 w-3.5" />
+                      <span>{fiscalLabel}</span>
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-60 p-1.5" dir="rtl">
+                    {fiscalYears.map((fy) => (
+                      <button
+                        key={fy.name}
+                        type="button"
+                        onClick={() => selectFiscalYear(fy)}
+                        className="flex w-full items-center justify-between gap-2 rounded px-2.5 py-2 text-[13px] text-slate-700 hover:bg-slate-100"
+                      >
+                        <span>{fy.name}</span>
+                        {fy.name === currentFyName && <Check className="h-3.5 w-3.5 text-[var(--apex-blue)]" />}
+                      </button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+              ) : (
+                <span className="flex items-center gap-1.5 bg-white text-[var(--apex-blue-deep)] rounded px-2.5 py-1 text-[12px] font-bold whitespace-nowrap">
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span>{fiscalLabel}</span>
+                </span>
+              )}
             </div>
           )}
 
@@ -124,14 +188,6 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
               <NotificationsPanel />
             </div>
           )}
-
-          <button
-            onClick={() => setLang(lang === 'ar' ? 'en' : 'ar')}
-            className="hidden xl:flex items-center gap-1.5 text-[12.5px] font-medium hover:text-white/80 transition-colors shrink-0 whitespace-nowrap"
-          >
-            <span>{lang === 'ar' ? 'العربية' : 'English'}</span>
-            <ChevronDown className="h-3.5 w-3.5" />
-          </button>
 
           {/* «الادارة» — Apex module switcher; the HR shell is the only module here */}
           <span className="hidden xl:block h-5 w-px bg-white/30 shrink-0" />
@@ -163,10 +219,19 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
             <span className="text-[11px] text-white/75 truncate max-w-[160px]">{userRole}</span>
           </div>
 
-          {/* Apex logout icon (far left). Login-free build: the session reopens itself. */}
-          <Link href="/hr" title="خروج" className="ms-2 flex items-center justify-center w-9 h-9 rounded hover:bg-white/10">
+          {/* Real logout (2026-09-16): calls the raw API directly (not the
+              AuthContext logout(), which sets user=null while still mounted here
+              and trips hr-guard's walkthrough-relogin fallback before this
+              navigation can land) and hard-navigates to /login only once the
+              server session is actually gone. */}
+          <button
+            onClick={() => { apiLogout().finally(() => { window.location.href = '/login' }) }}
+            title="خروج"
+            aria-label="خروج"
+            className="ms-2 flex items-center justify-center w-9 h-9 rounded hover:bg-white/10"
+          >
             <LogOut className="h-6 w-6" />
-          </Link>
+          </button>
         </div>
       </div>
 

@@ -16,8 +16,8 @@
 // Styling: this vertical lives under `.egarsys-scope` (green tokens). We wrap the
 // HR content in `.theme-hr` so it resolves the platform's HR design tokens (teal
 // primary, airy cards) instead of egarsys green. `.theme-hr` is safe to use here
-// because app/(erp)/(dashboard)/layout.tsx already imports theme-hr-airy.css +
-// hr-motion.css globally for this route group.
+// because app/(erp)/(dashboard)/layout.tsx already imports hr-motion.css
+// globally for this route group.
 
 import * as React from 'react'
 import type { ModuleType } from '@/components/sidebar'

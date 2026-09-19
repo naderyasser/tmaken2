@@ -71,3 +71,4 @@ instrumentation-client.ts
 # النمط الشامل يمنع تكرار ما حدث: 4050 ملف بناء دخلوا git عبر .next.old
 .next*/
 tsconfig.tsbuildinfo
+.login-revert/

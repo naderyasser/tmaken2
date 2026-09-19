@@ -13,7 +13,7 @@ import { SocialLinks } from '@/components/store/social-icons'
 import { store } from '@/lib/frappe-server'
 import './store.css'
 
-const SITE_URL = process.env.NEXT_PUBLIC_STORE_URL || 'https://aqar.meena-alaqariya.com'
+const SITE_URL = process.env.NEXT_PUBLIC_STORE_URL ?? ''
 const BRAND = 'تمكين العقارية'
 
 // Pre-paint theme (no FOUC) WITHOUT making the page dynamic: a blocking inline script —
@@ -39,7 +39,7 @@ const amiri = Amiri({
 const DESCRIPTION = 'سوق عقاري سعودي موثّق وفق نظام الهيئة العامة للعقار. شقق، فلل، أراضي، عمائر، استراحات ومزارع للبيع والإيجار.'
 
 export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
+  ...(SITE_URL ? { metadataBase: new URL(SITE_URL) } : {}),
   title: 'تمكين العقارية — سوق العقارات',
   description: DESCRIPTION,
   manifest: '/brand/site.webmanifest',
@@ -72,8 +72,7 @@ const ORG_JSONLD = {
   '@context': 'https://schema.org',
   '@type': 'Organization',
   name: BRAND,
-  url: SITE_URL,
-  logo: `${SITE_URL}/brand/icon-512.png`,
+  ...(SITE_URL ? { url: SITE_URL, logo: `${SITE_URL}/brand/icon-512.png` } : {}),
 }
 
 // footer link clusters — quick links, services, legal

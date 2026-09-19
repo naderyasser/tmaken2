@@ -32,8 +32,8 @@ export const frappeApiUrl = (path: string): string =>
  * True when a Frappe request was refused for lack of authorization: no valid
  * session (401/403 as Guest) or a missing doctype/method permission. Screens
  * hand such errors to <SessionRenew /> (components/login-page.tsx), which
- * reopens the walkthrough session when the session is what died, and says
- * "no permission" otherwise — instead of an error toast + console spam.
+ * redirects to /login when the session is what died, and says "no permission"
+ * otherwise — instead of an error toast + console spam.
  */
 export const isAuthError = (e: unknown): boolean => {
     const status = (e as { status?: number } | null)?.status
@@ -69,10 +69,6 @@ export interface FrappeResponse<T = any> {
     message?: T
     exc?: string
     _server_messages?: string
-}
-
-export interface FrappeListResponse<T> {
-    data: T[]
 }
 
 export interface Employee {
@@ -185,6 +181,25 @@ export interface EmployeeCheckin {
     offshift?: number
     creation?: string
     modified?: string
+}
+
+/** A generic Frappe document as returned by `.data`/`.message` — used where the
+ *  caller only reads/forwards a few fields and a full doctype interface isn't
+ *  worth maintaining (e.g. the approve/reject/pay action helpers below). */
+export type FrappeDoc = Record<string, unknown>
+
+export interface Department {
+    name: string
+    department_name?: string
+    parent_department?: string
+    company?: string
+    is_group?: number
+}
+
+export interface Branch {
+    name: string
+    branch?: string
+    company?: string
 }
 
 export interface LocationLog {
@@ -336,10 +351,18 @@ constructor(_baseUrl?: string) { }
 
     // Reset the cached token so the next fetch actually re-fetches (csrfFetched
     // otherwise latches true — even after an empty fetch — and blocks recovery).
+    // Concurrent callers that all hit a stale/missing token around the same time
+    // (e.g. a burst of bootstrap calls right after auto-login) share one in-flight
+    // refetch instead of each firing its own — same pattern as ensureCsrfToken.
+    private refreshInflight: Promise<void> | null = null
     private async refreshCsrfToken(): Promise<void> {
-        this.csrfToken = null
-        this.csrfFetched = false
-        await this.fetchCsrfToken()
+        if (this.refreshInflight) return this.refreshInflight
+        this.refreshInflight = (async () => {
+            this.csrfToken = null
+            this.csrfFetched = false
+            await this.fetchCsrfToken()
+        })()
+        try { await this.refreshInflight } finally { this.refreshInflight = null }
     }
 
     // ==================== Authentication ====================
@@ -489,6 +512,7 @@ constructor(_baseUrl?: string) { }
     }
 
     async post<T = any, TData = Partial<T>>(doctype: string, data: TData): Promise<FrappeResponse<T>> {
+        await this.ensureCsrfToken()
         const path = `/api/resource/${doctype}`
 
         let response = await makeDirectRequest(path, {
@@ -517,6 +541,7 @@ constructor(_baseUrl?: string) { }
     }
 
     async put<T = any, TData = Partial<T>>(doctype: string, name: string, data: TData): Promise<FrappeResponse<T>> {
+        await this.ensureCsrfToken()
         const path = `/api/resource/${doctype}/${encodeURIComponent(name)}`
 
         let response = await makeDirectRequest(path, {
@@ -553,6 +578,7 @@ constructor(_baseUrl?: string) { }
     }
 
     async delete(doctype: string, name: string): Promise<FrappeResponse> {
+        await this.ensureCsrfToken()
         const path = `/api/resource/${doctype}/${encodeURIComponent(name)}`
 
         let response = await makeDirectRequest(path, {
@@ -932,9 +958,9 @@ constructor(_baseUrl?: string) { }
 
     // ==================== Department & Branch Methods ====================
 
-    async getDepartments(options?: FrappeRequestOptions): Promise<any> {
+    async getDepartments(options?: FrappeRequestOptions): Promise<FrappeResponse<Department[]>> {
         try {
-            const response = await this.get('Department', undefined, {
+            const response = await this.get<Department[]>('Department', undefined, {
                 fields: ['name', 'department_name', 'parent_department', 'company', 'is_group'],
                 ...options
             })
@@ -945,9 +971,9 @@ constructor(_baseUrl?: string) { }
         }
     }
 
-    async getBranches(options?: FrappeRequestOptions): Promise<any> {
+    async getBranches(options?: FrappeRequestOptions): Promise<FrappeResponse<Branch[]>> {
         try {
-            const response = await this.get('Branch', undefined, {
+            const response = await this.get<Branch[]>('Branch', undefined, {
                 fields: ['name', 'branch', 'company'],
                 ...options
             })
@@ -1009,40 +1035,6 @@ constructor(_baseUrl?: string) { }
         }
     }
 
-    async getEmployeeCheckinStats(employee: string, fromDate: string, toDate: string): Promise<any> {
-        try {
-            const path = `/api/method/hrms.hr.doctype.employee_checkin.employee_checkin_api.get_employee_checkin_stats`
-            const params = new URLSearchParams({
-                employee,
-                from_date: fromDate,
-                to_date: toDate
-            })
-            const response = await makeDirectRequest(`${path}?${params.toString()}`)
-            const data = await response.json()
-            return data.message || {}
-        } catch (error) {
-            console.error('Error getting checkin stats:', error)
-            return {}
-        }
-    }
-
-    async getTodaysCheckins(department?: string, shift?: string): Promise<any[]> {
-        try {
-            const path = '/api/method/hrms.hr.doctype.employee_checkin.employee_checkin_api.get_todays_checkins'
-            const params: any = {}
-            if (department) params.department = department
-            if (shift) params.shift = shift
-
-            const queryString = new URLSearchParams(params).toString()
-            const response = await makeDirectRequest(`${path}${queryString ? '?' + queryString : ''}`)
-            const data = await response.json()
-            return data.message || []
-        } catch (error) {
-            console.error('Error getting today\'s checkins:', error)
-            return []
-        }
-    }
-
     async getCheckinMethod(employee: string): Promise<{
         checkin_method: string
         require_photo?: number
@@ -1062,7 +1054,7 @@ constructor(_baseUrl?: string) { }
 
     // ==================== Expense & Claims Methods ====================
 
-    async sanctionExpenseClaim(claimName: string): Promise<any> {
+    async sanctionExpenseClaim(claimName: string): Promise<FrappeDoc | null> {
         try {
             // Set status first, then submit via Frappe hooks
             await this.put('Expense Claim', claimName, { approval_status: 'Approved' })
@@ -1077,7 +1069,7 @@ constructor(_baseUrl?: string) { }
         }
     }
 
-    async payExpenseClaim(claimName: string): Promise<any> {
+    async payExpenseClaim(claimName: string): Promise<FrappeDoc | null> {
         try {
             const response = await this.put('Expense Claim', claimName, {
                 status: 'Paid'
@@ -1089,7 +1081,7 @@ constructor(_baseUrl?: string) { }
         }
     }
 
-    async approveEmployeeAdvance(advanceName: string): Promise<any> {
+    async approveEmployeeAdvance(advanceName: string): Promise<FrappeDoc | null> {
         try {
             await this.put('Employee Advance', advanceName, { status: 'Approved' })
             const docRes = await this.get('Employee Advance', advanceName)
@@ -1103,7 +1095,7 @@ constructor(_baseUrl?: string) { }
         }
     }
 
-    async rejectEmployeeAdvance(advanceName: string): Promise<any> {
+    async rejectEmployeeAdvance(advanceName: string): Promise<FrappeDoc | null> {
         try {
             // Reject doesn't submit - just updates status
             const response = await this.put('Employee Advance', advanceName, {
@@ -1148,8 +1140,9 @@ constructor(_baseUrl?: string) { }
      * Fallback: get locations from Employee Checkin records
      */
     private async getEmployeeLocationsFromCheckins(employee: string, date: string): Promise<LocationLog[]> {
+        type CheckinLocationRow = Pick<EmployeeCheckin, 'name' | 'time' | 'log_type'> & { latitude?: number; longitude?: number }
         try {
-            const response = await this.get<any[]>('Employee Checkin', undefined, {
+            const response = await this.get<CheckinLocationRow[]>('Employee Checkin', undefined, {
                 fields: ['name', 'time', 'latitude', 'longitude', 'log_type'],
                 filters: [
                     ['Employee Checkin', 'employee', '=', employee],
@@ -1161,12 +1154,12 @@ constructor(_baseUrl?: string) { }
             })
             const checkins = response.data || []
             return checkins
-                .filter((c: any) => c.latitude && c.longitude && c.latitude !== 0 && c.longitude !== 0)
-                .map((c: any) => ({
+                .filter((c) => c.latitude && c.longitude && c.latitude !== 0 && c.longitude !== 0)
+                .map((c) => ({
                     name: c.name,
                     log_datetime: c.time,
-                    latitude: parseFloat(c.latitude),
-                    longitude: parseFloat(c.longitude),
+                    latitude: parseFloat(String(c.latitude)),
+                    longitude: parseFloat(String(c.longitude)),
                     accuracy: 10,
                     address: c.log_type === 'IN' ? 'تسجيل دخول' : c.log_type === 'OUT' ? 'تسجيل خروج' : '',
                 }))
@@ -1271,7 +1264,7 @@ constructor(_baseUrl?: string) { }
                     try {
                         const [employeeLocations, latestCheckinResponse] = await Promise.all([
                             this.getEmployeeLocations(emp.name, { date: targetDate }),
-                            this.get<any[]>('Employee Checkin', undefined, {
+                            this.get<Pick<EmployeeCheckin, 'log_type' | 'time'>[]>('Employee Checkin', undefined, {
                                 fields: ['log_type', 'time'],
                                 filters: [
                                     ['Employee Checkin', 'employee', '=', emp.name],
@@ -1283,7 +1276,7 @@ constructor(_baseUrl?: string) { }
 
                         locations[emp.name] = employeeLocations
 
-                        const latestCheckin = (latestCheckinResponse.data || [])[0] as any
+                        const latestCheckin = (latestCheckinResponse.data || [])[0]
                         const logType = latestCheckin?.log_type
                         if (logType === 'IN' || logType === 'OUT') {
                             checkinStatus[emp.name] = {
@@ -1351,7 +1344,7 @@ constructor(_baseUrl?: string) { }
 
     // ==================== Expense Claim Methods ====================
 
-    async approveExpenseClaim(claimName: string): Promise<any> {
+    async approveExpenseClaim(claimName: string): Promise<FrappeDoc | null> {
         try {
             const response = await this.put('Expense Claim', claimName, {
                 approval_status: 'Approved',
@@ -1365,7 +1358,7 @@ constructor(_baseUrl?: string) { }
         }
     }
 
-    async rejectExpenseClaim(claimName: string): Promise<any> {
+    async rejectExpenseClaim(claimName: string): Promise<FrappeDoc | null> {
         try {
             const response = await this.put('Expense Claim', claimName, {
                 approval_status: 'Rejected',
@@ -1381,7 +1374,7 @@ constructor(_baseUrl?: string) { }
 
     // ==================== Travel Request Methods ====================
 
-    async approveTravelRequest(requestName: string): Promise<any> {
+    async approveTravelRequest(requestName: string): Promise<FrappeDoc | null> {
         try {
             const response = await this.put('Travel Request', requestName, {
                 status: 'Approved',
@@ -1394,7 +1387,7 @@ constructor(_baseUrl?: string) { }
         }
     }
 
-    async rejectTravelRequest(requestName: string): Promise<any> {
+    async rejectTravelRequest(requestName: string): Promise<FrappeDoc | null> {
         try {
             const response = await this.put('Travel Request', requestName, {
                 status: 'Rejected',
@@ -1410,7 +1403,7 @@ constructor(_baseUrl?: string) { }
     // ==================== Payroll Methods ====================
 
     // Salary Components
-    async getSalaryComponents(options?: FrappeRequestOptions): Promise<any[]> {
+    async getSalaryComponents(options?: FrappeRequestOptions): Promise<FrappeDoc[]> {
         try {
             const response = await this.get('Salary Component', undefined, options)
             return response.data || []
@@ -1420,7 +1413,7 @@ constructor(_baseUrl?: string) { }
         }
     }
 
-    async getSalaryComponent(name: string): Promise<any | null> {
+    async getSalaryComponent(name: string): Promise<FrappeDoc | null> {
         try {
             const response = await this.get('Salary Component', name)
             return response.data || null
@@ -1430,7 +1423,7 @@ constructor(_baseUrl?: string) { }
         }
     }
 
-    async createSalaryComponent(data: any): Promise<any> {
+    async createSalaryComponent(data: FrappeDoc): Promise<FrappeDoc> {
         try {
             const response = await this.post('Salary Component', data)
             return response.data
@@ -1440,7 +1433,7 @@ constructor(_baseUrl?: string) { }
         }
     }
 
-    async updateSalaryComponent(name: string, data: any): Promise<any> {
+    async updateSalaryComponent(name: string, data: FrappeDoc): Promise<FrappeDoc> {
         try {
             const response = await this.put('Salary Component', name, data)
             return response.data
@@ -1460,7 +1453,7 @@ constructor(_baseUrl?: string) { }
     }
 
     // Salary Structures
-    async getSalaryStructures(options?: FrappeRequestOptions): Promise<any[]> {
+    async getSalaryStructures(options?: FrappeRequestOptions): Promise<FrappeDoc[]> {
         try {
             const response = await this.get('Salary Structure', undefined, options)
             return response.data || []
@@ -1470,7 +1463,7 @@ constructor(_baseUrl?: string) { }
         }
     }
 
-    async getSalaryStructure(name: string): Promise<any | null> {
+    async getSalaryStructure(name: string): Promise<FrappeDoc | null> {
         try {
             const response = await this.get('Salary Structure', name)
             return response.data || null
@@ -1480,7 +1473,7 @@ constructor(_baseUrl?: string) { }
         }
     }
 
-    async createSalaryStructure(data: any): Promise<any> {
+    async createSalaryStructure(data: FrappeDoc): Promise<FrappeDoc> {
         try {
             const response = await this.post('Salary Structure', data)
             return response.data
@@ -1490,7 +1483,7 @@ constructor(_baseUrl?: string) { }
         }
     }
 
-    async updateSalaryStructure(name: string, data: any): Promise<any> {
+    async updateSalaryStructure(name: string, data: FrappeDoc): Promise<FrappeDoc> {
         try {
             const response = await this.put('Salary Structure', name, data)
             return response.data
@@ -1510,7 +1503,7 @@ constructor(_baseUrl?: string) { }
     }
 
     // Salary Structure Assignments
-    async getSalaryStructureAssignments(options?: FrappeRequestOptions): Promise<any[]> {
+    async getSalaryStructureAssignments(options?: FrappeRequestOptions): Promise<FrappeDoc[]> {
         try {
             const response = await this.get('Salary Structure Assignment', undefined, options)
             return response.data || []
@@ -1521,27 +1514,27 @@ constructor(_baseUrl?: string) { }
     }
 
     // ── Salary Slip report (read-only; base_meena.salary_slip_api) ──
-    async getSalarySlipsReport(filters: { from_date?: string; to_date?: string; employee?: string; department?: string; company?: string }): Promise<any[]> {
+    async getSalarySlipsReport(filters: { from_date?: string; to_date?: string; employee?: string; department?: string; company?: string }): Promise<FrappeDoc[]> {
         try {
-            const res = await this.call('base_meena.salary_slip_api.get_salary_slips', filters)
-            return (res as any)?.message || []
+            const res = await this.call<FrappeDoc[]>('base_meena.salary_slip_api.get_salary_slips', filters)
+            return res?.message || []
         } catch (error) {
             console.error('Error getting salary slips:', error)
             return []
         }
     }
 
-    async getSalarySlipDetail(name: string): Promise<any | null> {
+    async getSalarySlipDetail(name: string): Promise<FrappeDoc | null> {
         try {
-            const res = await this.call('base_meena.salary_slip_api.get_salary_slip', { name })
-            return (res as any)?.message || null
+            const res = await this.call<FrappeDoc>('base_meena.salary_slip_api.get_salary_slip', { name })
+            return res?.message || null
         } catch (error) {
             console.error('Error getting salary slip detail:', error)
             return null
         }
     }
 
-    async getSalaryStructureAssignment(name: string): Promise<any | null> {
+    async getSalaryStructureAssignment(name: string): Promise<FrappeDoc | null> {
         try {
             const response = await this.get('Salary Structure Assignment', name)
             return response.data || null
@@ -1551,7 +1544,7 @@ constructor(_baseUrl?: string) { }
         }
     }
 
-    async createSalaryStructureAssignment(data: any): Promise<any> {
+    async createSalaryStructureAssignment(data: FrappeDoc): Promise<FrappeDoc> {
         try {
             const response = await this.post('Salary Structure Assignment', data)
             if (!response.data) {
@@ -1564,7 +1557,7 @@ constructor(_baseUrl?: string) { }
         }
     }
 
-    async updateSalaryStructureAssignment(name: string, data: any): Promise<any> {
+    async updateSalaryStructureAssignment(name: string, data: FrappeDoc): Promise<FrappeDoc> {
         try {
             const response = await this.put('Salary Structure Assignment', name, data)
             return response.data
@@ -1584,7 +1577,7 @@ constructor(_baseUrl?: string) { }
     }
 
     // Additional Salary
-    async getAdditionalSalaries(options?: FrappeRequestOptions): Promise<any[]> {
+    async getAdditionalSalaries(options?: FrappeRequestOptions): Promise<FrappeDoc[]> {
         try {
             const response = await this.get('Additional Salary', undefined, options)
             return response.data || []
@@ -1594,7 +1587,7 @@ constructor(_baseUrl?: string) { }
         }
     }
 
-    async getAdditionalSalary(name: string): Promise<any | null> {
+    async getAdditionalSalary(name: string): Promise<FrappeDoc | null> {
         try {
             const response = await this.get('Additional Salary', name)
             return response.data || null
@@ -1604,7 +1597,7 @@ constructor(_baseUrl?: string) { }
         }
     }
 
-    async createAdditionalSalary(data: any): Promise<any> {
+    async createAdditionalSalary(data: FrappeDoc): Promise<FrappeDoc> {
         try {
             const response = await this.post('Additional Salary', data)
             if (!response.data) {
@@ -1617,7 +1610,7 @@ constructor(_baseUrl?: string) { }
         }
     }
 
-    async updateAdditionalSalary(name: string, data: any): Promise<any> {
+    async updateAdditionalSalary(name: string, data: FrappeDoc): Promise<FrappeDoc> {
         try {
             const response = await this.put('Additional Salary', name, data)
             return response.data

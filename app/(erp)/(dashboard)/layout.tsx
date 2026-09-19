@@ -3,14 +3,10 @@
 import { Suspense, type ReactNode } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { DynamicTitle } from '@/components/dynamic-title'
-// Jisr-style neutral-airy retheme of `.theme-hr` (see the file header). Imported
-// here because this layout is what applies `.theme-hr` to HR routes. Unlayered,
-// so it overrides the cream `.theme-hr` block in globals.css.
-import '../../styles/theme-hr-airy.css'
 // Motion & smoothness layer — premium easing, press feedback, focus rings,
 // entrance/shimmer animations, quiet scrollbars. Scoped to `.theme-hr`, fully
-// disabled under prefers-reduced-motion. Imported AFTER the theme so its tokens
-// (--ease-*, --dur-*) resolve against the airy palette.
+// disabled under prefers-reduced-motion. The `.theme-hr` palette itself lives
+// in app/globals.css (Apex ERP tokens) — nothing may override it here.
 import '../../styles/hr-motion.css'
 import { HrShell } from '@/components/hr-shell/shell'
 import { matchesShell, shellRequiresHR } from '@/components/hr-shell/routes'

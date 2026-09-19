@@ -22,8 +22,6 @@ import {
 } from 'lucide-react'
 import { salesApi, localDateISO } from '@/lib/sales-api'
 import { useCompany } from '@/hooks/use-company'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem,

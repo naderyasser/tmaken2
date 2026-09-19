@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from "react"
+import React from "react"
 import {
   LayoutDashboard,
   Users,
@@ -36,7 +36,6 @@ import {
   FileSignature,
   ScrollText,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 import Image from 'next/image'
@@ -215,6 +214,7 @@ export function Sidebar({ activeModule, onModuleChange, isExpanded, onToggle, on
       {/* Collapse toggle — floating pill on edge */}
       <button
         onClick={onToggle}
+        aria-label={isExpanded ? 'طي القائمة الجانبية' : 'توسيع القائمة الجانبية'}
         className={cn(
           'absolute top-6 z-10 w-6 h-6 bg-white border border-gray-200 rounded-full flex items-center justify-center shadow-sm hover:shadow-md hover:bg-gray-50 transition-all opacity-0 group-hover/sidebar:opacity-100',
           isRTL ? '-left-3' : '-right-3'
@@ -438,6 +438,7 @@ export function Sidebar({ activeModule, onModuleChange, isExpanded, onToggle, on
         <button
           onClick={onLogout}
           title={!isExpanded ? t('nav.logout') : undefined}
+          aria-label={t('nav.logout')}
           className={cn(
             'w-full flex items-center gap-3 rounded-lg transition-all duration-150 text-gray-500 hover:bg-red-50 hover:text-red-600 group/item relative',
             isExpanded ? 'px-3 py-2' : 'px-0 py-2 justify-center',

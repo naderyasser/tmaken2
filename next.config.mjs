@@ -4,6 +4,9 @@ const nextConfig = {
   // out-of-place (so the live server keeps serving the current `.next` untouched
   // until an atomic swap). `next start` uses the default `.next`.
   distDir: process.env.NEXT_DIST_DIR || '.next',
+  poweredByHeader: false,
+  reactStrictMode: true,
+  compress: true,
   typescript: {
     ignoreBuildErrors: true,
   },

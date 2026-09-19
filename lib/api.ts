@@ -67,21 +67,6 @@ export async function frappePut(path: string, body: any) {
 }
 
 /**
- * DELETE request to Frappe API
- */
-export async function frappeDelete(path: string) {
-  return frappeRequest(path, { method: 'DELETE' })
-}
-
-/**
- * Get a document from Frappe
- */
-export async function getDoc(doctype: string, name: string) {
-  const path = `/api/resource/${doctype}/${name}`
-  return frappeGet(path)
-}
-
-/**
  * Update a document in Frappe
  */
 export async function updateDoc(doctype: string, name: string, data: any) {
@@ -120,10 +105,9 @@ export async function login(usr: string, pwd: string) {
  * Logout from Frappe
  */
 export async function logout() {
-  const response = await fetch('/api/method/logout', {
+  const response = await csrfFetch('/api/method/logout', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include'
   })
 
   return response.json()
@@ -220,31 +204,6 @@ export async function getUserRoles(uid: string): Promise<string[]> {
   return []
 }
 
-/**
- * Get the Employee record linked to a user email.
- * Returns the employee name (ID) or null if not found.
- */
-export async function getEmployeeByUser(userEmail: string): Promise<string | null> {
-  try {
-    // Try matching by user_id first (the standard linked user field)
-    const path = `/api/resource/Employee?filters=[["user_id","=","${userEmail}"]]&fields=["name"]&limit_page_length=1`
-    const data = await frappeGet(path)
-    if (data?.data?.length > 0) {
-      return data.data[0].name
-    }
-    // Fallback: try matching by company_email
-    const path2 = `/api/resource/Employee?filters=[["company_email","=","${userEmail}"]]&fields=["name"]&limit_page_length=1`
-    const data2 = await frappeGet(path2)
-    if (data2?.data?.length > 0) {
-      return data2.data[0].name
-    }
-    return null
-  } catch (error) {
-    console.error('Failed to get employee by user:', error)
-    return null
-  }
-}
-
 // ===== HR Manager Administration =====
 
 /** Get all system users with their HR Manager status */
@@ -321,31 +280,9 @@ export async function deleteBranch(branch: string) {
   return data.message
 }
 
-/** Get all branches assigned to a specific HR Manager */
-export async function getHRManagerBranches(userId: string) {
-  const data = await frappePost(`${BRANCH_API}.get_hr_manager_branches`, { user_id: userId })
-  return data.message
-}
-
 /** Get branches assigned to the currently logged-in HR Manager */
 export async function getMyBranches() {
   const data = await frappeGet(`${BRANCH_API}.get_my_branches`)
-  return data.message
-}
-
-/** Replace all branch assignments for an HR Manager atomically */
-export async function setHRManagerBranches(userId: string, branches: string[]) {
-  const data = await frappePost(`${BRANCH_API}.set_hr_manager_branches`, {
-    user_id: userId, branches: JSON.stringify(branches)
-  })
-  return data.message
-}
-
-/** Get employees scoped to the current HR Manager's branches */
-export async function getEmployeesInMyBranches(branch?: string, search?: string) {
-  const data = await frappePost(`${BRANCH_API}.get_employees_in_my_branches`, {
-    branch: branch || '', search: search || ''
-  })
   return data.message
 }
 

@@ -100,52 +100,114 @@ html[lang="ur"] button {
     --sidebar-ring: 217 91.2% 59.8%;
   }
 
-  /* ── تمكين HR cream identity (SCOPED to HR routes via .theme-hr) ──
+  /* ── تمكين HR — Apex ERP identity (SCOPED to HR routes via .theme-hr) ──
      Applied by app/(erp)/(dashboard)/layout.tsx to HR routes only, so other
      verticals (cashier/accounting/admin/…) keep the default tokens above.
-     Quiet cream background; loud deep-teal actions. WCAG-AA. */
+     The palette is the Apex ERP reference measured with getComputedStyle
+     (blue sidebar, green primary actions, red destructive). Components must
+     use the --apex-* variables (e.g. bg-[var(--apex-green)]) or the shadcn
+     tokens below — never literal hex. */
   .theme-hr {
     /* Apex ERP reference typeface (Noto Kufi Arabic) — the rest of the app
        keeps IBM Plex Sans Arabic; only .theme-hr (the HR shell) switches. */
     font-family: var(--font-kufi), var(--font-arabic), 'Noto Sans Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    --background: 38 40% 96%;        /* #FAF7F2 cream/sand page bg */
-    --foreground: 144 8% 13%;        /* #1F2421 primary text */
-    --card: 0 0% 100%;               /* #FFFFFF surfaces on cream */
-    --card-foreground: 144 8% 13%;
+
+    /* Apex palette (hex, for arbitrary-value utilities) */
+    --apex-blue: #2960b6;          /* sidebar base, links */
+    --apex-blue-light: #2e71c8;    /* sidebar hover / lighter blue */
+    --apex-blue-accent: #4a7ad9;   /* blue accents, illustrations */
+    --apex-blue-deep: #1b3f7d;     /* pressed / deep blue */
+    --apex-navy: #2e3f66;          /* headings on light */
+    --apex-ink: #3a4a63;           /* illustration strokes, dark text */
+    --apex-text: #212529;          /* body text */
+    --apex-green: #2eaf7d;         /* primary action (اضافة / حفظ) */
+    --apex-green-dark: #279568;    /* primary hover */
+    --apex-success: #4caf50;       /* success accents */
+    --apex-red: #f95f5f;           /* destructive (اغلاق / حذف) */
+    --apex-red-dark: #e54a4a;      /* destructive hover */
+    --apex-slate: #6a7592;         /* secondary buttons (الاجراءات / الطباعة) */
+    --apex-thead: #bcc2d1;         /* table header */
+    --apex-row-group: #c0defa;     /* report group rows */
+    --apex-active: #bcdcf8;        /* active sidebar item */
+    --apex-border: #ced4da;        /* borders, dividers */
+    --apex-bg: #f4f5f7;            /* page background */
+
+    /* Added 2026-09-19 (HR devices/requests/settings token cleanup) — these hex
+       values were already in use but too far from any --apex-* above to reuse
+       without a visible shift, so they got their own token instead. */
+    --apex-green-text: #1e7e34;    /* success message text on tinted green cards (device register success, unmapped-link hover) */
+    --apex-red-text: #b02a2a;      /* error message text on tinted red cards (device form error) */
+    --apex-blue-hover: #2455a3;    /* hover shade for solid --apex-blue buttons (cancel-transactions page) */
+    --apex-blue-light-hover: #255ba3; /* hover shade for solid --apex-blue-light buttons (login submit) — distinct from --apex-blue-hover */
+    --apex-red-muted: #e9a3a3;     /* disabled-state background for red destructive buttons */
+    --apex-contact-blue: #2f7ee6;       /* subscription-page "تواصل معنا للتجديد" button — distinct shade from --apex-blue */
+    --apex-contact-blue-hover: #2a6fcc; /* hover for the above */
+    --apex-blue-border: #8fa6cc;   /* report-page.tsx toolbar button borders — distinct from --apex-border */
+    --apex-form-bar-bg: #f4f6f9;   /* apex-employee-form.tsx action-bar background — distinct from --apex-bg */
+
+    /* Added 2026-09-19 (hr-shell + dashboard design-polish pass) — same reasoning
+       as the block above: no existing --apex-* was within a few % of these. */
+    --apex-input-text: #495057;    /* rail/mobile-nav search input value text */
+    --apex-amber: #ffb62e;         /* "في الانتظار" (waiting) chart/status accent — no amber token existed */
+    --apex-neutral-fill: #9d9fa0;  /* muted neutral chart segment fill (holiday/weekly-off bars) */
+
+    /* Added 2026-09-19 (cleanup pass, hex→token) — hr-dashboard-public.tsx chart
+       colors, none within a few % of an existing --apex-* above. Mirrored
+       verbatim (same hex) in lib/apex-colors.ts for Recharts props. */
+    --apex-chart-present: #497cff;      /* "حاضر" (present) tile/legend/donut */
+    --apex-chart-absent: #dc3545;       /* "غائب" (absent) tile/legend/donut — duller than --apex-chart-absent-icon */
+    --apex-chart-leave: #34c75a;        /* "إجازة" (on leave) tile/legend/donut */
+    --apex-chart-tick: #64748b;         /* axis tick label fill (slate-500) */
+    --apex-chart-neutral-icon: #808080; /* عطلات رسمية / عطلة إسبوعية summary icon color */
+    --apex-chart-absent-icon: #ff0000;  /* الغياب summary icon color — brighter than --apex-chart-absent */
+    --apex-chart-panel-bg: #f1f2f4;     /* per-branch chart panel background */
+    --apex-chart-grid: #e2e8f0;         /* CartesianGrid stroke / empty-donut fill */
+    --apex-chart-axis-line: #cbd5e1;    /* chart axis line stroke */
+    --apex-chart-badge-bg: #dbeafe;     /* branch-initial badge background */
+    --apex-chart-badge-text: #2456a6;   /* branch-initial badge text */
+    --apex-chart-series-blue: #3b82f6;  /* movements bar series 1 */
+    --apex-chart-series-gray: #94a3b8;  /* movements bar series 2 */
+    --apex-chart-series-amber: #f59e0b; /* movements bar series 3 */
+
+    /* shadcn tokens re-pointed to the same palette (HSL triplets) */
+    --background: 220 16% 96%;       /* --apex-bg */
+    --foreground: 210 11% 15%;       /* --apex-text */
+    --card: 0 0% 100%;
+    --card-foreground: 210 11% 15%;
     --popover: 0 0% 100%;
-    --popover-foreground: 144 8% 13%;
-    --primary: 172 77% 24%;          /* #0E6E62 deep teal — actions */
+    --popover-foreground: 210 11% 15%;
+    --primary: 157 58% 43%;          /* --apex-green */
     --primary-foreground: 0 0% 100%;
-    --secondary: 38 40% 92%;         /* #F3EDE3 warm surface-2 */
-    --secondary-foreground: 144 8% 13%;
-    --muted: 38 30% 93%;
-    --muted-foreground: 96 7% 35%;   /* #585D53 secondary text */
-    --accent: 174 30% 94%;           /* faint teal wash for hovers */
-    --accent-foreground: 172 77% 20%;
-    --destructive: 6 63% 46%;        /* #C0392B */
+    --secondary: 223 16% 49%;        /* --apex-slate */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 220 16% 96%;            /* --apex-bg */
+    --muted-foreground: 223 16% 49%; /* --apex-slate */
+    --accent: 208 81% 85%;           /* --apex-active */
+    --accent-foreground: 218 63% 44%;
+    --destructive: 0 93% 67%;        /* --apex-red */
     --destructive-foreground: 0 0% 100%;
-    --success: 147 46% 33%;          /* #2E7D52 */
+    --success: 157 58% 43%;
     --success-foreground: 0 0% 100%;
-    --warning: 43 89% 38%;           /* #B8860B */
+    --warning: 43 89% 38%;
     --warning-foreground: 0 0% 100%;
-    --info: 206 56% 39%;             /* #2C6E9B */
+    --info: 218 63% 44%;             /* --apex-blue */
     --info-foreground: 0 0% 100%;
-    --border: 36 24% 88%;            /* #E7E1D8 warm hairline */
-    --input: 37 24% 81%;             /* #D9D1C4 stronger field border */
-    --ring: 172 77% 24%;             /* teal focus ring */
-    --chart-1: 172 77% 30%;
-    --chart-2: 43 74% 49%;
-    --chart-3: 16 62% 51%;
-    --chart-4: 206 56% 39%;
-    --chart-5: 147 35% 42%;
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 144 8% 13%;
-    --sidebar-primary: 172 77% 24%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 174 30% 94%;
-    --sidebar-accent-foreground: 172 77% 20%;
-    --sidebar-border: 36 24% 88%;
-    --sidebar-ring: 172 77% 24%;
+    --border: 210 14% 83%;           /* --apex-border */
+    --input: 210 14% 83%;
+    --ring: 218 63% 44%;             /* --apex-blue focus ring */
+    --chart-1: 157 58% 43%;
+    --chart-2: 218 63% 44%;
+    --chart-3: 0 93% 67%;
+    --chart-4: 43 89% 45%;
+    --chart-5: 223 16% 49%;
+    --sidebar-background: 218 63% 44%;   /* --apex-blue */
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 208 81% 85%;      /* --apex-active */
+    --sidebar-primary-foreground: 210 11% 15%;
+    --sidebar-accent: 214 61% 48%;       /* --apex-blue-light */
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 214 61% 48%;
+    --sidebar-ring: 208 81% 85%;
   }
 
   /* ── Freelancer Workspace — deep Saudi-green identity (SCOPED via .theme-freelancer) ──
@@ -379,4 +441,38 @@ html[lang="ur"] button {
 .theme-lazaa .from-blue-500, .theme-lazaa .from-blue-600, .theme-lazaa .from-blue-700,
 .theme-lazaa .from-indigo-600, .theme-lazaa .from-indigo-700 {
   background-image: linear-gradient(to bottom right, hsl(var(--lz-brick)), hsl(var(--lz-brick-press))) !important;
+}
+
+/* ── تمكين HR — print (GenericListPage «الطباعة», ReportPage «تصدير ← طباعة») ──
+   Both call window.print() directly on the live app screen — without this, a
+   print includes the full-height sidebar (components/hr-shell/icon-rail.tsx,
+   the shell's only <aside>) and the topbar (components/hr-shell/topbar.tsx,
+   the shell's only <header>), clipped to whatever fit the screen's fixed
+   h-screen/overflow-hidden box. Both components are owned by another agent,
+   so they're hidden from here instead of edited directly: the shell's root
+   (.theme-hr, in components/hr-shell/shell.tsx) is the only class available
+   to scope through. The pages' own toolbars/filters/pagination carry
+   `print:hidden` (Tailwind's built-in print variant) and render a dedicated
+   print-only table (`hidden print:block`) alongside, so only that table (or
+   the report's results table) is left once these are hidden too. */
+@media print {
+  .theme-hr > aside,
+  .theme-hr header {
+    display: none !important;
+  }
+  /* Collapse the shell's fixed h-screen/flex column chrome so a long printed
+     table isn't clipped to one screen's worth of rows. */
+  .theme-hr,
+  .theme-hr > div,
+  .theme-hr main {
+    display: block !important;
+    height: auto !important;
+  }
+  .theme-hr .overflow-hidden,
+  .theme-hr .overflow-y-auto {
+    overflow: visible !important;
+  }
+  body {
+    background: #fff !important;
+  }
 }

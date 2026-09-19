@@ -356,7 +356,7 @@ export interface BottomItem {
   match?: (pathname: string, moduleParam: string | null) => boolean
 }
 
-export const BOTTOM_ITEMS: BottomItem[] = [
+const BOTTOM_ITEMS: BottomItem[] = [
   { id: 'back-home', labelKey: 'guard.back_home', href: '/', icon: Home },
 ]
 
@@ -373,7 +373,7 @@ export function isItemActive(item: RailItem, pathname: string, moduleParam: stri
  * Plain employees see only items marked visibility:'all'.
  * Fingerprint-only tenants see only FINGERPRINT_RAIL_ITEM_IDS.
  */
-export function visibleRailSections(opts: {
+function visibleRailSections(opts: {
   isEmployee: boolean
   hasEmployee: boolean
   hrFingerprintOnly?: boolean

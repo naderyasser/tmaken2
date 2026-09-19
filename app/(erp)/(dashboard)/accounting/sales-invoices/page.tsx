@@ -8,7 +8,7 @@ import type { FrappeFilter } from '@/lib/api-client'
 import { useI18n } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { AlertCircle, RefreshCw, FileText, Search, Download, CheckCircle, Clock, XCircle, ChevronDown, Printer, FileDown } from 'lucide-react'
+import { AlertCircle, RefreshCw, FileText, Search, Download, Printer, FileDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type Locale = 'ar' | 'en'

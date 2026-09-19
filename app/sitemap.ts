@@ -1,9 +1,13 @@
 import type { MetadataRoute } from 'next'
 import { store } from '@/lib/frappe-server'
 
-const BASE = process.env.NEXT_PUBLIC_STORE_URL || 'https://aqar.meena-alaqariya.com'
+const BASE = process.env.NEXT_PUBLIC_STORE_URL ?? ''
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // No known public store URL configured — every entry below is BASE-prefixed,
+  // so skip the whole sitemap rather than emit URLs pointing nowhere real.
+  if (!BASE) return []
+
   // frappeServer throws on backend outage — a sitemap should degrade to the static
   // URLs rather than 500 for crawlers.
   let listings: any[] = []

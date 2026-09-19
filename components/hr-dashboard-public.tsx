@@ -10,6 +10,9 @@ import {
 import { frappeClient, isAuthError } from '@/lib/api-client'
 import { frappeImageUrl } from '@/lib/utils'
 import { SessionRenew } from '@/components/login-page'
+import { Skeleton } from '@/components/ui/skeleton'
+import { EmptyState } from '@/components/hr/ui/empty-state'
+import { APEX } from '@/lib/apex-colors'
 
 /**
  * لوحة تحكم الحضور — live version of the Apex reference dashboard.
@@ -36,23 +39,40 @@ interface Overview {
   last_days: { date: string; count: number }[]
 }
 
+// Token cleanup only (zero visual change): every value here now comes from
+// lib/apex-colors.ts (a JS mirror of the --apex-chart-* vars in globals.css)
+// or an existing --apex-* var — no literal hex left in this file. See
+// --apex-chart-absent's comment for why it's distinct from --apex-red.
 const COLORS = {
-  present: '#497cff', absent: '#dc3545', leave: '#34c75a', waiting: '#ffb62e', weekly: '#9d9fa0',
+  present: APEX.chartPresent, absent: APEX.chartAbsent, leave: APEX.chartLeave, waiting: 'var(--apex-amber)', weekly: 'var(--apex-neutral-fill)',
 }
 
 const EMPTY_TOTALS: Totals = { employees: 0, present: 0, absent: 0, on_leave: 0, official_holiday: 0, weekly_off: 0, waiting: 0 }
 
-/** "22:06:56 09/13/2026" — the reference's movement timestamp format. */
-function formatMovementTime(iso: string): string {
-  const [d, t] = iso.split(' ')
-  if (!d || !t) return iso
-  const [y, m, day] = d.split('-')
-  return `${t.split('.')[0]} ${m}/${day}/${y}`
-}
-
 function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-')
   return `${d}-${m}-${y}`
+}
+
+/** "22:06:56 13-09-2026" — time + the same dd-mm-yyyy date used everywhere else on this page. */
+function formatMovementTime(iso: string): string {
+  const [d, t] = iso.split(' ')
+  if (!d || !t) return iso
+  return `${t.split('.')[0]} ${formatDate(d)}`
+}
+
+/** Truncates a long branch name for the x-axis tick; the bar's Tooltip still
+ *  shows the untruncated name (it reads the underlying data value, not this). */
+function truncateLabel(value: string, max = 10): string {
+  return value.length > max ? `${value.slice(0, max)}…` : value
+}
+
+function BranchAxisTick({ x, y, payload }: any) {
+  return (
+    <text x={x} y={y + 12} textAnchor="middle" fontSize={9} fill={APEX.chartTick}>
+      {truncateLabel(String(payload?.value ?? ''))}
+    </text>
+  )
 }
 
 export function PublicHrDashboard() {
@@ -84,11 +104,11 @@ export function PublicHrDashboard() {
 
   const totals = data?.totals ?? EMPTY_TOTALS
   const stats = [
-    { key: 'leave', label: 'الاجازات', value: totals.on_leave, icon: ArrowUpFromLine, color: '#2eaf7d' },
-    { key: 'official', label: 'عطلات رسمية', value: totals.official_holiday, icon: Gift, color: '#808080' },
-    { key: 'weekly', label: 'عطله إسبوعية', value: totals.weekly_off, icon: CalendarDays, color: '#808080' },
-    { key: 'absent', label: 'الغياب', value: totals.absent, icon: AlertTriangle, color: '#ff0000' },
-    { key: 'present', label: 'حضور', value: totals.present, icon: CheckSquare, color: '#2960b6' },
+    { key: 'leave', label: 'الاجازات', value: totals.on_leave, icon: ArrowUpFromLine, color: 'var(--apex-green)' },
+    { key: 'official', label: 'عطلات رسمية', value: totals.official_holiday, icon: Gift, color: 'var(--apex-chart-neutral-icon)' },
+    { key: 'weekly', label: 'عطله إسبوعية', value: totals.weekly_off, icon: CalendarDays, color: 'var(--apex-chart-neutral-icon)' },
+    { key: 'absent', label: 'الغياب', value: totals.absent, icon: AlertTriangle, color: 'var(--apex-chart-absent-icon)' },
+    { key: 'present', label: 'حضور', value: totals.present, icon: CheckSquare, color: 'var(--apex-blue)' },
   ]
   const donut = [
     { name: 'حضور', value: totals.present, fill: COLORS.present },
@@ -107,11 +127,11 @@ export function PublicHrDashboard() {
   const dayTitle = data ? `حركات يوم ${data.day_name} ${formatDate(data.date)}` : 'حركات اليوم'
 
   return (
-    <div className="p-4 space-y-4 bg-[#f4f5f7] min-h-full font-[family-name:var(--font-arabic)]" dir="rtl">
+    <div className="p-4 space-y-4 bg-[var(--apex-bg)] min-h-full font-[family-name:var(--font-arabic)]" dir="rtl">
 
       {/* Status strip: which day is shown + refresh */}
       <div className="flex items-center justify-between gap-3 text-[12px] text-slate-500">
-        <span>
+        <span role="status" aria-live="polite">
           {loading ? 'جارٍ تحميل بيانات الحضور…'
             : data && !data.is_today ? `لا توجد حركات اليوم بعد — يُعرض آخر يوم به حركات (${formatDate(data.date)})`
             : `بيانات حية ليوم ${data ? formatDate(data.date) : ''}`}
@@ -121,16 +141,17 @@ export function PublicHrDashboard() {
           type="button"
           onClick={() => load(true)}
           disabled={loading || refreshing}
+          aria-label="تحديث بيانات لوحة التحكم"
           className="inline-flex items-center gap-1.5 rounded border border-slate-200 bg-white px-2.5 py-1 font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
         >
-          {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          {refreshing ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <RefreshCw className="h-3.5 w-3.5" aria-hidden />}
           تحديث
         </button>
       </div>
 
       {/* Top Row: Cards and Circle Chart */}
       <div className="flex flex-col xl:flex-row-reverse gap-4">
-        <div className="flex-1 bg-[#f1f2f4] p-5 rounded border border-slate-200/60">
+        <div className="flex-1 bg-[var(--apex-chart-panel-bg)] p-5 rounded border border-slate-200/60">
           <h2 className="mb-5 text-[24px] font-bold text-slate-800 text-center">ملخص حضور اليوم</h2>
           <div className="flex gap-3 flex-row-reverse">
             {stats.map((s) => {
@@ -140,9 +161,13 @@ export function PublicHrDashboard() {
                   key={s.key}
                   className="flex-1 min-w-0 flex flex-col items-center justify-center bg-white rounded border border-slate-200/70 py-5 px-2 shadow-sm"
                 >
-                  <Icon className="h-6 w-6 mb-3" strokeWidth={2} style={{ color: s.color }} />
+                  <Icon className="h-6 w-6 mb-3" strokeWidth={2} style={{ color: s.color }} aria-hidden />
                   <p className="text-[12px] font-bold text-slate-700 mb-1">{s.label}</p>
-                  <p className="text-xl font-bold" style={{ color: s.color }}>{loading ? '…' : s.value}</p>
+                  {loading ? (
+                    <Skeleton className="h-6 w-8" />
+                  ) : (
+                    <p className="text-xl font-bold" style={{ color: s.color }}>{s.value}</p>
+                  )}
                 </div>
               )
             })}
@@ -152,13 +177,15 @@ export function PublicHrDashboard() {
         <div className="w-full xl:w-[320px] shrink-0 bg-white p-5 rounded border border-slate-100 flex flex-col items-center justify-center shadow-sm">
           <div className="relative h-44 w-44">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
+              {/* role/title (not aria-label — not a typed recharts prop) give the
+                  generated <svg> an accessible name (D7, round-1: svg-img-alt) */}
+              <PieChart role="img" title="توزيع الموظفين حسب حالة الحضور">
                 <Pie
-                  data={donut.length ? donut : [{ name: '—', value: 1, fill: '#e2e8f0' }]}
+                  data={donut.length ? donut : [{ name: '—', value: 1, fill: APEX.chartGrid }]}
                   dataKey="value" cx="50%" cy="50%" innerRadius={61} outerRadius={70}
                   stroke="none" isAnimationActive={false}
                 >
-                  {(donut.length ? donut : [{ fill: '#e2e8f0' }]).map((entry, index) => (
+                  {(donut.length ? donut : [{ fill: APEX.chartGrid }]).map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />
                   ))}
                 </Pie>
@@ -179,13 +206,13 @@ export function PublicHrDashboard() {
           <h2 className="mb-6 text-[24px] font-bold text-slate-800 text-center">ملخص الحضور في الفروع</h2>
           <div className="h-[300px] mb-2">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={branches} barSize={26} margin={{ right: 12, left: -18, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+              <BarChart role="img" title="ملخص الحضور في الفروع" data={branches} barSize={26} margin={{ right: 12, left: -18, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={APEX.chartGrid} />
                 <XAxis
-                  dataKey="name" tick={{ fontSize: 9, fill: '#64748b' }} axisLine={{ stroke: '#cbd5e1' }}
-                  tickLine={false} angle={-45} textAnchor="end" interval={0} height={84} dx={-8} dy={6}
+                  dataKey="name" tick={<BranchAxisTick />} axisLine={{ stroke: APEX.chartAxisLine }}
+                  tickLine={false} angle={0} interval={0} height={36}
                 />
-                <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#cbd5e1' }} tickLine={false} allowDecimals={false} domain={[0, branchMax]} />
+                <YAxis tick={{ fontSize: 11, fill: APEX.chartTick }} axisLine={{ stroke: APEX.chartAxisLine }} tickLine={false} allowDecimals={false} domain={[0, branchMax]} />
                 <Tooltip cursor={{ fill: 'rgba(148,163,184,0.1)' }} contentStyle={{ direction: 'rtl', borderRadius: 4, fontSize: 12 }} />
                 <Bar dataKey="present" name="حضور" stackId="a" fill={COLORS.present} isAnimationActive={false} />
                 <Bar dataKey="leave" name="الاجازات" stackId="a" fill={COLORS.leave} isAnimationActive={false} />
@@ -208,7 +235,7 @@ export function PublicHrDashboard() {
           <div className="flex items-center justify-between mb-4 px-2">
             <div className="flex items-center justify-center gap-2">
               <h2 className="text-[24px] font-bold text-slate-800">{dayTitle}</h2>
-              <Info className="h-4 w-4 text-slate-400" />
+              <Info className="h-4 w-4 text-slate-400" aria-hidden />
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -224,10 +251,18 @@ export function PublicHrDashboard() {
               </thead>
               <tbody>
                 {loading && (
-                  <tr><td colSpan={5} className="py-8 text-center text-slate-400"><Loader2 className="inline h-4 w-4 animate-spin" /></td></tr>
+                  <tr><td colSpan={5} className="py-8 text-center text-slate-400"><Loader2 className="inline h-4 w-4 animate-spin" aria-hidden /></td></tr>
                 )}
                 {!loading && movements.length === 0 && (
-                  <tr><td colSpan={5} className="py-8 text-center text-slate-400">لا توجد حركات مسجّلة</td></tr>
+                  <tr>
+                    <td colSpan={5} className="py-2">
+                      <EmptyState
+                        icon={CalendarDays}
+                        title="لا توجد حركات مسجّلة اليوم"
+                        description="ستظهر هنا حركات الحضور والانصراف بمجرد تسجيلها"
+                      />
+                    </td>
+                  </tr>
                 )}
                 {movements.map((m, i) => (
                   <tr key={`${m.employee}-${m.time}-${i}`} className="border-b border-slate-100">
@@ -236,7 +271,7 @@ export function PublicHrDashboard() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={frappeImageUrl(m.image)} alt="" className="inline-block h-7 w-7 rounded-full object-cover" />
                       ) : (
-                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#dbeafe] text-[11px] font-bold text-[#2456a6]">
+                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--apex-chart-badge-bg)] text-[11px] font-bold text-[var(--apex-chart-badge-text)]">
                           {(m.employee_name || '?').trim().charAt(0)}
                         </span>
                       )}
@@ -265,14 +300,14 @@ export function PublicHrDashboard() {
         <h2 className="mb-4 text-[24px] font-bold text-slate-800 text-center">حركات اخر 10 ايام</h2>
         <div className="h-[200px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={tenDays} barSize={16}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-              <XAxis dataKey="day" tick={{ fontSize: 10, fill: '#64748b' }} axisLine={{ stroke: '#cbd5e1' }} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={{ stroke: '#cbd5e1' }} tickLine={false} allowDecimals={false} />
+            <BarChart role="img" title="حركات اخر 10 ايام" data={tenDays} barSize={16}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={APEX.chartGrid} />
+              <XAxis dataKey="day" tick={{ fontSize: 10, fill: APEX.chartTick }} axisLine={{ stroke: APEX.chartAxisLine }} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: APEX.chartTick }} axisLine={{ stroke: APEX.chartAxisLine }} tickLine={false} allowDecimals={false} />
               <Tooltip cursor={{ fill: 'rgba(148,163,184,0.1)' }} contentStyle={{ direction: 'rtl', borderRadius: 4, fontSize: 12 }} formatter={(v: number) => [v, 'الحركات']} />
               <Bar dataKey="val" fill={COLORS.present} radius={[2, 2, 0, 0]} isAnimationActive={false}>
                 {tenDays.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={index % 2 === 0 ? '#3b82f6' : (index % 3 === 0 ? '#94a3b8' : '#f59e0b')} />
+                  <Cell key={`cell-${index}`} fill={index % 2 === 0 ? APEX.chartSeriesBlue : (index % 3 === 0 ? APEX.chartSeriesGray : APEX.chartSeriesAmber)} />
                 ))}
               </Bar>
             </BarChart>

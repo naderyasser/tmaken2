@@ -90,6 +90,13 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
       { label: isRTL ? 'تفاصيل الموظف' : 'Employee Details' },
     ]
   }
+  if (pathname.startsWith('/hr/role-permissions/')) {
+    return [
+      hrRoot,
+      { label: isRTL ? 'الصلاحيات' : 'Permissions', href: '/hr-managers' },
+      { label: isRTL ? 'تعديل الصلاحيات' : 'Edit Permissions' },
+    ]
+  }
 
   // ── Direct HR sub-routes ───────────────────────────────────────────────────
   const hrRoutes: Record<string, string> = {

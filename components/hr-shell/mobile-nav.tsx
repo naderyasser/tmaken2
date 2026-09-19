@@ -48,7 +48,7 @@ export function MobileNav({ open, onOpenChange }: { open: boolean; onOpenChange:
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side={isRTL ? 'right' : 'left'}
-        className="w-[272px] sm:max-w-[272px] p-0 flex flex-col bg-[#2960b6] text-white border-0"
+        className="w-[272px] sm:max-w-[272px] p-0 flex flex-col bg-[var(--apex-blue)] text-white border-0"
         dir="rtl"
       >
         <SheetHeader className="h-[55px] px-4 flex-row items-center gap-2.5 border-b border-white/15 text-start shrink-0">
@@ -74,7 +74,7 @@ export function MobileNav({ open, onOpenChange }: { open: boolean; onOpenChange:
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="ابحث"
-              className="w-full h-[37px] rounded bg-white text-[14px] text-[#495057] pr-[11px] pl-9 placeholder:text-slate-400 outline-none"
+              className="w-full h-[37px] rounded bg-white text-[14px] text-[var(--apex-input-text)] pr-[11px] pl-9 placeholder:text-slate-400 outline-none"
             />
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-slate-500" />
           </div>
@@ -84,12 +84,12 @@ export function MobileNav({ open, onOpenChange }: { open: boolean; onOpenChange:
         <nav className="flex-1 overflow-y-auto pt-3 pb-12">
           {dashItem && (
             <div className="mb-px">
-              <div className="relative w-full h-[57px] px-2 bg-[#2e71c8] flex items-center justify-between text-white">
+              <div className="relative w-full h-[57px] px-2 bg-[var(--apex-blue-light)] flex items-center justify-between text-white">
                 <ChevronUp className="h-[18px] w-[18px] shrink-0" />
                 <span className="flex-1 text-center text-[16px]">{t('nav.dashboard_section')}</span>
                 <LayoutDashboard className="h-[21px] w-[21px] shrink-0" />
               </div>
-              <div className="bg-[#2e71c8] px-[10px] pt-0 pb-[15px]">
+              <div className="bg-[var(--apex-blue-light)] px-[10px] pt-0 pb-[15px]">
                 <Link
                   href={dashItem.href}
                   onClick={close}
@@ -109,7 +109,7 @@ export function MobileNav({ open, onOpenChange }: { open: boolean; onOpenChange:
             .map((section) => {
               const SectionIcon = section.icon
               const isCollapsed = !searching && !!collapsed[section.id]
-              const bg = isCollapsed ? 'bg-[#2960b6]' : 'bg-[#2e71c8]'
+              const bg = isCollapsed ? 'bg-[var(--apex-blue)]' : 'bg-[var(--apex-blue-light)]'
               return (
                 <div key={section.id} className="mb-px">
                   <button
@@ -172,7 +172,7 @@ export function MobileNav({ open, onOpenChange }: { open: boolean; onOpenChange:
             <span>{t('nav.logout')}</span>
           </button>
           <div className="pt-2 h-11 text-center">
-            <span className="text-[12px] text-white">Powered By Taif Alalmas v1.0.11</span>
+            <span className="text-[12px] text-white">مينا للحلول التقنية {process.env.NEXT_PUBLIC_APP_VERSION || 'v1.0.11'}</span>
           </div>
         </div>
       </SheetContent>

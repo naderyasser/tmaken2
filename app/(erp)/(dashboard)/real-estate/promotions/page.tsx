@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useI18n } from '@/lib/i18n'
 import { frappeClient } from '@/lib/api-client'
 import { realEstateApi, type AqarPromotion } from '@/lib/real-estate-api'
-import { formatPrice, dualDate } from '@/lib/aqar-format'
+import { formatPrice } from '@/lib/aqar-format'
 import { Star, Receipt, FileText } from 'lucide-react'
 
 const PAY_TONE: Record<string, string> = {

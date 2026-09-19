@@ -5,11 +5,11 @@
    modern WITHOUT touching individual pages. Everything here is:
      • scoped to `.theme-hr` (no other vertical — store/cashier/accounting/
        freelancer/lazaa — is affected);
-     • unlayered (wins over globals.css like theme-hr-airy.css);
+     • unlayered (wins over globals.css);
      • fully disabled under `prefers-reduced-motion: reduce` (accessibility);
      • transform/opacity-only for the animated bits (GPU-cheap, no reflow).
 
-   Imported once, right after theme-hr-airy.css, from (dashboard)/layout.tsx.
+   Imported once, from (dashboard)/layout.tsx.
    ════════════════════════════════════════════════════════════════════════ */
 
 .theme-hr {

@@ -60,7 +60,7 @@ export function IconRail() {
 
   return (
     <aside
-      className="hidden lg:flex flex-col w-[272px] shrink-0 bg-[#2960b6] text-white h-full overflow-hidden pt-4"
+      className="hidden lg:flex flex-col w-[272px] shrink-0 bg-[var(--apex-blue)] text-white h-full overflow-hidden pt-4"
       dir="rtl"
     >
       {/* Search — 37px / 14px as measured */}
@@ -70,7 +70,7 @@ export function IconRail() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="ابحث"
-            className="w-full h-[37px] rounded bg-white text-[14px] text-[#495057] pr-[11px] pl-9 placeholder:text-slate-400 outline-none"
+            className="w-full h-[37px] rounded bg-white text-[14px] text-[var(--apex-input-text)] pr-[11px] pl-9 placeholder:text-slate-400 outline-none"
           />
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-[18px] w-[18px] text-slate-500" />
         </div>
@@ -85,9 +85,10 @@ export function IconRail() {
               <button
                 type="button"
                 onClick={() => toggle(section.id, isOpen)}
+                aria-expanded={isOpen}
                 className={cn(
                   'relative w-full h-[57px] px-2 flex items-center justify-between text-white transition-colors',
-                  isOpen ? 'bg-[#2e71c8]' : 'bg-[#2960b6] hover:bg-[#2b68bf]'
+                  isOpen ? 'bg-[var(--apex-blue-light)]' : 'bg-[var(--apex-blue)] hover:bg-[#2b68bf]'
                 )}
               >
                 {isOpen ? (
@@ -100,7 +101,7 @@ export function IconRail() {
               </button>
 
               {isOpen && (
-                <div className="bg-[#2e71c8] py-2">
+                <div className="bg-[var(--apex-blue-light)] py-2">
                   {section.items.map((item) => (
                     <RailEntry key={item.id} item={item} pathname={pathname} moduleParam={moduleParam} depth={0} />
                   ))}
@@ -113,7 +114,7 @@ export function IconRail() {
 
       {/* Bottom bar — 44px, 12px white */}
       <div className="h-11 pt-3 shrink-0 text-center">
-        <span className="text-[12px] text-white">Powered By Taif Alalmas v1.0.11</span>
+        <span className="text-[12px] text-white">مينا للحلول التقنية {process.env.NEXT_PUBLIC_APP_VERSION || 'v1.0.11'}</span>
       </div>
     </aside>
   )
@@ -145,14 +146,14 @@ function RailEntry({ item, pathname, moduleParam, depth }: {
 
   const rowClass = cn(
     'flex items-center justify-between h-[55px] mx-2 px-4 rounded text-[16px] transition-colors',
-    active && !isGroup ? 'bg-[#bcdcf8] text-[#212529]' : 'text-white hover:bg-[#bcdcf8] hover:text-[#212529]'
+    active && !isGroup ? 'bg-[var(--apex-active)] text-[var(--apex-text)]' : 'text-white hover:bg-[var(--apex-active)] hover:text-[var(--apex-text)]'
   )
   const indent = { paddingRight: `${16 + depth * 16}px` }
 
   if (isGroup) {
     return (
       <div>
-        <button type="button" onClick={() => { const next = !opened; setGroupOpen(next); try { sessionStorage.setItem(`railGroup:${item.id}`, next ? '1' : '0') } catch {} }} className={cn(rowClass, 'w-[calc(100%-16px)]')} style={indent}>
+        <button type="button" onClick={() => { const next = !opened; setGroupOpen(next); try { sessionStorage.setItem(`railGroup:${item.id}`, next ? '1' : '0') } catch {} }} aria-expanded={opened} className={cn(rowClass, 'w-[calc(100%-16px)]')} style={indent}>
           <span>{label}</span>
           {opened ? <ChevronUp className="h-[18px] w-[18px]" /> : <ChevronDown className="h-[18px] w-[18px]" />}
         </button>

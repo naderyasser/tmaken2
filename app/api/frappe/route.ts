@@ -134,7 +134,7 @@ async function handleProxyRequest(request: NextRequest) {
 
     // Forward Set-Cookie headers from backend (critical for login)
     // In dev (localhost), strip Domain= attribute so the browser accepts cookies
-    // from the prod backend (qarawi.base.meena.sa) on localhost:3000
+    // from the configured backend (NEXT_PUBLIC_FRAPPE_URL) on localhost:3000
     const setCookies = response.headers.getSetCookie?.()
     if (setCookies) {
       const isDev = process.env.NODE_ENV !== 'production'

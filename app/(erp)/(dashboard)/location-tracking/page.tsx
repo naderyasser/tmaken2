@@ -6,7 +6,6 @@ import { I18nProvider, useI18n } from "@/lib/i18n"
 import { formatTime } from '@/lib/format'
 import { useAuth } from "@/lib/auth-context"
 import { LoginPage } from "@/components/login-page"
-import type { ModuleType } from "@/components/sidebar"
 import {
   Card,
   CardContent,
@@ -18,7 +17,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Toaster } from "@/components/ui/toaster"
 import { useToast } from "@/hooks/use-toast"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
