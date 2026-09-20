@@ -1,13 +1,15 @@
 /**
- * «الصلاحيات» — Apex list screen inside the unified HR shell (HrGuard owns the gate).
- * Columns and toolbar mirror the reference; rows come from base_meena.api.hr_lists.
+ * «الصلاحيات» — Apex bespoke screen inside the unified HR shell (HrGuard
+ * owns the gate). Dispatched through ModulePage('permissions') — see
+ * components/hr/permissions-list-page.tsx for the Apex-exact columns/toolbar
+ * (5.17). The per-role matrix still lives at /hr/role-permissions/[role]
+ * (components/hr/role-permissions-page.tsx, unchanged).
  */
 
 'use client'
 
-import { GenericListPage } from '@/components/hr/generic-list-page'
-import { getModuleConfig, type ListModuleConfig } from '@/lib/hr-modules'
+import { ModulePage } from '@/components/hr/module-page'
 
 export default function Page() {
-  return <GenericListPage config={getModuleConfig('permissions') as ListModuleConfig} />
+  return <ModulePage moduleId="permissions" />
 }
