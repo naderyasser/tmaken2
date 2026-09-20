@@ -457,7 +457,13 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     linkField: 'location_name',
     fields: [
       { field: 'location_name', label: 'اسم المجموعة', required: true },
-      { field: 'parent_location', label: 'الموقع الأب' },
+      // Was a plain text input: any typed value (real or not) got submitted
+      // as-is to this Link field, and an unresolvable parent crashes
+      // ERPNext's own NestedSet.on_update with a raw 500 (unpacking a None
+      // tree-node) instead of a clean validation error — found by the
+      // exhaustive data audit, 2026-09-20. A real link picker can only ever
+      // submit an existing Location, which sidesteps the whole class of bug.
+      { field: 'parent_location', label: 'الموقع الأب', type: 'link', link: { doctype: 'Location', titleField: 'location_name' } },
       { field: 'is_group', label: 'مجموعة', type: 'checkbox' },
     ],
   },
@@ -764,7 +770,13 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     ],
     fields: [
       { field: 'name', label: 'الرقم', inForm: false, inTable: false },
-      { field: 'company', label: 'الاسم' },
+      // `needsCompany` only auto-injects when the field is EMPTY at submit
+      // (generic-list-page.tsx:354) — exposing this as a free-text input let
+      // a typed value reach the backend as a raw Company link, throwing a
+      // raw LinkValidationError for anything not an exact existing company
+      // name (found by the exhaustive data audit, 2026-09-20). Hidden from
+      // the form so the auto-inject actually runs; still shown as a column.
+      { field: 'company', label: 'الاسم', inForm: false },
       { field: 'ramadan_start', label: 'تاريخ البداية', type: 'date' },
       { field: 'ramadan_end', label: 'تاريخ النهاية', type: 'date' },
       { field: '_status_label', label: 'الحالة', inForm: false, statusDot: { on: 'نشط', onLabel: 'نشط', offLabel: 'غير نشط' } },
