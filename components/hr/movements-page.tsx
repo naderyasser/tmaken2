@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ReportPage } from '@/components/hr/report-page'
+import { ApexDatePicker } from '@/components/hr/apex/date-picker'
 import type { ReportConfig } from '@/lib/hr-reports'
 
 const MOVEMENTS: ReportConfig = { slug: 'movements', report: 'movements', title: 'اضافة و تعديل حركات', dates: true }
@@ -88,10 +89,7 @@ export function MovementsPage() {
               </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>التاريخ</Label>
-                <Input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
-              </div>
+              <ApexDatePicker label="التاريخ" value={form.date} onChange={(v) => setForm((f) => ({ ...f, date: v }))} />
               <div className="space-y-1.5">
                 <Label>الوقت</Label>
                 <Input type="time" value={form.time} onChange={(e) => setForm((f) => ({ ...f, time: e.target.value }))} />

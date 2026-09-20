@@ -10,6 +10,7 @@ import {
 import { useEffect, useState } from 'react'
 import { frappeClient } from '@/lib/api-client'
 import type { FieldDef } from '@/lib/hr-modules'
+import { ApexDatePicker, ApexTimePicker } from '@/components/hr/apex/date-picker'
 
 const linkCache: Record<string, { value: string; label: string }[]> = {}
 
@@ -89,6 +90,22 @@ export function FieldInput({
       </>
     )
   }
+  if (field.type === 'date') {
+    return (
+      <>
+        <ApexDatePicker value={value ?? ''} onChange={onChange} />
+        {error && <p className="text-[12px] text-red-500 mt-1">{error}</p>}
+      </>
+    )
+  }
+  if (field.type === 'time') {
+    return (
+      <>
+        <ApexTimePicker value={value ?? ''} onChange={onChange} />
+        {error && <p className="text-[12px] text-red-500 mt-1">{error}</p>}
+      </>
+    )
+  }
   if (field.type === 'link' && field.link) {
     return (
       <>
@@ -117,7 +134,7 @@ export function FieldInput({
   return (
     <>
       <Input
-        type={field.type === 'number' ? 'number' : field.type === 'date' ? 'date' : field.type === 'time' ? 'time' : 'text'}
+        type={field.type === 'number' ? 'number' : 'text'}
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}
         aria-invalid={!!error || undefined}

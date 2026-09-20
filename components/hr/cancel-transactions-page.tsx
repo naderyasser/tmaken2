@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/hr/ui/empty-state'
+import { ApexDatePicker } from '@/components/hr/apex/date-picker'
 import { cn } from '@/lib/utils'
 
 interface Emp { name: string; employee_name: string; employee_number?: string; branch?: string }
@@ -97,14 +98,8 @@ export function CancelTransactionsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto_auto] gap-4 items-end">
-        <div>
-          <span className="block text-[13px] text-slate-700 mb-1">من تاريخ <span className="text-red-500">*</span></span>
-          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={cn(FIELD, 'w-full')} />
-        </div>
-        <div>
-          <span className="block text-[13px] text-slate-700 mb-1">إلى تاريخ <span className="text-red-500">*</span></span>
-          <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={cn(FIELD, 'w-full')} />
-        </div>
+        <ApexDatePicker label="من تاريخ" required value={from} onChange={setFrom} />
+        <ApexDatePicker label="إلى تاريخ" required value={to} onChange={setTo} />
         <button
           type="button"
           onClick={() => setPickerOpen(true)}

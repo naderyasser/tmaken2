@@ -1,25 +1,16 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  Search, Plus, Pencil, Trash2, MoreVertical, Loader2, Printer,
-  ChevronDown, ChevronRight, ChevronLeft, Filter, AlertCircle,
-} from 'lucide-react'
+import { Pencil, Trash2, MoreVertical, AlertCircle } from 'lucide-react'
 import { frappeClient, isAuthError } from '@/lib/api-client'
+import { fmtDate, fmtDateTime, fmtTime } from '@/lib/hr-format'
 import { SessionRenew } from '@/components/login-page'
 import { useAuthSafe } from '@/lib/auth-context'
 import { useCompanySafe } from '@/hooks/use-company'
 import { useToast } from '@/hooks/use-toast'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -28,12 +19,19 @@ import { FieldInput, toFormValue, toPayload } from '@/components/hr/field-input'
 import type { FieldDef, ListModuleConfig } from '@/lib/hr-modules'
 import { ApexEmptyState, BoxIllustration } from '@/components/hr/apex-empty-state'
 import { AdvancedSearchDrawer, applyDrawer, type DrawerValues } from '@/components/hr/advanced-search-drawer'
-import { EmptyState } from '@/components/hr/ui/empty-state'
+import { ApexToolbar } from '@/components/hr/apex/toolbar'
+import { ApexTableCard } from '@/components/hr/apex/table-card'
+import { ApexPagination } from '@/components/hr/apex/pagination'
+import { ApexDialog } from '@/components/hr/apex/dialog'
+import { PrintDialog } from '@/components/hr/apex/print-dialog'
+import { RowMenu } from '@/components/hr/apex/row-menu'
+import { ViewRecordDialog } from '@/components/hr/apex/view-record-dialog'
+import { VersionLogDialog } from '@/components/hr/apex/version-log-dialog'
 import { TableSkeleton } from '@/components/hr/ui/table-skeleton'
 
 type Row = Record<string, any> & { name: string }
 
-const PAGE_SIZES = [5, 10, 20, 50]
+const PAGE_SIZES = [5, 10, 25, 50, 100]
 
 /** Arabic labels for the Frappe status values that show up in list cells. */
 const VALUE_AR: Record<string, string> = {
@@ -46,6 +44,9 @@ const VALUE_AR: Record<string, string> = {
 }
 const ar = (v: any) => (typeof v === 'string' && VALUE_AR[v]) || v
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+const ISO_DATETIME = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?/
+
 /** Dotted paths for the three submittable-request actions (row menu, bulk
  *  «تنشيط ▾», and — once wired — the print/report surfaces), kept in one
  *  place so a backend rename only needs one edit. */
@@ -55,41 +56,66 @@ const HR_REQUEST_METHOD = {
   cancel: 'base_meena.api.hr_requests.cancel_request',
 } as const
 
-/** Apex doc-lifecycle pill for a `statusBadge` column: مسودة / معتمد / مرفوض / ملغي,
- *  derived from `docstatus` (+ `status` when the doctype carries one — see
- *  FieldDef.statusBadge). */
-function DocBadge({ row }: { row: Row }) {
+/** Apex doc-lifecycle label for a `statusBadge` column: مسودة / معتمد / مرفوض
+ *  / ملغي, derived from `docstatus` (+ `status` when the doctype carries one). */
+function docBadgeLabel(row: Row): string {
   const ds = Number(row.docstatus ?? 0)
-  let label = 'مسودة'
-  let cls = 'bg-slate-100 text-slate-600'
-  if (ds === 2) { label = 'ملغي'; cls = 'bg-slate-200 text-slate-500' }
-  else if (row.status === 'Rejected') { label = 'مرفوض'; cls = 'bg-red-100 text-red-700' }
-  else if (ds === 1 || row.status === 'Approved') { label = 'معتمد'; cls = 'bg-emerald-100 text-emerald-700' }
+  if (ds === 2) return 'ملغي'
+  if (row.status === 'Rejected') return 'مرفوض'
+  if (ds === 1 || row.status === 'Approved') return 'معتمد'
+  return 'مسودة'
+}
+function DocBadge({ row }: { row: Row }) {
+  const label = docBadgeLabel(row)
+  const cls = label === 'ملغي' ? 'bg-slate-200 text-slate-500'
+    : label === 'مرفوض' ? 'bg-red-100 text-red-700'
+    : label === 'معتمد' ? 'bg-emerald-100 text-emerald-700'
+    : 'bg-slate-100 text-slate-600'
   return <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold ${cls}`}>{label}</span>
 }
 
-/** Shared cell renderer for both the interactive table and the print-only
- *  table below it, so the two never drift on how a value is displayed
- *  (the print view was briefly a plain `ar()` fallback that didn't know
- *  about `statusBadge`, showing a submitted doc's raw, pre-approval status). */
+/** Plain-text cell value — shared by the interactive table, the print-only
+ *  table, CSV export and the «عرض» view dialog, so none of them can drift on
+ *  how a value is displayed. Formats every date/datetime as `dd/mm/yyyy`
+ *  (`dd/mm/yyyy HH:mm` for datetimes), whether the field is explicitly typed
+ *  `date`/`time` or just happens to hold an ISO-looking string (B10). */
+function cellText(f: FieldDef, row: Row): string {
+  if (f.statusBadge) return docBadgeLabel(row)
+  if (f.statusDot) return row[f.field] === f.statusDot.on ? (f.statusDot.onLabel || 'نشط') : (f.statusDot.offLabel || 'غير نشط')
+  if (f.type === 'checkbox') return row[f.field] ? 'نعم' : 'لا'
+  const raw = row[f.field]
+  if (f.type === 'date') return raw ? fmtDate(raw) : (f.fallbackField && row[f.fallbackField]) || '—'
+  if (f.type === 'time') return raw ? fmtTime(raw) : '—'
+  if (typeof raw === 'string') {
+    if (ISO_DATE.test(raw)) return fmtDate(raw)
+    if (ISO_DATETIME.test(raw)) return fmtDateTime(raw)
+  }
+  const val = ar(raw)
+  if (val !== undefined && val !== null && val !== '') return String(val)
+  if (f.fallbackField && row[f.fallbackField]) return String(row[f.fallbackField])
+  return '—'
+}
+
+/** Rendered cell — `cellText` plus the coloured status-dot markup. */
 function cellValue(f: FieldDef, row: Row): ReactNode {
   if (f.statusBadge) return <DocBadge row={row} />
   if (f.statusDot) {
+    const on = row[f.field] === f.statusDot.on
     return (
       <span className="inline-flex items-center gap-1.5">
-        <span className={`h-2 w-2 rounded-full ${row[f.field] === f.statusDot.on ? 'bg-[var(--apex-green)]' : 'bg-slate-400'}`} />
-        {row[f.field] === f.statusDot.on ? (f.statusDot.onLabel || 'نشط') : (f.statusDot.offLabel || 'غير نشط')}
+        <span className={`h-2 w-2 rounded-full ${on ? 'bg-[var(--apex-green)]' : 'bg-slate-400'}`} />
+        {on ? (f.statusDot.onLabel || 'نشط') : (f.statusDot.offLabel || 'غير نشط')}
       </span>
     )
   }
-  if (f.type === 'checkbox') return row[f.field] ? 'نعم' : 'لا'
-  return ar(row[f.field]) || (f.fallbackField ? row[f.fallbackField] : undefined) || '—'
+  return cellText(f, row)
 }
 
 /**
- * Apex list screen — same shape as the reference:
- *   toolbar (add · delete · print · filter · search) → table (☐ · م · data · إجراءات)
- *   → pagination (rows · page numbers · go-to-page).
+ * Apex list screen — bare toolbar (search · filter · الطباعة · الاجراءات ·
+ * اضافة, RTL) ABOVE a white table card (☐ · م · data · إجراءات) → pagination
+ * (rows · page numbers · go-to-page). See components/hr/apex/* for the
+ * shared pieces and apex/shared-components-contract.md for their shapes.
  */
 export function GenericListPage({ config }: { config: ListModuleConfig }) {
   const { toast } = useToast()
@@ -104,14 +130,21 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
   const [deleting, setDeleting] = useState(false)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(PAGE_SIZES[1])
+  const [pageSize, setPageSize] = useState(PAGE_SIZES[0])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [showFilter, setShowFilter] = useState(false)
   const [drawer, setDrawer] = useState<DrawerValues>({})
-  const [printOpen, setPrintOpen] = useState(false)
+  const [printDialogOpen, setPrintDialogOpen] = useState(false)
   const [printRows, setPrintRows] = useState<Row[] | null>(null)
-  const [pageInput, setPageInput] = useState('')
-  const searchRef = useRef<HTMLInputElement>(null)
+
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [editing, setEditing] = useState<Row | null>(null)
+  const [form, setForm] = useState<Record<string, any>>({})
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
+  const [deleteTarget, setDeleteTarget] = useState<Row | null>(null)
+  const [bulkDelete, setBulkDelete] = useState(false)
+  const [viewRow, setViewRow] = useState<Row | null>(null)
+  const [historyRow, setHistoryRow] = useState<Row | null>(null)
 
   // Printing renders a dedicated print-only table (see the `hidden print:block`
   // block below) into `printRows`, then calls window.print(); once the print
@@ -122,22 +155,97 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     return () => window.removeEventListener('afterprint', restore)
   }, [])
 
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editing, setEditing] = useState<Row | null>(null)
-  const [form, setForm] = useState<Record<string, any>>({})
-  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
-  const [deleteTarget, setDeleteTarget] = useState<Row | null>(null)
-  const [actionsOpen, setActionsOpen] = useState(false)
-  const [bulkDelete, setBulkDelete] = useState(false)
+  const tableFields = useMemo(() => config.fields.filter((f) => f.inTable !== false), [config.fields])
+  const formFields = useMemo(() => config.fields.filter((f) => f.inForm !== false), [config.fields])
+  /** All "visible" fields (table and/or form) — used by the «عرض» dialog so
+   *  it shows the full record, not just the table's narrower column set. */
+  const viewFields = useMemo(() => config.fields.filter((f) => f.inTable !== false || f.inForm !== false), [config.fields])
+
+  const load = useCallback(async () => {
+    // No session yet — don't fire the request; <SessionRenew /> reopens it.
+    if (!authLoading && !isAuthenticated) {
+      setRows([])
+      setAuthRequired(true)
+      setLoading(false)
+      return
+    }
+    setLoading(true)
+    setLoadError(false)
+    setAuthRequired(false)
+    try {
+      // Derived fields (config.deriveFields' `as` names, e.g. `_status_label`)
+      // are computed client-side after the fetch — they are never real
+      // columns, so they must never be requested here (a plain getList would
+      // 417 with "Field not permitted in query", which `isAuthError` below
+      // then misreads as a permission error because Frappe's message text
+      // happens to contain "not permitted").
+      const derivedNames = new Set((config.deriveFields ?? []).map((d) => d.as))
+      const fieldNames = Array.from(new Set([...config.fields.map((f) => f.field), 'name']))
+        .filter((name) => !derivedNames.has(name))
+      const data = config.method
+        ? ((await frappeClient.call<Row[]>(config.method, config.methodArgs)) as any)?.message ?? []
+        : await frappeClient.getList<Row>(config.doctype, {
+          fields: fieldNames,
+          filters: config.filters,
+          order_by: config.orderBy,
+          limit_page_length: 0,
+        })
+      const list: Row[] = Array.isArray(data) ? data : []
+      if (config.deriveFields) {
+        for (const row of list) for (const d of config.deriveFields) row[d.as] = d.from(row)
+      }
+      setRows(list)
+    } catch (e) {
+      if (isAuthError(e)) {
+        setRows([])
+        setAuthRequired(true)
+        setLoadError(false)
+      } else {
+        console.error(`Failed to load ${config.doctype}:`, e)
+        setRows([])
+        setLoadError(true)
+        toast({ title: 'تعذّر تحميل البيانات', description: e instanceof Error ? e.message : 'تعذّر الاتصال بالخادم', variant: 'destructive' })
+      }
+    } finally {
+      setLoading(false)
+    }
+  }, [config.doctype, config.method, config.methodArgs, config.fields, config.filters, config.orderBy, config.deriveFields, authLoading, isAuthenticated, toast])
+
+  useEffect(() => { if (!authLoading) load() }, [load, authLoading])
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const base = config.drawerFilters ? applyDrawer(rows, config.drawerFilters, drawer) : rows
+    if (!q) return base
+    return base.filter((r) => tableFields.some((f) => String(r[f.field] ?? '').toLowerCase().includes(q)))
+  }, [rows, search, tableFields, config.drawerFilters, drawer])
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const currentPage = Math.min(page, totalPages)
+  const pageRows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const allChecked = pageRows.length > 0 && pageRows.every((r) => selected.has(r.name))
+
+  const toggleAll = () => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (allChecked) pageRows.forEach((r) => next.delete(r.name))
+      else pageRows.forEach((r) => next.add(r.name))
+      return next
+    })
+  }
+  const toggleOne = (name: string) => setSelected((prev) => {
+    const next = new Set(prev)
+    next.has(name) ? next.delete(name) : next.add(name)
+    return next
+  })
 
   const bulkActive = async (on: boolean) => {
     if (!config.active) return
-    setActionsOpen(false)
-    let ok = 0
     if (config.requestActions) {
       // Submittable HR request docs: «تنشيط» = approve (submit), «إلغاء
-      // التنشيط» = cancel — never a raw PUT on `status`.
+      // التنشيط» = cancel — never a raw field toggle.
       const method = on ? HR_REQUEST_METHOD.approve : HR_REQUEST_METHOD.cancel
+      let ok = 0
       for (const name of selected) {
         try { await frappeClient.call(method, { doctype: config.doctype, name }); ok++ } catch { /* keep going */ }
       }
@@ -146,13 +254,30 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
       load()
       return
     }
-    const { field, on: onV, off } = config.active
-    for (const name of selected) {
-      try { await frappeClient.put(config.doctype, name, { [field]: on ? onV : off }); ok++ } catch { /* keep going */ }
+    try {
+      await frappeClient.call('base_meena.api.hr_lists.set_active', {
+        doctype: config.doctype, names: Array.from(selected), active: on,
+      })
+      toast({ title: on ? `تم تنشيط ${selected.size}` : `تم إلغاء تنشيط ${selected.size}` })
+    } catch (e) {
+      toast({ title: 'فشلت العملية', description: e instanceof Error ? e.message : 'تعذّر الاتصال بالخادم', variant: 'destructive' })
     }
-    toast({ title: on ? `تم تنشيط ${ok}` : `تم إلغاء تنشيط ${ok}` })
     setSelected(new Set())
     load()
+  }
+
+  /** Per-row تنشيط/إلغاء التنشيط (RowMenu, kind='employee'). */
+  const setRowActive = async (row: Row, on: boolean) => {
+    if (!config.active) return
+    try {
+      await frappeClient.call('base_meena.api.hr_lists.set_active', {
+        doctype: config.doctype, names: [row.name], active: on,
+      })
+      toast({ title: on ? 'تم التنشيط' : 'تم إلغاء التنشيط' })
+      load()
+    } catch (e) {
+      toast({ title: 'فشلت العملية', description: e instanceof Error ? e.message : 'تعذّر الاتصال بالخادم', variant: 'destructive' })
+    }
   }
 
   /** Per-row اعتماد / رفض / إلغاء — only offered when config.requestActions. */
@@ -183,84 +308,6 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     toast({ title: `تم حذف ${ok}`, description: failed ? `تعذّر حذف ${failed}` : undefined, variant: failed ? 'destructive' : undefined })
     load()
   }
-
-  const tableFields = useMemo(() => config.fields.filter((f) => f.inTable !== false), [config.fields])
-  const formFields = useMemo(() => config.fields.filter((f) => f.inForm !== false), [config.fields])
-
-  const load = useCallback(async () => {
-    // No session yet — don't fire the request; <SessionRenew /> reopens it.
-    if (!authLoading && !isAuthenticated) {
-      setRows([])
-      setAuthRequired(true)
-      setLoading(false)
-      return
-    }
-    setLoading(true)
-    setLoadError(false)
-    setAuthRequired(false)
-    try {
-      const fieldNames = Array.from(new Set([...config.fields.map((f) => f.field), 'name']))
-      const data = config.method
-        ? ((await frappeClient.call<Row[]>(config.method)) as any)?.message ?? []
-        : await frappeClient.getList<Row>(config.doctype, {
-          fields: fieldNames,
-          filters: config.filters,
-          order_by: config.orderBy,
-          limit_page_length: 0,
-        })
-      const list: Row[] = Array.isArray(data) ? data : []
-      if (config.deriveFields) {
-        for (const row of list) for (const d of config.deriveFields) row[d.as] = d.from(row)
-      }
-      setRows(list)
-    } catch (e) {
-      if (isAuthError(e)) {
-        setRows([])
-        setAuthRequired(true)
-        setLoadError(false)
-      } else {
-        console.error(`Failed to load ${config.doctype}:`, e)
-        setRows([])
-        setLoadError(true)
-      }
-    } finally {
-      setLoading(false)
-    }
-  }, [config.doctype, config.method, config.fields, config.filters, config.orderBy, authLoading, isAuthenticated])
-
-  useEffect(() => { if (!authLoading) load() }, [load, authLoading])
-
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    const base = config.drawerFilters ? applyDrawer(rows, config.drawerFilters, drawer) : rows
-    if (!q) return base
-    return base.filter((r) => tableFields.some((f) => String(r[f.field] ?? '').toLowerCase().includes(q)))
-  }, [rows, search, tableFields, config.drawerFilters, drawer])
-
-  /** An empty result while the user has a search/filter active gets the
-   *  existing "search again" illustration; a genuinely empty list (nothing
-   *  searched, nothing filtered) gets the plain EmptyState with an add
-   *  action instead — the two used to share one (misleading) message. */
-  const hasActiveFilter = search.trim().length > 0 || Object.values(drawer).some(Boolean)
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
-  const currentPage = Math.min(page, totalPages)
-  const pageRows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-  const allChecked = pageRows.length > 0 && pageRows.every((r) => selected.has(r.name))
-
-  const toggleAll = () => {
-    setSelected((prev) => {
-      const next = new Set(prev)
-      if (allChecked) pageRows.forEach((r) => next.delete(r.name))
-      else pageRows.forEach((r) => next.add(r.name))
-      return next
-    })
-  }
-  const toggleOne = (name: string) => setSelected((prev) => {
-    const next = new Set(prev)
-    next.has(name) ? next.delete(name) : next.add(name)
-    return next
-  })
 
   /** Fields actually live on the dialog for the given mode — `createOnly`
    *  fields (a one-time password, a role picker) never show up on edit. */
@@ -342,38 +389,36 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     } finally { setDeleting(false) }
   }
 
-  const goToPage = (v: string) => {
-    if (!v.trim()) return
-    const n = parseInt(v, 10)
-    if (Number.isNaN(n) || n < 1) return
-    setPage(Math.min(n, totalPages))
-  }
-
-  /** Reference-style page buttons: « ‹ 1 2 3 › » */
-  const pageNumbers = useMemo(() => {
-    const out: number[] = []
-    const from = Math.max(1, currentPage - 2)
-    const to = Math.min(totalPages, from + 4)
-    for (let i = from; i <= to; i++) out.push(i)
-    return out
-  }, [currentPage, totalPages])
-
-  const colSpan = tableFields.length + (config.noIndex ? 2 : 3) // checkbox + index + actions
-
-  /** «طباعة الصفحة» prints just the current page's rows; «طباعة الكل» prints
-   *  every row matching the active search/drawer filters (already fully
-   *  loaded — the list always fetches with no server-side limit, see load()
-   *  above — so no extra round-trip is needed to get "all" of them). Renders
-   *  into the print-only table below, then triggers the browser print dialog;
-   *  `afterprint` (registered above) restores the normal screen view. */
-  const doPrint = (all: boolean) => {
-    setPrintOpen(false)
-    setPrintRows(all ? filtered : pageRows)
+  /** «طباعة» prints every row matching the active search/drawer filters
+   *  (already fully loaded — the list always fetches with no server-side
+   *  limit, see load() above — so no extra round-trip is needed). Renders
+   *  into the print-only table below, then triggers the browser print
+   *  dialog; `afterprint` (registered above) restores the normal screen view. */
+  const doPrint = () => {
+    setPrintDialogOpen(false)
+    setPrintRows(filtered)
     requestAnimationFrame(() => window.print())
   }
 
+  const exportCsv = () => {
+    const head = tableFields.map((f) => f.label)
+    const lines = [head.join(',')]
+    for (const row of filtered) {
+      lines.push(tableFields.map((f) => `"${cellText(f, row).replace(/"/g, '""')}"`).join(','))
+    }
+    const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `${config.title}.csv`
+    a.click()
+  }
+
+  const colSpan = tableFields.length + (config.readOnly ? 0 : 1) + (config.noIndex ? 0 : 1) + 1
+  const showChrome = loading || pageRows.length > 0
+  const printTemplates = [{ key: 'default', label: config.title, isDefault: true }]
+
   return (
-    <div dir="rtl" className="space-y-3 p-4 font-[family-name:var(--font-arabic)]">
+    <div dir="rtl" className="space-y-2 p-4 font-[family-name:var(--font-arabic)]">
 
       {config.noteBanner && (
         <div className="flex items-start gap-2 rounded bg-blue-50 border border-blue-200 px-3 py-2.5 text-[12.5px] text-blue-900 leading-relaxed">
@@ -387,7 +432,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
       {printRows && (
         <div className="hidden print:block">
           <h1 className="text-lg font-bold mb-1">{config.title}</h1>
-          <p className="text-xs text-slate-500 mb-4">{new Date().toLocaleDateString('ar-EG')}</p>
+          <p className="text-xs text-slate-500 mb-4">{fmtDate(new Date())}</p>
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr>
@@ -403,7 +448,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
                   {!config.noIndex && <td className="border border-slate-300 px-2 py-1 text-center">{i + 1}</td>}
                   {tableFields.map((f) => (
                     <td key={f.field} className="border border-slate-300 px-2 py-1">
-                      {cellValue(f, row)}
+                      {cellText(f, row)}
                     </td>
                   ))}
                 </tr>
@@ -413,310 +458,245 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
         </div>
       )}
 
-      <div className="bg-white rounded shadow-sm border border-slate-200/60 overflow-hidden print:hidden">
-        {/* ── Toolbar ── */}
-        <div className="flex items-center gap-2 p-3 border-b border-slate-100 flex-wrap">
-          {!config.readOnly && (
-            <>
-              <Button
-                onClick={openAdd}
-                className="bg-[var(--apex-green)] hover:bg-[var(--apex-green-dark)] text-white rounded px-4 h-9 font-bold text-[13px] shrink-0"
-              >
-                <Plus className="h-4 w-4 ml-1" strokeWidth={3} />
-                {config.addLabel || 'اضافة'}
-              </Button>
-              {config.actionsMenu ? (
-                <div className="relative shrink-0">
-                  <Button
-                    variant="outline"
-                    disabled={selected.size === 0}
-                    onClick={() => setActionsOpen((v) => !v)}
-                    className="rounded px-4 h-9 font-bold text-[13px] border-[var(--apex-slate)] text-[var(--apex-slate)] disabled:opacity-50 min-w-[120px] justify-between"
-                  >
-                    الاجراءات
-                    <ChevronDown className="h-3.5 w-3.5 mr-1" />
-                  </Button>
-                  {actionsOpen && selected.size > 0 && (
-                    <div className="absolute z-20 mt-1 w-40 rounded border border-slate-200 bg-white shadow-lg py-1 text-[13px]">
-                      {config.active && (
-                        <>
-                          <button className="block w-full text-right px-3 py-1.5 hover:bg-slate-50" onClick={() => bulkActive(true)}>تنشيط</button>
-                          <button className="block w-full text-right px-3 py-1.5 hover:bg-slate-50" onClick={() => bulkActive(false)}>إلغاء التنشيط</button>
-                        </>
-                      )}
-                      <button className="block w-full text-right px-3 py-1.5 hover:bg-slate-50 text-red-600" onClick={() => { setActionsOpen(false); setBulkDelete(true) }}>حذف</button>
-                    </div>
+      <div className="print:hidden">
+        <ApexToolbar
+          search={{ value: search, onChange: (v) => { setSearch(v); setPage(1) }, placeholder: config.searchPlaceholder || 'ابحث بالاسم' }}
+          onFilter={config.drawerFilters?.length ? () => setShowFilter(true) : undefined}
+          print={config.print !== false ? { onPrint: doPrint, onAdvancedPrint: () => setPrintDialogOpen(true) } : undefined}
+          actions={!config.readOnly && config.actionsMenu ? {
+            disabled: selected.size === 0,
+            items: [
+              ...(config.active ? [
+                { label: 'تنشيط', onSelect: () => bulkActive(true) },
+                { label: 'إلغاء التنشيط', onSelect: () => bulkActive(false) },
+              ] : []),
+              { label: 'حذف', onSelect: () => setBulkDelete(true) },
+            ],
+          } : undefined}
+          deleteButton={!config.readOnly && !config.actionsMenu ? { onClick: () => setBulkDelete(true), disabled: selected.size === 0 } : undefined}
+          add={!config.readOnly && !config.noAdd ? { label: config.addLabel || 'اضافة', onClick: openAdd } : undefined}
+        />
+      </div>
+
+      {authRequired && !loading && (
+        <div className="print:hidden"><SessionRenew /></div>
+      )}
+
+      {loadError && !loading && (
+        <div className="print:hidden flex items-center gap-2 rounded bg-amber-50 border border-amber-200 px-3 py-2 text-[12.5px] text-amber-800">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>تعذّر تحميل البيانات من الخادم. تأكد من الاتصال ثم أعد المحاولة.</span>
+        </div>
+      )}
+
+      <div className="print:hidden">
+        {!showChrome ? (
+          <ApexTableCard>
+            <div className="py-6">
+              {config.emptyText ? (
+                <div className="flex flex-col items-center gap-6 py-6">
+                  <BoxIllustration />
+                  <p className="text-[18px] font-bold text-slate-800">{config.emptyText}</p>
+                  {config.emptyAction && !config.readOnly && !config.noAdd && (
+                    <button type="button" onClick={openAdd} className="h-[42px] px-5 rounded bg-[var(--apex-green)] text-white text-[15px] hover:bg-[var(--apex-green-dark)]">
+                      {config.emptyAction}
+                    </button>
                   )}
                 </div>
               ) : (
-                <Button
-                  variant="outline"
-                  disabled={selected.size === 0}
-                  onClick={() => setBulkDelete(true)}
-                  className="rounded px-4 h-9 font-bold text-[13px] shrink-0 border-[var(--apex-slate)] text-[var(--apex-slate)] disabled:opacity-50"
-                >
-                  <Trash2 className="h-4 w-4 ml-1" />
-                  حذف
-                </Button>
+                <ApexEmptyState />
               )}
-            </>
-          )}
-
-          {config.print !== false && <div className="relative shrink-0">
-            <Button
-              variant="outline"
-              onClick={() => setPrintOpen((v) => !v)}
-              className="rounded px-4 h-9 font-bold text-[13px] border-[var(--apex-slate)] text-[var(--apex-slate)]"
-            >
-              <Printer className="h-4 w-4 ml-1" />
-              الطباعة
-              <ChevronDown className="h-3.5 w-3.5 mr-1" />
-            </Button>
-            {printOpen && (
-              <div className="absolute z-20 mt-1 w-36 rounded border border-slate-200 bg-white shadow-lg py-1 text-[13px]">
-                <button className="block w-full text-right px-3 py-1.5 hover:bg-slate-50" onClick={() => doPrint(false)}>طباعة الصفحة</button>
-                <button className="block w-full text-right px-3 py-1.5 hover:bg-slate-50" onClick={() => doPrint(true)}>طباعة الكل</button>
-              </div>
-            )}
-          </div>}
-
-          {!!config.drawerFilters?.length && (
-            <Button
-              variant="outline"
-              onClick={() => setShowFilter(true)}
-              title="تصفية"
-              className={`rounded h-9 w-9 p-0 shrink-0 border-[var(--apex-blue-light)] ${Object.values(drawer).some(Boolean) ? 'bg-[var(--apex-blue-light)] text-white hover:bg-[var(--apex-blue-light)]' : 'text-[var(--apex-blue)]'}`}
-            >
-              <Filter className="h-4 w-4" />
-            </Button>
-          )}
-
-          <div className="relative flex-1 min-w-[180px]">
-            <Input
-              ref={searchRef}
-              placeholder={config.searchPlaceholder || 'ابحث بالاسم'}
-              aria-label={config.searchPlaceholder || 'ابحث بالاسم'}
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-              className="h-9 rounded border-slate-300 text-right pr-9 placeholder:text-slate-400"
-            />
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-          </div>
-        </div>
-
-        {authRequired && !loading && (
-          <div className="mx-3 mt-3"><SessionRenew /></div>
-        )}
-
-        {loadError && !loading && (
-          <div className="mx-3 mt-3 flex items-center gap-2 rounded bg-amber-50 border border-amber-200 px-3 py-2 text-[12.5px] text-amber-800">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>تعذّر تحميل البيانات من الخادم. تأكد من الاتصال ثم أعد المحاولة.</span>
-          </div>
-        )}
-
-        {/* ── Table ── */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13px] text-right">
-            <thead>
-              <tr className="bg-[var(--apex-thead)] text-[var(--apex-text)] border-y border-slate-300 h-11">
-                {!config.readOnly && (
-                  <th className="px-3 w-10 text-center">
-                    <input
-                      type="checkbox"
-                      checked={allChecked}
-                      onChange={toggleAll}
-                      className="h-4 w-4 accent-[var(--apex-blue-light)] cursor-pointer align-middle"
-                      aria-label="تحديد الكل"
-                    />
-                  </th>
-                )}
-                {!config.noIndex && <th className="px-3 w-10 text-center font-bold">م</th>}
-                {tableFields.map((f) => (
-                  <th key={f.field} className="px-3 font-bold whitespace-nowrap">{f.label}</th>
-                ))}
-                <th className="px-3 font-bold w-32 text-center whitespace-nowrap">الاجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={colSpan} className="p-0"><TableSkeleton rows={6} cols={colSpan} /></td></tr>
-              ) : pageRows.length === 0 ? (
-                <tr><td colSpan={colSpan} className="py-10">
-                  {config.emptyText ? (
-                    <div className="flex flex-col items-center gap-6 py-6">
-                      <BoxIllustration />
-                      <p className="text-[18px] font-bold text-slate-800">{config.emptyText}</p>
-                      {config.emptyAction && !config.readOnly && (
-                        <button type="button" onClick={openAdd} className="h-[42px] px-5 rounded bg-[var(--apex-green)] text-white text-[15px] flex items-center gap-2 hover:bg-[var(--apex-green-dark)]">
-                          <Plus className="h-4 w-4" strokeWidth={3} />{config.emptyAction}
-                        </button>
-                      )}
-                    </div>
-                  ) : hasActiveFilter ? (
-                    <ApexEmptyState />
-                  ) : (
-                    <EmptyState
-                      title="لا توجد بيانات بعد"
-                      description="لم تتم إضافة أي سجل لهذه القائمة حتى الآن."
-                      action={!config.readOnly ? (
-                        <button
-                          type="button"
-                          onClick={openAdd}
-                          className="h-9 px-4 rounded bg-[var(--apex-green)] text-white text-[13px] font-bold flex items-center gap-1.5 hover:bg-[var(--apex-green-dark)]"
-                        >
-                          <Plus className="h-4 w-4" strokeWidth={3} />{config.addLabel || 'اضافة'}
-                        </button>
-                      ) : undefined}
-                    />
-                  )}
-                </td></tr>
-              ) : (
-                pageRows.map((row, i) => (
-                  <tr key={row.name} className="border-b border-slate-100 hover:bg-slate-50/70 h-[52px]">
+            </div>
+          </ApexTableCard>
+        ) : (
+          <>
+            <ApexTableCard>
+              <table className="apex-table">
+                <thead>
+                  <tr>
                     {!config.readOnly && (
-                      <td className="px-3 text-center">
+                      <th className="w-10">
                         <input
                           type="checkbox"
-                          checked={selected.has(row.name)}
-                          onChange={() => toggleOne(row.name)}
-                          className="h-4 w-4 accent-[var(--apex-blue-light)] cursor-pointer align-middle"
-                          aria-label={`تحديد ${row.name}`}
+                          checked={allChecked}
+                          onChange={toggleAll}
+                          className="h-4 w-4 cursor-pointer align-middle accent-[var(--apex-blue-light)]"
+                          aria-label="تحديد الكل"
                         />
-                      </td>
+                      </th>
                     )}
-                    {!config.noIndex && <td className="px-3 text-center text-slate-500">{(currentPage - 1) * pageSize + i + 1}</td>}
-                    {tableFields.map((f) => (
-                      <td key={f.field} className="px-3 text-slate-700">
-                        {config.linkField === f.field && config.editHref ? (
-                          <button type="button" onClick={() => openEdit(row)} className="text-[var(--apex-blue)] hover:underline">{row[f.field] ?? '—'}</button>
-                        ) : cellValue(f, row)}
-                      </td>
-                    ))}
-                    <td className="px-3">
-                      {/* Apex order (RTL, from the right): ✎ · 🗑 · ⋮ */}
-                      <div className="flex items-center justify-center gap-1">
-                        {!config.readOnly && (
-                          <>
-                            <button onClick={() => openEdit(row)} title="تعديل" className="text-[var(--apex-green)] hover:text-[var(--apex-green-text)] px-1"><Pencil className="h-[17px] w-[17px]" /></button>
-                            <button onClick={() => setDeleteTarget(row)} title="حذف" className="text-slate-400 hover:text-red-600 px-1"><Trash2 className="h-[17px] w-[17px]" /></button>
-                          </>
-                        )}
-                        {(!config.readOnly || config.requestActions) && (
-                          <DropdownMenu dir="rtl">
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                title="خيارات"
-                                aria-label="خيارات"
-                                className="text-slate-500 hover:text-slate-700 px-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--apex-blue)] focus-visible:ring-offset-1"
-                              >
-                                <MoreVertical className="h-[18px] w-[18px]" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="text-[13px] min-w-[140px]">
-                              {!config.readOnly && <DropdownMenuItem onClick={() => openEdit(row)}>تعديل</DropdownMenuItem>}
+                    {!config.noIndex && <th className="w-10 text-center">م</th>}
+                    {tableFields.map((f) => <th key={f.field}>{f.label}</th>)}
+                    <th className="apex-col-actions w-32">الاجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr><td colSpan={colSpan} className="p-0"><TableSkeleton rows={6} cols={colSpan} /></td></tr>
+                  ) : (
+                    pageRows.map((row, i) => {
+                      const canDelete = config.deletable ? config.deletable(row) : true
+                      const isActive = config.active ? row[config.active.field] === config.active.on : undefined
+                      return (
+                        <tr key={row.name}>
+                          {!config.readOnly && (
+                            <td>
+                              <input
+                                type="checkbox"
+                                checked={selected.has(row.name)}
+                                onChange={() => toggleOne(row.name)}
+                                className="h-4 w-4 cursor-pointer align-middle accent-[var(--apex-blue-light)]"
+                                aria-label={`تحديد ${row.name}`}
+                              />
+                            </td>
+                          )}
+                          {!config.noIndex && <td className="text-center text-slate-500">{(currentPage - 1) * pageSize + i + 1}</td>}
+                          {tableFields.map((f) => (
+                            <td key={f.field}>
+                              {config.linkField === f.field && config.editHref ? (
+                                <button type="button" onClick={() => openEdit(row)} className="apex-link hover:underline">{row[f.field] ?? '—'}</button>
+                              ) : cellValue(f, row)}
+                            </td>
+                          ))}
+                          <td className="apex-col-actions">
+                            {/* Apex order (RTL, from the right): ✎ · 🗑 · ⋮ */}
+                            <div className="flex items-center justify-center gap-1">
                               {!config.readOnly && (
-                                <DropdownMenuItem onClick={() => setDeleteTarget(row)} className="text-red-600 focus:text-red-600">حذف</DropdownMenuItem>
-                              )}
-                              {config.requestActions && (
                                 <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={() => requestAction('approve', row)}>اعتماد</DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => requestAction('reject', row)}>رفض</DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => requestAction('cancel', row)} className="text-red-600 focus:text-red-600">إلغاء</DropdownMenuItem>
+                                  <button onClick={() => openEdit(row)} title="تعديل" className="apex-icon-edit px-1 hover:opacity-75"><Pencil className="h-[17px] w-[17px]" /></button>
+                                  <button
+                                    onClick={() => canDelete && setDeleteTarget(row)}
+                                    disabled={!canDelete}
+                                    title="حذف"
+                                    className={`apex-icon-delete px-1 ${canDelete ? 'hover:opacity-75' : 'is-disabled cursor-not-allowed'}`}
+                                  >
+                                    <Trash2 className="h-[17px] w-[17px]" />
+                                  </button>
                                 </>
                               )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                              {config.rowMenu ? (
+                                <RowMenu
+                                  kind={config.rowMenu}
+                                  onView={() => {
+                                    // Employee «عرض» opens the dedicated Apex-style read-only
+                                    // profile page instead of the generic field-dump dialog —
+                                    // every other doctype keeps the generic dialog.
+                                    if (config.doctype === 'Employee') router.push(`/employee-details/${row.name}`)
+                                    else setViewRow(row)
+                                  }}
+                                  onHistory={config.rowMenu === 'master' ? () => setHistoryRow(row) : undefined}
+                                  isActive={isActive}
+                                  onActivate={config.active ? () => setRowActive(row, true) : undefined}
+                                  onDeactivate={config.active ? () => setRowActive(row, false) : undefined}
+                                />
+                              ) : (!config.readOnly || config.requestActions) && (
+                                <DropdownMenu dir="rtl">
+                                  <DropdownMenuTrigger asChild>
+                                    <button
+                                      title="خيارات"
+                                      aria-label="خيارات"
+                                      className="apex-icon-more px-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--apex-blue)] focus-visible:ring-offset-1"
+                                    >
+                                      <MoreVertical className="h-[18px] w-[18px]" />
+                                    </button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="text-[13px] min-w-[140px]">
+                                    {!config.readOnly && <DropdownMenuItem onClick={() => openEdit(row)}>تعديل</DropdownMenuItem>}
+                                    {!config.readOnly && (
+                                      <DropdownMenuItem onClick={() => setDeleteTarget(row)} className="text-red-600 focus:text-red-600">حذف</DropdownMenuItem>
+                                    )}
+                                    {config.requestActions && (
+                                      <>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={() => requestAction('approve', row)}>اعتماد</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => requestAction('reject', row)}>رفض</DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => requestAction('cancel', row)} className="text-red-600 focus:text-red-600">إلغاء</DropdownMenuItem>
+                                      </>
+                                    )}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })
+                  )}
+                </tbody>
+              </table>
+            </ApexTableCard>
 
-        {/* ── Pagination ── */}
-        <div className="flex flex-col lg:flex-row items-center justify-between gap-3 px-3 py-3 text-[13px]">
-          <div className="flex items-center gap-2 order-2 lg:order-1">
-            <span className="font-bold text-slate-700">عدد الصفوف</span>
-            <Select value={String(pageSize)} onValueChange={(v) => { setPageSize(Number(v)); setPage(1) }}>
-              <SelectTrigger aria-label="عدد الصفوف" className="w-[70px] h-9 rounded border-slate-300"><SelectValue /></SelectTrigger>
-              <SelectContent>{PAGE_SIZES.map((n) => <SelectItem key={n} value={String(n)}>{n}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex items-center gap-1 order-1 lg:order-2">
-            <button onClick={() => setPage(1)} disabled={currentPage === 1} aria-label="الصفحة الأولى" className="h-8 w-8 rounded border border-slate-200 text-slate-500 disabled:opacity-40">«</button>
-            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} aria-label="الصفحة السابقة" className="h-8 w-8 rounded border border-slate-200 text-slate-500 disabled:opacity-40"><ChevronRight className="h-4 w-4 mx-auto" /></button>
-            {pageNumbers.map((n) => (
-              <button key={n} onClick={() => setPage(n)}
-                className={`h-8 min-w-8 px-2 rounded border text-[13px] font-bold ${n === currentPage ? 'bg-[var(--apex-blue-light)] border-[var(--apex-blue-light)] text-white' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                {n}
-              </button>
-            ))}
-            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage >= totalPages} aria-label="الصفحة التالية" className="h-8 w-8 rounded border border-slate-200 text-slate-500 disabled:opacity-40"><ChevronLeft className="h-4 w-4 mx-auto" /></button>
-            <button onClick={() => setPage(totalPages)} disabled={currentPage >= totalPages} aria-label="الصفحة الأخيرة" className="h-8 w-8 rounded border border-slate-200 text-slate-500 disabled:opacity-40">»</button>
-          </div>
-
-          <div className="flex items-center gap-2 order-3">
-            <span className="text-slate-600">اذهب إلى صفحة</span>
-            <Input
-              type="number"
-              min={1}
-              value={pageInput}
-              onChange={(e) => setPageInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { goToPage(pageInput); setPageInput('') } }}
-              className="w-16 h-9 rounded border-slate-300 text-center"
-              inputMode="numeric"
-              aria-label="رقم الصفحة"
+            <ApexPagination
+              page={currentPage}
+              pageCount={totalPages}
+              pageSize={pageSize}
+              pageSizeOptions={PAGE_SIZES}
+              total={filtered.length}
+              onPageChange={setPage}
+              onPageSizeChange={(n) => { setPageSize(n); setPage(1) }}
             />
-            <button className="text-[var(--apex-blue-light)] font-bold hover:underline" onClick={() => { goToPage(pageInput); setPageInput('') }}>اذهب</button>
-          </div>
-        </div>
+          </>
+        )}
       </div>
 
       {/* Add / Edit dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent dir="rtl" className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{editing ? `تعديل — ${config.title}` : config.addLabel || 'اضافة'}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto">
-            {fieldsFor(!!editing).map((f) => (
-              <div key={f.field} className="space-y-1.5">
-                {f.type !== 'checkbox' && (
-                  <Label className="text-[13px] text-slate-600">
-                    {f.label}{f.required && <span className="text-red-500"> *</span>}
-                  </Label>
-                )}
-                {editing && f.lockedOnEdit ? (
-                  <Input value={form[f.field] ?? ''} disabled className="rounded-sm border-slate-300 text-right bg-slate-50 text-slate-500" />
-                ) : (
-                  <FieldInput
-                    field={f}
-                    value={form[f.field]}
-                    error={fieldErrors[f.field]}
-                    onChange={(v) => {
-                      setForm((prev) => ({ ...prev, [f.field]: v }))
-                      setFieldErrors((prev) => (prev[f.field] ? { ...prev, [f.field]: '' } : prev))
-                    }}
-                  />
-                )}
-              </div>
-            ))}
+      <ApexDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        title={editing ? `تعديل ${config.title}` : (config.addLabel || `اضافة ${config.title}`)}
+        size="lg"
+        primary={{ label: editing ? 'تعديل' : 'اضافة', onClick: save, disabled: saving, loading: saving }}
+      >
+        {fieldsFor(!!editing).map((f) => (
+          <div key={f.field} className={f.type === 'textarea' ? 'col-span-2' : undefined}>
+            {f.type !== 'checkbox' && (
+              <Label className="text-[13px] text-slate-600 block mb-1.5">
+                {f.label}{f.required && <span className="text-red-500"> *</span>}
+              </Label>
+            )}
+            {editing && f.lockedOnEdit ? (
+              <Input value={form[f.field] ?? ''} disabled className="rounded-sm border-slate-300 text-right bg-slate-50 text-slate-500" />
+            ) : (
+              <FieldInput
+                field={f}
+                value={form[f.field]}
+                error={fieldErrors[f.field]}
+                onChange={(v) => {
+                  setForm((prev) => ({ ...prev, [f.field]: v }))
+                  setFieldErrors((prev) => (prev[f.field] ? { ...prev, [f.field]: '' } : prev))
+                }}
+              />
+            )}
           </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>إلغاء</Button>
-            <Button onClick={save} disabled={saving} className="bg-[var(--apex-green)] hover:bg-[var(--apex-green-dark)] text-white">
-              {saving && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
-              حفظ
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        ))}
+      </ApexDialog>
+
+      <PrintDialog
+        open={printDialogOpen}
+        onOpenChange={setPrintDialogOpen}
+        templates={printTemplates}
+        storageKey={config.title}
+        onPrint={doPrint}
+        onExport={(o) => { if (o.format === 'excel') exportCsv(); else doPrint() }}
+      />
+
+      {viewRow && (
+        <ViewRecordDialog
+          open={!!viewRow}
+          onOpenChange={(o) => { if (!o) setViewRow(null) }}
+          title={config.title}
+          fields={viewFields.map((f) => ({ label: f.label, value: cellValue(f, viewRow) }))}
+        />
+      )}
+
+      {config.rowMenu === 'master' && (
+        <VersionLogDialog
+          open={!!historyRow}
+          onOpenChange={(o) => { if (!o) setHistoryRow(null) }}
+          doctype={config.doctype}
+          name={historyRow?.name ?? null}
+        />
+      )}
 
       <ConfirmDialog
         open={!!deleteTarget}

@@ -157,9 +157,16 @@ function toast({ ...props }: Toast) {
     })
   const dismiss = () => dispatch({ type: 'DISMISS_TOAST', toastId: id })
 
+  // Apex's HR feedback alert auto-dismisses at 4500ms (test round 4,
+  // correction B) — every other vertical keeps Radix's own default (5000ms)
+  // since `duration` stays undefined for them. Checked at call time (not at
+  // module load), so this is always in sync with whichever shell mounted
+  // last; body class is toggled by components/hr-shell/shell.tsx.
+  const isHr = typeof document !== 'undefined' && document.body.classList.contains('theme-hr')
   dispatch({
     type: 'ADD_TOAST',
     toast: {
+      duration: isHr ? 4500 : undefined,
       ...props,
       id,
       open: true,

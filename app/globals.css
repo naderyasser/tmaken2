@@ -112,6 +112,12 @@ html[lang="ur"] button {
        keeps IBM Plex Sans Arabic; only .theme-hr (the HR shell) switches. */
     font-family: var(--font-kufi), var(--font-arabic), 'Noto Sans Arabic', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
+    /* Apex geometry (2026-09-19, B5 pixel-parity pass) — Apex's dominant
+       border-radius is .25rem (4px); the shared shadcn default (.5rem/8px)
+       only applies here, not to the rest of the app. */
+    --radius: .25rem;
+    --apex-confirm-green: #00935d; /* SweetAlert2 swal2-confirm button */
+
     /* Apex palette (hex, for arbitrary-value utilities) */
     --apex-blue: #2960b6;          /* sidebar base, links */
     --apex-blue-light: #2e71c8;    /* sidebar hover / lighter blue */
@@ -131,6 +137,11 @@ html[lang="ur"] button {
     --apex-active: #bcdcf8;        /* active sidebar item */
     --apex-border: #ced4da;        /* borders, dividers */
     --apex-bg: #f4f5f7;            /* page background */
+
+    /* Added 2026-09-20 (Apex live-parity batch L1a — shared list components). */
+    --apex-disabled: #b6b6b6;      /* toolbar/table disabled text+border (اجراءات/حذف/تصدير) */
+    --apex-link: #00935d;          /* row-action pencil icons + name-link cells (R5-2 fix: neither L1a nor L1c actually declared this) */
+    --apex-canvas: #fbfbfb;        /* HR shell body/main background (R5-4/R5-2 fix: neither L1a nor L1c actually declared this) */
 
     /* Added 2026-09-19 (HR devices/requests/settings token cleanup) — these hex
        values were already in use but too far from any --apex-* above to reuse
@@ -208,7 +219,49 @@ html[lang="ur"] button {
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 214 61% 48%;
     --sidebar-ring: 208 81% 85%;
+
+    /* ── Added 2026-09-20 (L1c Apex live-parity batch) — append-only block. ──
+       Do not reorder/edit tokens above this line (L1a is editing this file too).
+       --apex-canvas and --apex-link were NOT actually defined by either agent
+       (R5-2 audit) — now declared once, near --apex-disabled above. */
+    --apex-active-text: #80868d; /* sidebar active-item text (S3) */
+    --apex-bootstrap-blue: #007bff; /* subscription "تجديد/ترقية الإشتراك" buttons (5.26) */
+    --apex-grey-btn: #6c757d; /* confirm-dialog "إلغاء" button (test round 4 correction C) */
+    /* ── end L1c block ── */
   }
+
+  /* ── Apex list/table rules (L1a shared components — components/hr/apex/*) ──
+     Applied via the `.apex-table` class on the `<table>` element rendered
+     inside `<ApexTableCard>`. Scoped to `.theme-hr` so it never leaks into
+     tables outside the HR shell. Uses only the --apex-* tokens above — no
+     literal hex. */
+  /* body{@apply bg-background} resolves --background (#f3f4f6-ish, shared with
+     --apex-bg for cards/muted elsewhere) — Apex's own body colour is the
+     dedicated --apex-canvas (#fbfbfb). Class selector beats the element rule
+     above without touching --background (final-round-1, R5-4). */
+  body.theme-hr { background-color: var(--apex-canvas); }
+
+  .theme-hr .apex-table { width: 100%; border-collapse: collapse; text-align: right; }
+  .theme-hr .apex-table thead tr { background: var(--apex-thead); height: 45px; }
+  .theme-hr .apex-table th {
+    font-size: 14px; font-weight: 700; color: var(--apex-text);
+    padding: 12px; text-align: start; white-space: nowrap;
+  }
+  .theme-hr .apex-table td {
+    font-size: 14px; font-weight: 400; color: var(--apex-text);
+    padding: 3.2px 12px 3.2px 3.2px; text-align: start;
+  }
+  .theme-hr .apex-table tbody tr { height: 47px; border-bottom: 1px solid var(--apex-bg); }
+  .theme-hr .apex-table tbody tr:hover { background: var(--apex-bg); }
+  .theme-hr .apex-table th:first-child,
+  .theme-hr .apex-table td:first-child { text-align: right; }
+  .theme-hr .apex-table th.apex-col-actions,
+  .theme-hr .apex-table td.apex-col-actions { text-align: center; }
+  .theme-hr .apex-table .apex-link { color: var(--apex-link); }
+  .theme-hr .apex-table .apex-icon-edit { color: var(--apex-link); }
+  .theme-hr .apex-table .apex-icon-delete { color: var(--apex-red); }
+  .theme-hr .apex-table .apex-icon-delete.is-disabled { color: rgba(0, 0, 0, .26); }
+  .theme-hr .apex-table .apex-icon-more { color: var(--apex-blue); }
 
   /* ── Freelancer Workspace — deep Saudi-green identity (SCOPED via .theme-freelancer) ──
      Applied by components/freelancer/freelancer-shell.tsx to the freelancer area ONLY,
@@ -475,4 +528,166 @@ html[lang="ur"] button {
   body {
     background: #fff !important;
   }
+}
+
+/* ── تمكين HR — Apex dialog geometry (B5 pixel-parity pass, 2026-09-19) ──
+   Apex's MatDialog: container radius 10px, padding 25px (`.modalContainer`),
+   width 50% for list dialogs / 30% for small ones, min-width 310px,
+   max-height 80vh. Scoped through `[role="dialog"]` (Radix sets that role on
+   DialogPrimitive.Content) rather than editing components/ui/dialog.tsx (a
+   shared shadcn file every other vertical also uses).
+   CAVEAT: Radix portals DialogContent to `document.body` by default, which is
+   NOT a descendant of the `.theme-hr` wrapper div (that lives deep inside the
+   HR shell / login screen, not on <body>) — so the `.theme-hr [role="dialog"]`
+   form only matches when the dialog happens to render without a portal. The
+   compound form `[role="dialog"].theme-hr` (class applied directly on the
+   dialog's own content, as hr-dashboard-public.tsx's category drill-down
+   dialog does) always matches regardless of portal target — new HR dialogs
+   should add `theme-hr` to their own `DialogContent` className for this
+   reason until the shared primitive grows a scoped portal container. */
+.theme-hr [role="dialog"],
+[role="dialog"].theme-hr {
+  border-radius: 10px;
+  padding: 25px;
+}
+.theme-hr [role="dialog"].hr-dialog-lg,
+[role="dialog"].theme-hr.hr-dialog-lg {
+  width: 50%;
+  max-width: none;
+  min-width: 310px;
+  max-height: 80vh;
+}
+.theme-hr [role="dialog"].hr-dialog-sm,
+[role="dialog"].theme-hr.hr-dialog-sm {
+  width: 30%;
+  max-width: none;
+  min-width: 310px;
+  max-height: 80vh;
+}
+
+/* ── تمكين HR — Apex confirm dialogs ──
+   Updated 2026-09-20 (test round 4, correction C — supersedes the earlier
+   SweetAlert2/20em measurement below): the delete-confirm dialog is a 30%-
+   width MatDialog, centered title, red «حذف» 133×42 (--apex-red) + grey
+   «إلغاء» (--apex-grey-btn, #6c757d) — not a green SweetAlert2 popup. Now
+   that `.theme-hr` is toggled on <body> (components/hr-shell/shell.tsx), the
+   plain `.theme-hr [role="alertdialog"]` form reliably matches the portalled
+   content too — the compound `[role="alertdialog"].theme-hr` form is kept
+   only because ApexDialog/ConfirmDialog callers may still stamp it directly. */
+.theme-hr [role="alertdialog"],
+[role="alertdialog"].theme-hr {
+  width: 30%;
+  max-width: none;
+  min-width: 310px;
+}
+.theme-hr [role="alertdialog"] [class*="AlertDialogTitle"],
+.theme-hr [role="alertdialog"] h2,
+[role="alertdialog"].theme-hr h2 {
+  text-align: center;
+}
+.theme-hr [role="alertdialog"] button,
+[role="alertdialog"].theme-hr button,
+.theme-hr [role="alertdialog"] [class*="text-sm"],
+[role="alertdialog"].theme-hr [class*="text-sm"] {
+  font-size: 13px;
+}
+/* «إلغاء» — every AlertDialogCancel in the codebase uses the outline variant
+   (`border-input`); «حذف» is targeted via the destructive-variant's own
+   `bg-destructive` marker class (components/ui/button.tsx) so a non-destructive
+   ConfirmDialog (variant="default", confirm button NOT red) is left alone. */
+.theme-hr [role="alertdialog"] button[class*="border-input"],
+[role="alertdialog"].theme-hr button[class*="border-input"] {
+  background-color: var(--apex-grey-btn) !important;
+  border-color: var(--apex-grey-btn) !important;
+  color: #fff !important;
+}
+.theme-hr [role="alertdialog"] button[class*="bg-destructive"],
+[role="alertdialog"].theme-hr button[class*="bg-destructive"] {
+  width: 133px;
+  height: 42px;
+  background-color: var(--apex-red) !important;
+  color: #fff !important;
+}
+
+/* ── تمكين HR — Apex tooltip colour (`.tooltip-inner{background:#2960b6}`) ──
+   Radix TooltipContent (components/ui/tooltip.tsx, shared — not edited here)
+   has no distinguishing role/data-attribute; `px-3 py-1.5` combined with
+   `text-popover-foreground` is unique to it among this codebase's popover/
+   menu/select/command content roots (checked 2026-09-19 — they all use `p-1`
+   or `p-4` instead), so it's a safe, non-shared-file way to target only the
+   tooltip bubble. Same portal caveat as dialogs above. */
+.theme-hr [class*="text-popover-foreground"][class*="py-1.5"] {
+  background-color: #2960b6;
+  color: #fff;
+  border-color: #2960b6;
+}
+
+/* ── تمكين HR — sonner toast, Apex mat-snack-bar parity ──
+   position="top-center" + duration are set where the Toaster/toast() calls
+   are made (app/(erp)/layout.tsx, components/hr-shell/real-login-form.tsx);
+   this only styles the success toast green/white like Apex's
+   `mat-snack-bar-success`. The Toaster is mounted with `className="theme-hr"`
+   directly on its own root (data-sonner-toaster), so — unlike the dialog/
+   tooltip cases above — this one is NOT subject to the portal-ancestry
+   caveat: the class sits on the exact element being styled. */
+[data-sonner-toaster].theme-hr [data-sonner-toast][data-type="success"] {
+  background: var(--apex-green) !important;
+  color: #fff !important;
+  border-color: var(--apex-green) !important;
+}
+[data-sonner-toaster].theme-hr [data-sonner-toast][data-type="success"] [data-description] {
+  color: #fff !important;
+}
+
+/* ── تمكين HR — Radix toast → Apex Bootstrap `.alert` parity ──
+   Added 2026-09-20 (test round 4, correction B — supersedes an earlier
+   green-snackbar idea for this same toaster). Apex's own feedback control is
+   a fixed Bootstrap `.alert`, not a corner snackbar: top 30px, 50% width,
+   centered, success bg #d4edda/#155724, error (destructive) bg #f8d7da/
+   #721c24, radius 4, 14px Kufi, × at the LEFT. `.apex-toast`/`.apex-toast-
+   viewport` are static class hooks added in components/ui/toast.tsx —
+   unstyled outside `.theme-hr`, so every other vertical's toast/snackbar is
+   untouched. This now works reliably because `.theme-hr` is toggled on
+   <body> (components/hr-shell/shell.tsx) and the toast is portaled there.
+   Auto-dismiss duration (4500ms in HR, unchanged elsewhere) is set in
+   hooks/use-toast.ts by checking document.body's class when toast() fires. */
+.theme-hr .apex-toast-viewport {
+  top: 30px;
+  bottom: auto;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  width: 50%;
+  max-width: none;
+  padding: 0;
+  align-items: center;
+}
+.theme-hr .apex-toast {
+  width: 100%;
+  max-width: none;
+  border-radius: 4px;
+  border: 1px solid #c3e6cb;
+  box-shadow: none;
+  font-family: var(--font-kufi), var(--font-arabic), 'Noto Sans Arabic', sans-serif;
+  font-size: 14px;
+  background-color: #d4edda !important;
+  color: #155724 !important;
+  padding: 12px 16px 12px 40px;
+}
+.theme-hr .apex-toast.destructive {
+  border-color: #f5c6cb;
+  background-color: #f8d7da !important;
+  color: #721c24 !important;
+}
+.theme-hr .apex-toast [toast-close] {
+  left: 8px;
+  right: auto;
+  top: 50%;
+  transform: translateY(-50%);
+  color: inherit;
+  opacity: .55;
+}
+.theme-hr .apex-toast [toast-close]:hover {
+  color: inherit;
+  opacity: 1;
 }

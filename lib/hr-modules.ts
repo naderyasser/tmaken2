@@ -67,6 +67,9 @@ export interface ListModuleConfig {
    * for doctypes the HR role set cannot read directly (Activity Log). Implies readOnly.
    */
   method?: string
+  /** Static kwargs sent with `method` (e.g. `{ doctype: 'Permission Request' }`
+   *  for a shared multi-doctype row source like hr_requests.list_requests). */
+  methodArgs?: Record<string, any>
   /**
    * Apex «الاجراءات ▾» bulk menu (تنشيط / إلغاء التنشيط / حذف). `active` names the
    * status field and its on/off values; omit it and the menu only offers حذف.
@@ -77,6 +80,20 @@ export interface ListModuleConfig {
   noIndex?: boolean
   /** Show the print dropdown (only some Apex lists have it). Default true. */
   print?: boolean
+  /**
+   * Apex row «⋮» menu kind (components/hr/apex/row-menu.tsx): 'employee' →
+   * عرض + تنشيط/إلغاء التنشيط (employees, jobs, unregistered); 'master' →
+   * عرض + سجل الحركات (branches, shifts, nationality, leave types, devices,
+   * projects, tasks, location/employee groups). Omit for lists Apex gives no
+   * ⋮ menu shape for yet (users, permissions, requests, settings tables) —
+   * GenericListPage keeps its legacy تعديل/حذف dropdown for those.
+   */
+  rowMenu?: 'employee' | 'master'
+  /** Apex has no «اضافة» button on this list at all (e.g. unregistered employees). */
+  noAdd?: boolean
+  /** Per-row delete eligibility (e.g. a branch with employees can't be deleted).
+   *  Default: always deletable. Drives the trash icon's disabled/grey state. */
+  deletable?: (row: Record<string, any>) => boolean
   /** Full-page form instead of the dialog: where «اضافة» goes, and where ✎ goes. */
   addHref?: string
   editHref?: (name: string) => string
@@ -170,6 +187,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     actionsMenu: true,
     active: { field: 'status', on: 'Active', off: 'Inactive' },
     noIndex: true,
+    rowMenu: 'employee',
     addHref: '/employee/new',
     editHref: (name) => `/employee/${encodeURIComponent(name)}`,
     linkField: 'employee_name',
@@ -207,6 +225,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     actionsMenu: true,
     noIndex: true,
     print: false,
+    rowMenu: 'master',
     linkField: 'branch',
     needsCompany: true,
     drawerFilters: [
@@ -219,6 +238,16 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'manager', label: 'مدير الفرع', inForm: false },
       { field: 'departments', label: 'الادارات', inForm: false },
       { field: 'status', label: 'الحالة', inForm: false, statusDot: { on: 'Active' } },
+      // Saudi address fields (Apex GetAllBranches) — optional, form-only.
+      // base_meena.hr_management.setup_branch_fields adds the custom fields.
+      { field: 'custom_building_number', label: 'رقم المبنى', inTable: false },
+      { field: 'custom_district', label: 'الحي', inTable: false },
+      { field: 'custom_city', label: 'المدينة', inTable: false },
+      { field: 'custom_street', label: 'الشارع', inTable: false },
+      { field: 'custom_zip_code', label: 'الرمز البريدي', inTable: false },
+      { field: 'custom_phone', label: 'الهاتف', inTable: false },
+      { field: 'custom_fax', label: 'الفاكس', inTable: false },
+      { field: 'custom_address_en', label: 'العنوان بالانجليزية', inTable: false },
     ],
   },
 
@@ -233,17 +262,19 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     actionsMenu: true,
     noIndex: true,
     print: false,
+    rowMenu: 'master',
     linkField: 'name',
+    // Apex `GetMasterShift` columns: اسم الدوام · نوع الدوام · وقت إنتهاء
+    // الدوام. Full-page editor (B2) instead of the generic dialog — الحقول
+    // custom_shift_kind/custom_day_end_time show «—» via cellValue's default
+    // fallback until a shift actually sets them.
+    addHref: '/shift-management/new',
+    editHref: (name) => `/shift-management/${encodeURIComponent(name)}`,
+    deleteMethod: 'base_meena.api.hr_shifts.delete_shift',
     fields: [
-      { field: 'name', label: 'إسم الدوام', required: true },
-      { field: 'shift_kind', label: 'نوع الدوام', inForm: false },
-      { field: 'hours', label: 'الساعات', inForm: false },
-      { field: 'start_time', label: 'بداية الدوام', type: 'time', inTable: false, required: true },
-      { field: 'end_time', label: 'نهاية الدوام', type: 'time', inTable: false, required: true },
-      { field: 'enable_late_entry_marking', label: 'احتساب التأخير', type: 'checkbox', inTable: false },
-      { field: 'late_entry_grace_period', label: 'سماحية التأخير (دقيقة)', type: 'number', inTable: false },
-      { field: 'enable_early_exit_marking', label: 'احتساب الانصراف المبكر', type: 'checkbox', inTable: false },
-      { field: 'early_exit_grace_period', label: 'سماحية الانصراف (دقيقة)', type: 'number', inTable: false },
+      { field: 'name', label: 'اسم الدوام', required: true },
+      { field: 'custom_shift_kind', label: 'نوع الدوام', inForm: false },
+      { field: 'custom_day_end_time', label: 'وقت إنتهاء الدوام', type: 'time', inForm: false },
     ],
   },
 
@@ -312,13 +343,30 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     title: 'الوظائف',
     subtitle: 'إدارة المسميات الوظيفية',
     doctype: 'Designation',
-    orderBy: 'name asc',
+    // Designation carries no per-employee count of its own — hr_lists.jobs()
+    // adds `employees_count`. It also carries no status field, standard or
+    // custom (checked against the doctype meta) — Apex still shows a
+    // «الحالة» column here, always «نشط», so it's rendered as a synthetic
+    // display-only column (deriveFields below); there is no backing field
+    // for hr_lists.set_active to flip, so per-row/bulk تنشيط is NOT offered
+    // for jobs (rowMenu below only ever shows «عرض»).
+    method: 'base_meena.api.hr_lists.jobs',
     addLabel: 'اضافة وظيفة',
     searchPlaceholder: 'ابحث باسم او كود الوظيفة',
     actionsMenu: true,
     print: false,
+    noIndex: true,
+    rowMenu: 'employee',
+    deriveFields: [
+      { as: '_status_label', from: () => 'نشط' },
+    ],
+    drawerFilters: [
+      { field: '_status_label', label: 'الحالة', options: ['نشط'] },
+    ],
     fields: [
       { field: 'designation_name', label: 'اسم الوظيفة', required: true },
+      { field: '_status_label', label: 'الحالة', inForm: false, statusDot: { on: 'نشط' } },
+      { field: 'employees_count', label: 'عدد الموظفين', inForm: false },
       { field: 'description', label: 'الوصف', type: 'textarea', inTable: false },
     ],
   },
@@ -331,16 +379,18 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     orderBy: 'employee_name asc',
     filters: [['user_id', 'is', 'not set']],
     searchPlaceholder: 'ابحث بالكود',
-    addLabel: 'إضافة موظف',
-    // The generic add dialog only ever collects the fields listed below, which
-    // omits several DB-required Employee fields (e.g. date_of_joining) — every
-    // create 417d. Route to the same full employee form the `employees` module
-    // uses instead of a bespoke dialog.
-    addHref: '/employee/new',
+    // Apex has no «إضافة موظف» button on this list at all — registering an
+    // employee happens through the employees list, not from here.
+    noAdd: true,
     actionsMenu: true,
     active: { field: 'status', on: 'Active', off: 'Inactive' },
     noIndex: true,
     print: false,
+    rowMenu: 'employee',
+    drawerFilters: [
+      { field: 'default_shift', label: 'الدوام', source: 'shifts' },
+      { field: 'status', label: 'الحالة', options: ['Active', 'Inactive', 'Suspended', 'Left'] },
+    ],
     fields: [
       { field: 'name', label: 'الكود', inForm: false },
       { field: 'employee_name', label: 'الاسم', required: true },
@@ -361,6 +411,8 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     searchPlaceholder: 'ابحث باسم المشروع',
     actionsMenu: true,
     print: false,
+    noIndex: true,
+    rowMenu: 'master',
     fields: [
       { field: 'name', label: 'الكود', inForm: false },
       { field: 'project_name', label: 'اسم المشروع', required: true },
@@ -379,6 +431,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     searchPlaceholder: 'ابحث باسم المهمة',
     actionsMenu: true,
     print: false,
+    rowMenu: 'master',
     fields: [
       { field: 'name', label: 'الكود', inForm: false },
       { field: 'subject', label: 'الموضوع', required: true },
@@ -396,6 +449,12 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     orderBy: 'name asc',
     addLabel: 'اضافة مجموعة المواقع',
     searchPlaceholder: 'ابحث باسم مجموعة المواقع',
+    noIndex: true,
+    rowMenu: 'master',
+    // Apex M6 (hr/locations-group-details): the group name opens the on-site
+    // transactions screen (components/hr/location-group-details-page.tsx).
+    editHref: (name) => `/location-groups/${encodeURIComponent(name)}`,
+    linkField: 'location_name',
     fields: [
       { field: 'location_name', label: 'اسم المجموعة', required: true },
       { field: 'parent_location', label: 'الموقع الأب' },
@@ -410,9 +469,18 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     doctype: 'Employee Group',
     orderBy: 'name asc',
     addLabel: 'إضافة مجموعة الموظفين',
-    searchPlaceholder: 'ابحث باسم مجموعة الموظفين',
+    // Apex's own placeholder text (measured live) drops the ة in «مجوعة» —
+    // kept verbatim rather than "corrected" so this matches Apex exactly.
+    searchPlaceholder: 'ابحث باسم مجوعة الموظفين',
     actionsMenu: true,
     print: false,
+    noIndex: true,
+    rowMenu: 'master',
+    // Apex M3 (hr/employeeGroups/specificEmployeeGroup): the group name is a
+    // link into the members screen (components/hr/employee-group-members-page.tsx),
+    // same linkField/editHref pattern as إسم الدوام on shift-management.
+    editHref: (name) => `/hr?module=employee-group-members&group=${encodeURIComponent(name)}`,
+    linkField: 'employee_group_name',
     fields: [{ field: 'employee_group_name', label: 'اسم المجموعة', required: true }],
   },
 
@@ -427,6 +495,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     actionsMenu: true,
     noIndex: true,
     print: false,
+    rowMenu: 'master',
     fields: [
       { field: 'country_name', label: 'اسم الجنسية', required: true },
       { field: 'code', label: 'الرمز', inTable: false },
@@ -443,7 +512,12 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     searchPlaceholder: 'ابحث باسم العطلة الرسمية',
     actionsMenu: true,
     print: false,
+    noIndex: true,
     needsCompany: true,
+    drawerFilters: [
+      { field: 'weekly_off', label: 'العطلة الأسبوعية', options: Object.keys(WEEKDAY_AR_TO_EN) },
+      { field: 'from_date', label: 'التاريخ', date: true },
+    ],
     // Inserting the Holiday List row directly never generates its actual
     // `holidays` child rows — the list of dates HRMS attendance/leave logic
     // reads. Go through the endpoint that builds them from from/to + weekly_off.
@@ -474,6 +548,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     actionsMenu: true,
     noIndex: true,
     print: false,
+    rowMenu: 'master',
     fields: [
       { field: 'leave_type_name', label: 'اسم الاجازة', required: true },
       { field: 'max_leaves_allowed', label: 'أقصى عدد أيام', type: 'number', inTable: false },
@@ -490,7 +565,11 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     subtitle: 'اجازات الموظفين',
     doctype: 'Leave Application',
     needsCompany: true,
-    orderBy: 'from_date desc',
+    // Row source instead of the plain resource endpoint: Leave Application
+    // has no `branch` of its own — list_requests joins it (and
+    // designation/default_shift, for the drawer) from the employee.
+    method: 'base_meena.api.hr_requests.list_requests',
+    methodArgs: { doctype: 'Leave Application' },
     addLabel: 'اضافة اجازة',
     searchPlaceholder: 'ابحث بالكود او اسم الموظف',
     actionsMenu: true,
@@ -501,24 +580,41 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     createMethod: 'base_meena.api.hr_requests.create_leave_application',
     noIndex: true,
     drawerFilters: [
+      { field: 'branch', label: 'الفروع', source: 'branches' },
+      { field: 'department', label: 'الإدارة', source: 'departments' },
+      // Apex's own accordion set (§5.11) has «الاقسام» right after «الإدارة»
+      // as a distinct control — get_filter_options carries no separate
+      // section/sub-department catalogue (see report-page.tsx's own note on
+      // the same gap), so this reuses the department field/source rather
+      // than omitting the accordion Apex shows.
+      { field: 'department', label: 'الاقسام', source: 'departments' },
+      { field: 'designation', label: 'الوظائف', source: 'designations' },
+      { field: 'default_shift', label: 'الدوام', source: 'shifts' },
       { field: 'leave_type', label: 'نوع الاجازة', source: 'leave_types' },
-      { field: 'status', label: 'الحالة', options: ['Open', 'Approved', 'Rejected', 'Cancelled'] },
       { field: 'from_date', label: 'التاريخ', date: true },
     ],
+    // Apex columns exactly: الكود · اسم الموظف · الفرع · نوع الاجازة · من ·
+    // إلى · المدة · ملاحظات (no separate الحالة column — the ⋮ menu still
+    // carries اعتماد/رفض/إلغاء regardless of whether a status column shows).
     fields: [
+      { field: 'name', label: 'الكود', inForm: false },
       { field: 'employee', label: 'الموظف', type: 'link', link: { doctype: 'Employee', titleField: 'employee_name', filters: [['status', '=', 'Active']] }, required: true, inTable: false },
       { field: 'employee_name', label: 'اسم الموظف', inForm: false },
+      { field: 'branch', label: 'الفرع', inForm: false },
       { field: 'leave_type', label: 'نوع الاجازة', type: 'link', link: { doctype: 'Leave Type' }, required: true },
-      { field: 'from_date', label: 'من تاريخ', type: 'date', required: true },
-      { field: 'to_date', label: 'إلى تاريخ', type: 'date', required: true },
-      { field: 'total_leave_days', label: 'عدد الأيام', type: 'number', inForm: false },
-      // Approval now happens through the ⋮ menu / bulk «تنشيط» (approve_request /
+      { field: 'from_date', label: 'من', type: 'date', required: true },
+      { field: 'to_date', label: 'إلى', type: 'date', required: true },
+      { field: 'total_leave_days', label: 'المدة', type: 'number', inForm: false },
+      { field: 'description', label: 'ملاحظات', type: 'textarea' },
+      // Approval happens through the ⋮ menu / bulk «تنشيط» (approve_request /
       // reject_request / cancel_request) — the create form no longer sets it,
       // and create_leave_application doesn't take a `status` kwarg anyway.
-      { field: 'status', label: 'الحالة', inForm: false, statusBadge: true },
+      { field: 'status', label: 'الحالة', inForm: false, inTable: false, statusBadge: true },
       { field: 'docstatus', label: 'docstatus', inTable: false, inForm: false },
-      { field: 'description', label: 'السبب', type: 'textarea', inTable: false },
       { field: 'half_day', label: 'نصف يوم', type: 'checkbox', inTable: false },
+      { field: 'department', label: 'الإدارة', inTable: false, inForm: false },
+      { field: 'designation', label: 'الوظائف', inTable: false, inForm: false },
+      { field: 'default_shift', label: 'الدوام', inTable: false, inForm: false },
     ],
   },
 
@@ -544,7 +640,14 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     deriveFields: [
       { as: '_status_label', from: (r) => (Number(r.docstatus ?? 0) === 2 ? 'ملغي' : Number(r.docstatus ?? 0) === 1 ? 'معتمد' : 'مسودة') },
     ],
+    // Apex's accordion set here is الفروع/الإدارة/الاقسام/التاريخ (§5.11) —
+    // Attendance Request carries a real `department` field (checked against
+    // the doctype meta) but no `branch` of its own and no employee join to
+    // derive one client-side, so «الفروع» is left out rather than shipped as
+    // a filter that can never actually match a row.
     drawerFilters: [
+      { field: 'department', label: 'الإدارة', source: 'departments' },
+      { field: 'department', label: 'الاقسام', source: 'departments' },
       { field: '_status_label', label: 'الحالة', options: ['مسودة', 'معتمد', 'ملغي'] },
       { field: 'from_date', label: 'التاريخ', date: true },
     ],
@@ -555,6 +658,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'to_date', label: 'إلى تاريخ', type: 'date', required: true },
       { field: 'reason', label: 'السبب', type: 'select', options: ['Work From Home', 'On Duty'], required: true },
       { field: 'explanation', label: 'التفاصيل', type: 'textarea', inTable: false },
+      { field: 'department', label: 'الإدارة', inTable: false, inForm: false },
       { field: 'docstatus', label: 'docstatus', inTable: false, inForm: false },
     ],
   },
@@ -564,7 +668,11 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     title: 'اضافة اذن',
     subtitle: 'أذونات الموظفين',
     doctype: 'Permission Request',
-    orderBy: 'modified desc',
+    // Permission Request already carries `branch` (fetch_from employee.branch)
+    // but not department/designation/default_shift — list_requests joins
+    // those in for the drawer, same as add-leave.
+    method: 'base_meena.api.hr_requests.list_requests',
+    methodArgs: { doctype: 'Permission Request' },
     addLabel: 'اضافة اذن',
     searchPlaceholder: 'ابحث بالكود او اسم الموظف',
     actionsMenu: true,
@@ -575,20 +683,40 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     // wrapped endpoint so HRMS validation errors come back translated to Arabic.
     createMethod: 'base_meena.api.hr_requests.create_request',
     mapCreatePayload: (p) => ({ doctype: 'Permission Request', values: p }),
+    // «نوع الاذن» is a constant here (Apex `GetOrderTypes.arabicName` for this
+    // list is always «طلب اذن» — Permission Request has no per-row type field
+    // of its own; see base_meena.api.hr_requests.get_order_types).
+    deriveFields: [
+      { as: '_order_type', from: () => 'طلب اذن' },
+    ],
     drawerFilters: [
-      { field: 'status', label: 'الحالة', options: ['Draft', 'Pending', 'Approved', 'Rejected'] },
+      { field: 'branch', label: 'الفروع', source: 'branches' },
+      { field: 'department', label: 'الإدارة', source: 'departments' },
+      // See add-leave's identical note: Apex shows «الاقسام» as its own
+      // accordion (§5.11) but there is no distinct section catalogue behind
+      // it, so it reuses the department field/source.
+      { field: 'department', label: 'الاقسام', source: 'departments' },
+      { field: 'designation', label: 'الوظائف', source: 'designations' },
+      { field: 'default_shift', label: 'الدوام', source: 'shifts' },
+      { field: '_order_type', label: 'نوع الاذن', options: ['طلب اذن'] },
       { field: 'permission_date', label: 'التاريخ', date: true },
     ],
+    // Apex columns exactly: الكود · اسم الموظف · التاريخ · الفرع · نوع الاذن
     fields: [
-      { field: 'name', label: 'الرقم', inForm: false },
+      { field: 'name', label: 'الكود', inForm: false },
       { field: 'employee', label: 'الموظف', type: 'link', link: { doctype: 'Employee', titleField: 'employee_name', filters: [['status', '=', 'Active']] }, required: true, inTable: false },
       { field: 'employee_name', label: 'اسم الموظف', inForm: false },
       { field: 'permission_date', label: 'التاريخ', type: 'date', required: true },
-      { field: 'from_time', label: 'من الساعة', type: 'time', required: true },
-      { field: 'to_time', label: 'إلى الساعة', type: 'time', required: true },
-      { field: 'reason', label: 'السبب', type: 'textarea', required: true },
-      { field: 'status', label: 'الحالة', type: 'select', options: ['Draft', 'Pending', 'Approved', 'Rejected'], statusBadge: true },
+      { field: 'branch', label: 'الفرع', inForm: false },
+      { field: '_order_type', label: 'نوع الاذن', inForm: false },
+      { field: 'from_time', label: 'من الساعة', type: 'time', required: true, inTable: false },
+      { field: 'to_time', label: 'إلى الساعة', type: 'time', required: true, inTable: false },
+      { field: 'reason', label: 'السبب', type: 'textarea', required: true, inTable: false },
+      { field: 'status', label: 'الحالة', type: 'select', options: ['Draft', 'Pending', 'Approved', 'Rejected'], statusBadge: true, inTable: false },
       { field: 'docstatus', label: 'docstatus', inTable: false, inForm: false },
+      { field: 'department', label: 'الإدارة', inTable: false, inForm: false },
+      { field: 'designation', label: 'الوظائف', inTable: false, inForm: false },
+      { field: 'default_shift', label: 'الدوام', inTable: false, inForm: false },
     ],
   },
 
@@ -623,15 +751,32 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     noIndex: true,
     emptyText: 'لم يتم اضافة اى دوام لرمضان من قبل',
     emptyAction: 'تفعيل اول دوام رمضان',
+    // Apex columns: الاسم · تاريخ البداية · تاريخ النهاية · الحالة (نشط when
+    // today falls within [ramadan_start, ramadan_end], else غير نشط — there's
+    // no status field on the doctype, so it's derived client-side).
+    deriveFields: [
+      { as: '_status_label', from: (r) => {
+        const today = new Date().toISOString().slice(0, 10)
+        const start = String(r.ramadan_start || '').slice(0, 10)
+        const end = String(r.ramadan_end || '').slice(0, 10)
+        return start && end && today >= start && today <= end ? 'نشط' : 'غير نشط'
+      } },
+    ],
     fields: [
-      { field: 'name', label: 'الرقم', inForm: false },
-      { field: 'company', label: 'الشركة' },
-      { field: 'ramadan_start', label: 'بداية رمضان', type: 'date' },
-      { field: 'ramadan_end', label: 'نهاية رمضان', type: 'date' },
-      { field: 'reduced_daily_hours', label: 'ساعات العمل المخفّضة', type: 'number' },
+      { field: 'name', label: 'الرقم', inForm: false, inTable: false },
+      { field: 'company', label: 'الاسم' },
+      { field: 'ramadan_start', label: 'تاريخ البداية', type: 'date' },
+      { field: 'ramadan_end', label: 'تاريخ النهاية', type: 'date' },
+      { field: '_status_label', label: 'الحالة', inForm: false, statusDot: { on: 'نشط', onLabel: 'نشط', offLabel: 'غير نشط' } },
+      { field: 'reduced_daily_hours', label: 'ساعات العمل المخفّضة', type: 'number', inTable: false },
     ],
   },
 
+  // Apex M5 (hr/locations): module-page.tsx renders the bespoke
+  // components/hr/locations-page.tsx for this id (map picker + radius +
+  // status, base_meena.api.hr_locations) — this entry is kept only as a
+  // schema reference (and a safety-net fallback if the bespoke page is ever
+  // unregistered) and is otherwise dead code.
   locations: {
     kind: 'list',
     title: 'المواقع',
@@ -640,13 +785,21 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     orderBy: 'location_name asc',
     filters: [['is_group', '=', 0]],
     addLabel: 'اضافة موقع',
-    searchPlaceholder: 'ابحث بالاسم',
+    searchPlaceholder: 'إبحث بإسم الموقع',
+    actionsMenu: true,
+    active: { field: 'custom_status', on: 'Active', off: 'Inactive' },
     noIndex: true,
     print: false,
     fields: [
       { field: 'location_name', label: 'اسم الموقع', required: true },
+      { field: 'parent_location', label: 'مجموعة المواقع' },
       { field: 'latitude', label: 'خط العرض', type: 'number' },
       { field: 'longitude', label: 'خط الطول', type: 'number' },
+      { field: 'custom_radius_m', label: 'نطاق الموقع بالمتر', type: 'number' },
+      {
+        field: 'custom_status', label: 'الحالة', type: 'select', options: ['Active', 'Inactive'],
+        statusDot: { on: 'Active', onLabel: 'نشط', offLabel: 'غير نشط' },
+      },
     ],
   },
 

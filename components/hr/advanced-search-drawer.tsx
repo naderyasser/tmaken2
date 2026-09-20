@@ -42,7 +42,7 @@ export function AdvancedSearchDrawer({ open, onClose, filters, values, onApply }
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
-      <aside className="fixed top-0 left-0 z-50 h-full w-[300px] bg-white shadow-xl overflow-y-auto" dir="rtl">
+      <aside className="fixed top-0 left-0 z-50 h-full w-[245px] bg-white shadow-xl overflow-y-auto" dir="rtl">
         <div className="flex items-center justify-between px-4 h-[80px]">
           <h3 className="text-[26px] font-bold text-[var(--apex-blue)]">بحث متقدم</h3>
           <button type="button" onClick={onClose} className="text-[var(--apex-blue)]" aria-label="اغلاق"><X className="h-6 w-6" /></button>
@@ -78,7 +78,7 @@ export function AdvancedSearchDrawer({ open, onClose, filters, values, onApply }
             })}
           </div>
           <div className="pt-4 flex gap-2">
-            <button type="button" onClick={() => { onApply(local); onClose() }} className="h-[42px] px-6 rounded bg-[var(--apex-blue)] text-white text-[15px]">بحث</button>
+            <button type="button" onClick={() => { onApply(local); onClose() }} className="h-[42px] px-6 rounded bg-[var(--apex-green)] text-white text-[15px] hover:bg-[var(--apex-green-dark)]">بحث</button>
             <button type="button" onClick={() => { setLocal({}); onApply({}) }} className="h-[42px] px-4 rounded border border-slate-300 text-slate-600 text-[14px]">مسح</button>
           </div>
         </div>

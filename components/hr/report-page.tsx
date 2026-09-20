@@ -5,7 +5,10 @@ import { ChevronDown, ChevronUp, Loader2, Search, AlertCircle } from 'lucide-rea
 import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
+import { fmtDate } from '@/lib/hr-format'
 import type { ReportConfig } from '@/lib/hr-reports'
+import { PrintDialog } from '@/components/hr/apex/print-dialog'
+import { ApexDatePicker } from '@/components/hr/apex/date-picker'
 
 interface Column { key: string; label: string; children?: Column[] }
 interface Group { title: string; rows: Record<string, any>[] }
@@ -43,7 +46,7 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
   const { toast } = useToast()
   const [opts, setOpts] = useState<Options>(optionsCache ?? EMPTY_OPTIONS)
   const [showFilters, setShowFilters] = useState(true)
-  const [exportOpen, setExportOpen] = useState(false)
+  const [printOpen, setPrintOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<ReportData | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -55,6 +58,7 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
   })
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setF((p) => ({ ...p, [k]: e.target.value }))
+  const setDate = (k: string) => (v: string) => setF((p) => ({ ...p, [k]: v }))
 
   // reset when switching between reports
   useEffect(() => { setData(null); setError(null); setCollapsed(new Set()) }, [config.slug])
@@ -111,7 +115,6 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
     a.href = URL.createObjectURL(blob)
     a.download = `${config.title}.csv`
     a.click()
-    setExportOpen(false)
   }
 
   const toggleGroup = (i: number) =>
@@ -124,7 +127,11 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
       {data && (
         <div className="hidden print:block mb-4">
           <h1 className="text-lg font-bold mb-1">{config.title}</h1>
-          <p className="text-xs text-slate-500">{new Date().toLocaleDateString('ar-EG')}</p>
+          <p className="text-xs text-slate-500">
+            {config.dates && f.from_date && f.to_date
+              ? `من ${fmtDate(f.from_date)} إلى ${fmtDate(f.to_date)}`
+              : fmtDate(new Date())}
+          </p>
         </div>
       )}
 
@@ -147,25 +154,26 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
             <ChevronDown className="h-4 w-4" />
             {showFilters ? 'اخفاء البحث' : 'اظهار البحث'}
           </button>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setExportOpen((o) => !o)}
-              className="h-[38px] px-3 min-w-[120px] rounded border border-[var(--apex-blue-border)] bg-white text-[14px] text-[var(--apex-blue)] flex items-center justify-between gap-3"
-            >
-              <ChevronDown className="h-4 w-4" />
-              <span>تصدير</span>
-            </button>
-            {exportOpen && (
-              <div className="absolute left-0 mt-1 w-40 rounded border bg-white shadow z-20 text-[14px]">
-                <button type="button" className="w-full text-right px-3 py-2 hover:bg-slate-50" onClick={exportCsv}>Excel (CSV)</button>
-                <button type="button" className="w-full text-right px-3 py-2 hover:bg-slate-50" onClick={() => { window.print(); setExportOpen(false) }}>طباعة</button>
-              </div>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={() => setPrintOpen(true)}
+            className="h-[38px] px-3 min-w-[120px] rounded border border-[var(--apex-blue-border)] bg-white text-[14px] text-[var(--apex-blue)] flex items-center justify-between gap-3"
+          >
+            <ChevronDown className="h-4 w-4" />
+            <span>تصدير</span>
+          </button>
           {addSlot}
         </div>
       </div>
+
+      <PrintDialog
+        open={printOpen}
+        onOpenChange={setPrintOpen}
+        templates={[{ key: 'default', label: config.title, isDefault: true }]}
+        storageKey={`report:${config.slug}`}
+        onPrint={() => { setPrintOpen(false); window.print() }}
+        onExport={(o) => { setPrintOpen(false); if (o.format === 'excel') exportCsv(); else window.print() }}
+      />
 
       {/* filter grid */}
       {showFilters && (
@@ -189,8 +197,8 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
             {config.extras?.includes('status') && <Sel value={f.status} onChange={set('status')} label="الحالة" items={['مقبولة', 'مرفوضة']} />}
             {config.extras?.includes('leave_type') && <Sel value={f.leave_type} onChange={set('leave_type')} label="نوع الاجازة" items={opts.leave_types} />}
             {config.extras?.includes('permission_type') && <Sel value={f.permission_type} onChange={set('permission_type')} label="نوع الاذن" items={opts.permission_types} />}
-            {config.dates && <DateF value={f.from_date} onChange={set('from_date')} label="من تاريخ" />}
-            {config.dates && <DateF value={f.to_date} onChange={set('to_date')} label="إلى تاريخ" />}
+            {config.dates && <ApexDatePicker value={f.from_date} onChange={setDate('from_date')} label="من تاريخ" required />}
+            {config.dates && <ApexDatePicker value={f.to_date} onChange={setDate('to_date')} label="إلى تاريخ" required />}
             <div>
               <button
                 type="button"
@@ -282,19 +290,6 @@ function Txt({ value, onChange, label }: { value: string; onChange: Change; labe
   )
 }
 
-function DateF({ value, onChange, label }: { value: string; onChange: Change; label: string }) {
-  return (
-    <div>
-      <span className="block text-[13px] text-slate-700 mb-1">{label} <span className="text-red-500">*</span></span>
-      <input
-        type="date"
-        value={value}
-        onChange={onChange}
-        className="w-full h-[42px] rounded border border-[var(--apex-border)] bg-white px-3 text-[14px] text-slate-800 outline-none focus:border-[var(--apex-blue)]"
-      />
-    </div>
-  )
-}
 
 function GroupRows({ g, gi, cols, collapsed, onToggle }: {
   g: Group; gi: number; cols: Column[]; collapsed: boolean; onToggle: () => void
