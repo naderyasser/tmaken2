@@ -133,7 +133,7 @@ function SummaryCard({ data, tx }: { data: RetentionRadar; tx: TX }) {
 
       <p className="mt-3 text-[11px] text-muted-foreground">
         {tx('Scored', 'تم تقييم')} <span className="tabular-nums text-foreground/70">{data.total_scored}</span>{' '}
-        {tx('active employees on 5 transparent signals.', 'موظف نشط على ٥ إشارات شفّافة.')}
+        {tx('active employees on 5 transparent signals.', 'موظف نشط على 5 إشارات شفّافة.')}
       </p>
     </section>
   )

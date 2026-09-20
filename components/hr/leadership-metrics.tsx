@@ -387,7 +387,7 @@ function LeaveCard({ data, tx }: CardProps) {
         </div>
         <div className="ms-auto text-end">
           <span className="text-lg font-semibold tabular-nums text-foreground/80">{l.upcoming_14d}</span>
-          <p className="text-[11px] text-muted-foreground">{tx('next 14 days', 'خلال ١٤ يوماً')}</p>
+          <p className="text-[11px] text-muted-foreground">{tx('next 14 days', 'خلال 14 يوماً')}</p>
         </div>
       </div>
 
@@ -512,7 +512,7 @@ function TurnoverCard({ data, tx }: CardProps) {
       <div className="flex items-end gap-2">
         <span className="text-4xl font-bold leading-none tabular-nums text-foreground">{t.turnover_pct}</span>
         <span className="pb-1 text-lg font-medium text-muted-foreground">%</span>
-        <span className="ms-auto pb-1 text-[11px] text-muted-foreground">{tx('12-month rate', 'معدّل ١٢ شهراً')}</span>
+        <span className="ms-auto pb-1 text-[11px] text-muted-foreground">{tx('12-month rate', 'معدّل 12 شهراً')}</span>
       </div>
       <div className="mt-1 flex items-center gap-3 text-[11px]">
         <span className="inline-flex items-center gap-1 text-destructive">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Loader2, Check, X, AlertCircle } from 'lucide-react'
 import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { FieldInput, toFormValue, toPayload } from '@/components/hr/field-input'
 import { useBreadcrumbs } from '@/lib/breadcrumbs'
+import { cn } from '@/lib/utils'
 import type { SettingsModuleConfig } from '@/lib/hr-modules'
 
 /**
@@ -15,9 +16,25 @@ import type { SettingsModuleConfig } from '@/lib/hr-modules'
  * action bar on top (breadcrumb right · حفظ/اغلاق left) then a card of grouped
  * fields in two columns.
  */
-export function GenericSettingsPage({ config, recordName }: { config: SettingsModuleConfig; recordName?: string }) {
+export function GenericSettingsPage({
+  config,
+  recordName,
+  breadcrumbOverride,
+  extra,
+  fullWidthFields,
+}: {
+  config: SettingsModuleConfig
+  recordName?: string
+  /** Apex-exact crumb labels for this page (e.g. ["الاعدادات", "بيانات الشركة"]) — overrides the generic URL-derived trail (S9). */
+  breadcrumbOverride?: string[]
+  /** Extra content rendered between the action bar and the form card — e.g. the company logo placeholder (5.25). */
+  extra?: ReactNode
+  /** Field names that should span both grid columns (5.25: email + both addresses are full-width rows). */
+  fullWidthFields?: string[]
+}) {
   const { toast } = useToast()
-  const crumbs = useBreadcrumbs()
+  const autoCrumbs = useBreadcrumbs()
+  const crumbs = breadcrumbOverride ? breadcrumbOverride.map((label) => ({ label })) : autoCrumbs
   const [form, setForm] = useState<Record<string, any>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -76,7 +93,7 @@ export function GenericSettingsPage({ config, recordName }: { config: SettingsMo
   const renderFields = (fields: typeof config.fields) => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5">
       {fields.map((f) => (
-        <div key={f.field} className="space-y-1.5">
+        <div key={f.field} className={cn('space-y-1.5', fullWidthFields?.includes(f.field) && 'md:col-span-2')}>
           {f.type !== 'checkbox' && (
             <Label className="text-[13px] text-slate-600">
               {f.label}{f.required && <span className="text-red-500"> *</span>}
@@ -93,11 +110,11 @@ export function GenericSettingsPage({ config, recordName }: { config: SettingsMo
 
       {/* ── Action bar: breadcrumb (right) · actions (left) ── */}
       <div className="flex items-center justify-between gap-4 bg-white rounded shadow-sm border border-slate-200/60 px-4 py-2.5">
-        <nav className="flex items-center gap-1.5 text-[13px] text-slate-600 min-w-0">
+        <nav className="flex items-center gap-1.5 text-[14px] min-w-0" dir="rtl">
           {crumbs.map((c, i) => (
             <span key={i} className="flex items-center gap-1.5 min-w-0">
               {i > 0 && <span className="text-slate-400">/</span>}
-              <span className={i === crumbs.length - 1 ? 'font-bold text-slate-800 truncate' : 'truncate'}>{c.label}</span>
+              <span className={i === crumbs.length - 1 ? 'font-bold text-slate-800 truncate' : 'truncate text-[var(--apex-link)]'}>{c.label}</span>
             </span>
           ))}
         </nav>
@@ -115,6 +132,8 @@ export function GenericSettingsPage({ config, recordName }: { config: SettingsMo
           </Button>
         </div>
       </div>
+
+      {extra}
 
       {loadError && !loading && (
         <div className="flex items-center gap-2 rounded bg-amber-50 border border-amber-200 px-3 py-2 text-[12.5px] text-amber-800">

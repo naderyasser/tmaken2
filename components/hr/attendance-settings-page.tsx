@@ -26,7 +26,7 @@ const DEFAULTS: Rules = {
 /** Apex number spinner: value on the right, ▲▼ stacked on the left. */
 function Spinner({ value, onChange, disabled }: { value: number; onChange: (v: number) => void; disabled?: boolean }) {
   return (
-    <div className={`flex items-center h-[42px] w-[160px] rounded border border-[var(--apex-border)] bg-white ${disabled ? 'opacity-50' : ''}`}>
+    <div className={`flex items-center h-[42px] w-[162px] rounded border border-[var(--apex-border)] bg-white ${disabled ? 'opacity-50' : ''}`}>
       <input
         type="number"
         value={value}

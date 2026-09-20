@@ -302,7 +302,7 @@ function AttendancePulseCard({ intel, tx }: { intel: HrIntelligence; tx: (en: st
         icon={HeartPulse}
         iconClass="bg-info/10 text-info"
         title={tx('Attendance Pulse', 'نبض الحضور')}
-        meta={<span className="text-[11px] font-medium text-muted-foreground">{tx('14 days', '١٤ يوم')}</span>}
+        meta={<span className="text-[11px] font-medium text-muted-foreground">{tx('14 days', '14 يوم')}</span>}
       />
 
       {/* Week average */}

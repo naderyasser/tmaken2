@@ -47,9 +47,22 @@ function PageEnter({ children }: { children: ReactNode }) {
 export function HrShell({ requireHR = true, children }: { requireHR?: boolean; children: ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
+  // Test round 4 correction A: Radix portals (dialog/alertdialog/tooltip/
+  // popover/toast) render to document.body by default, which is NOT a
+  // descendant of the `.theme-hr` div below — so their `--apex-*`/font
+  // overrides in globals.css never applied (dialogs rendered IBM Plex 13px/
+  // 700, «حفظ» was transparent since --apex-green is undefined outside
+  // .theme-hr). Toggling the class on <body> too — kept alongside the
+  // existing wrapper div, not instead of it — makes every portaled surface a
+  // real descendant of `.theme-hr` for the CSS cascade.
+  useEffect(() => {
+    document.body.classList.add('theme-hr')
+    return () => { document.body.classList.remove('theme-hr') }
+  }, [])
+
   return (
     <div
-      className="theme-hr flex h-screen overflow-hidden bg-[#f4f5f7] text-foreground"
+      className="theme-hr flex h-screen overflow-hidden bg-[var(--apex-canvas)] text-foreground"
       dir="rtl"
     >
       <HrGuard requireHR={requireHR}>
@@ -66,7 +79,8 @@ export function HrShell({ requireHR = true, children }: { requireHR?: boolean; c
         <div className="flex flex-col flex-1 overflow-hidden">
           <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} />
 
-          <main className="flex-1 overflow-y-auto">
+          {/* S8: page canvas #fbfbfb, content padding-top 10px */}
+          <main className="flex-1 overflow-y-auto bg-[var(--apex-canvas)] pt-[10px]">
             <PageEnter>{children}</PageEnter>
           </main>
         </div>

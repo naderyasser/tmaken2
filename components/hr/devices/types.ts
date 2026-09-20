@@ -3,6 +3,8 @@
  * Backed by base_meena.biometric_management.adms — see that file for exact param/return shapes.
  */
 
+import { fmtDateTime } from '@/lib/hr-format'
+
 export interface BiometricDevice {
   name: string
   device_name?: string
@@ -82,11 +84,8 @@ export function formatTimeAgo(seconds?: number | null): string {
 export function formatDateTime(dt?: string): string {
   if (!dt) return '—'
   try {
-    const d = new Date(dt.includes('T') ? dt : dt.replace(' ', 'T'))
-    if (Number.isNaN(d.getTime())) return dt
-    return d.toLocaleString('en-GB', {
-      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
-    })
+    const out = fmtDateTime(dt)
+    return out || dt
   } catch {
     return dt
   }

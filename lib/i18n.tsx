@@ -405,6 +405,7 @@ const translations: Record<'en' | 'ar', Record<string, string>> = {
     // ── Basic Data items ──
     'nav.jobs': 'Jobs',
     'nav.work_times': 'Work Times',
+    'nav.rotational_shifts': 'Rotational Shifts',
     'nav.unregistered_employees': 'Unregistered Employees',
     'nav.projects': 'Projects',
     'nav.tasks': 'Tasks',
@@ -3022,6 +3023,7 @@ const translations: Record<'en' | 'ar', Record<string, string>> = {
     // ── عناصر البيانات الاساسية ──
     'nav.jobs': 'الوظائف',
     'nav.work_times': 'أوقات العمل',
+    'nav.rotational_shifts': 'دوام ورديات المصنع المتغير',
     'nav.unregistered_employees': 'موظفين غير مسجلين',
     'nav.projects': 'المشاريع',
     'nav.tasks': 'المهام',

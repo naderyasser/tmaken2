@@ -47,7 +47,7 @@ export const SHELL_PREFIXES: string[] = [
   '/hr', '/hr-managers', '/requests', '/org-chart', '/me',
   '/employees', '/employee', '/employee-details', '/employee-report',
   '/attendance', '/auto-attendance', '/biometric', '/punch-sheet', '/branches', '/payroll',
-  '/shift-management', '/location-tracking', '/radius-alerts', '/team', '/shifts',
+  '/shift-management', '/rotational-shifts', '/location-groups', '/location-tracking', '/radius-alerts', '/team', '/shifts',
 ]
 
 export function matchesShell(pathname: string): boolean {
@@ -116,6 +116,13 @@ export const RAIL_SECTIONS: RailSection[] = [
         labelKey: 'nav.work_times',
         href: '/shift-management',
         match: route('/shift-management'),
+        icon: Clock,
+      },
+      {
+        id: 'rotational-shifts',
+        labelKey: 'nav.rotational_shifts',
+        href: '/rotational-shifts',
+        match: route('/rotational-shifts'),
         icon: Clock,
       },
       {

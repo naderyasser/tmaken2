@@ -188,7 +188,7 @@ export default function ShiftPlannerSection() {
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Timer className="h-4 w-4" />
               </span>
-              <h3 className="text-sm font-semibold text-foreground">{tx('Overtime (30d)', 'الأوفرتايم (٣٠ يوم)')}</h3>
+              <h3 className="text-sm font-semibold text-foreground">{tx('Overtime (30d)', 'الأوفرتايم (30 يوم)')}</h3>
             </div>
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-bold leading-none tabular-nums text-foreground">{data.overtime.total_hours}</span>
@@ -205,7 +205,7 @@ export default function ShiftPlannerSection() {
                 ))}
               </div>
             ) : (
-              <p className="mt-3 text-[11px] text-muted-foreground">{tx('No overtime logged in the last 30 days.', 'لا أوفرتايم مسجّل في آخر ٣٠ يوماً.')}</p>
+              <p className="mt-3 text-[11px] text-muted-foreground">{tx('No overtime logged in the last 30 days.', 'لا أوفرتايم مسجّل في آخر 30 يوماً.')}</p>
             )}
           </section>
 

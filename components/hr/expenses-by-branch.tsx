@@ -138,7 +138,7 @@ function stepMonth(month: string, delta: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
-/** Human month label, e.g. 'July 2026' / 'يوليو ٢٠٢٦' via Intl (Latin digits kept). */
+/** Human month label, e.g. 'July 2026' / 'يوليو 2026' via Intl (Latin digits kept). */
 function monthLabel(month: string, isRTL: boolean): string {
   const [y, m] = month.split('-').map((n) => parseInt(n, 10))
   if (!y || !m) return month

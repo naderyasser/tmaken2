@@ -91,6 +91,8 @@ export type ModuleType =
   | 'subscription-info'
   | `report-${string}`
   | 'locations'
+  | 'holiday-days'
+  | 'employee-group-members'
 
 interface NavItem {
   labelKey: string

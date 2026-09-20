@@ -3,15 +3,15 @@
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronDown, Check, UserCircle2, Calendar, LogOut } from 'lucide-react'
+import { ChevronDown, UserCircle2, LogOut } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/auth-context'
 import { logout as apiLogout } from '@/lib/api'
 import { frappeClient } from '@/lib/api-client'
 import { useBrand } from '@/hooks/use-brand'
 import { useCompanySafe } from '@/hooks/use-company'
+import { fmtDate } from '@/lib/hr-format'
 import { NotificationsPanel } from '@/components/notifications-panel'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { TOPBAR_ACTIONS } from './routes'
 import { accountingApi, type FiscalYear } from '@/lib/accounting-api'
 
@@ -37,12 +37,6 @@ function roleLabel(roles?: string[]): string {
 
 const SHOW_COMPANY_NAME = false
 
-/** dd-mm-yyyy → dd/mm/yyyy, matching the reference's fiscal-period label. */
-const fmtDMY = (d: string) => {
-  const [y, m, day] = d.split('-')
-  return `${day}/${m}/${y}`
-}
-
 export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
   const { t } = useI18n()
   const { user } = useAuth()
@@ -53,7 +47,6 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
   const [fiscalLabel, setFiscalLabel] = useState<string>('')
   const [currentFyName, setCurrentFyName] = useState<string>('')
   const [fiscalYears, setFiscalYears] = useState<FiscalYear[]>([])
-  const [fyOpen, setFyOpen] = useState(false)
   const [fySaving, setFySaving] = useState(false)
   const [fyRefreshTick, setFyRefreshTick] = useState(0)
 
@@ -71,7 +64,9 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
       .then(([fy, years]) => {
         if (cancelled) return
         if (fy) {
-          setFiscalLabel(`${fmtDMY(fy.year_end_date)} - ${fmtDMY(fy.year_start_date)}`)
+          // Apex's exact live display order is end-date first, then start-date
+          // (measured: "31/12/2024 - 01/01/2024") — not the intuitive start-end.
+          setFiscalLabel(`${fmtDate(fy.year_end_date)} - ${fmtDate(fy.year_start_date)}`)
           setCurrentFyName(fy.name)
         }
         setFiscalYears(years)
@@ -82,14 +77,13 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
 
   const selectFiscalYear = async (fy: FiscalYear) => {
     if (fySaving) return
-    if (fy.name === currentFyName) { setFyOpen(false); return }
+    if (fy.name === currentFyName) return
     setFySaving(true)
     try {
       await frappeClient.call('base_meena.api.hr_settings.save_fiscal_year', {
         start: fy.year_start_date,
         end: fy.year_end_date,
       })
-      setFyOpen(false)
       setFyRefreshTick((n) => n + 1)
     } catch (e) {
       console.error('Failed to switch fiscal year:', e)
@@ -102,8 +96,9 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
   const userRole = mounted ? roleLabel(user?.roles) : 'مدير النظام'
 
   return (
-    <header className="shrink-0 z-40" dir="rtl">
-      <div className="h-[55px] bg-[var(--apex-blue-light)] text-white flex items-center justify-between gap-3 px-4 shadow-sm">
+    <header className="shrink-0 z-40 p-2" dir="rtl">
+      {/* S7: .mat-toolbar 55px, bg --apex-blue-light, radius 10px */}
+      <div className="h-[55px] rounded-[10px] bg-[var(--apex-blue-light)] text-white flex items-center justify-between gap-3 px-4 shadow-sm">
 
         {/* ── Right (start): hamburger + logo ── */}
         <div className="flex items-center gap-3 shrink-0">
@@ -129,8 +124,8 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
 
           <Link href="/hr" className="flex items-center gap-2 shrink-0">
             {mounted && brand.logo ? (
-              <span className="relative block h-9 w-[120px] shrink-0">
-                <Image src={brand.logo} alt="Logo" fill sizes="120px" className="object-contain" unoptimized />
+              <span className="relative block h-9 w-[115px] shrink-0">
+                <Image src={brand.logo} alt="Logo" fill sizes="115px" className="object-contain" unoptimized />
               </span>
             ) : (
               <>
@@ -144,50 +139,49 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
         {/* ── Middle: fiscal · bell · language · company · breadcrumb ── */}
         <div className="hidden md:flex items-center gap-2.5 flex-1 min-w-0 justify-end">
 
+          {/* S7: native <select> fiscal period, label «الفترة المالية» before it,
+              options read end-date - start-date (Apex's own display order). */}
           {mounted && fiscalLabel && (
             <div className="flex items-center gap-2 shrink-0">
               <span className="text-[12px] font-bold whitespace-nowrap">{t('nav.fiscal_period') || 'الفترة المالية'}</span>
-              {fiscalYears.length > 1 ? (
-                <Popover open={fyOpen} onOpenChange={setFyOpen}>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      disabled={fySaving}
-                      className="flex items-center gap-1.5 bg-white text-[var(--apex-blue-deep)] rounded px-2.5 py-1 text-[12px] font-bold whitespace-nowrap disabled:opacity-60"
-                    >
-                      <Calendar className="h-3.5 w-3.5" />
-                      <span>{fiscalLabel}</span>
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent align="end" className="w-60 p-1.5" dir="rtl">
-                    {fiscalYears.map((fy) => (
-                      <button
-                        key={fy.name}
-                        type="button"
-                        onClick={() => selectFiscalYear(fy)}
-                        className="flex w-full items-center justify-between gap-2 rounded px-2.5 py-2 text-[13px] text-slate-700 hover:bg-slate-100"
-                      >
-                        <span>{fy.name}</span>
-                        {fy.name === currentFyName && <Check className="h-3.5 w-3.5 text-[var(--apex-blue)]" />}
-                      </button>
-                    ))}
-                  </PopoverContent>
-                </Popover>
-              ) : (
-                <span className="flex items-center gap-1.5 bg-white text-[var(--apex-blue-deep)] rounded px-2.5 py-1 text-[12px] font-bold whitespace-nowrap">
-                  <Calendar className="h-3.5 w-3.5" />
-                  <span>{fiscalLabel}</span>
-                </span>
-              )}
+              <select
+                value={currentFyName}
+                disabled={fySaving}
+                onChange={(e) => {
+                  const fy = fiscalYears.find((f) => f.name === e.target.value)
+                  if (fy) selectFiscalYear(fy)
+                }}
+                className="bg-white text-[var(--apex-blue-deep)] rounded px-2 py-1 text-[12px] font-bold outline-none disabled:opacity-60"
+              >
+                {fiscalYears.length > 0 ? (
+                  fiscalYears.map((fy) => (
+                    <option key={fy.name} value={fy.name}>
+                      {`${fmtDate(fy.year_end_date)} - ${fmtDate(fy.year_start_date)}`}
+                    </option>
+                  ))
+                ) : (
+                  <option value={currentFyName}>{fiscalLabel}</option>
+                )}
+              </select>
             </div>
           )}
 
+          {/* Bell — badge suppressed per Apex (no red count badge on this build). */}
           {mounted && (
-            <div className="text-white shrink-0 [&_button]:text-white [&_svg]:text-white">
+            <div className="relative text-white shrink-0 [&_button]:text-white [&_svg]:text-white [&_.bg-red-500]:hidden">
               <NotificationsPanel />
             </div>
           )}
+
+          {/* Language control — Apex mat-select look, Arabic-only build so it is
+              display-only (no-op, no English strings). */}
+          <span
+            className="hidden xl:flex items-center gap-1 text-[12px] font-medium whitespace-nowrap cursor-default select-none"
+            title="العربية"
+          >
+            العربية
+            <ChevronDown className="h-3 w-3" />
+          </span>
 
           {/* «الادارة» — Apex module switcher; the HR shell is the only module here */}
           <span className="hidden xl:block h-5 w-px bg-white/30 shrink-0" />

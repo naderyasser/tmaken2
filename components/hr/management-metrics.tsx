@@ -228,9 +228,9 @@ function DocumentRadarCard({ data, tx }: CardProps) {
       {/* 30 / 60 / 90 buckets, colour-graded */}
       <div className="grid grid-cols-4 gap-2">
         <RadarStat n={d.expired} label={tx('Expired', 'منتهية')} cls="bg-destructive/15 text-destructive" />
-        <RadarStat n={d.d30} label={tx('≤30d', '≤٣٠ي')} cls="bg-destructive/10 text-destructive" />
-        <RadarStat n={d.d60} label={tx('≤60d', '≤٦٠ي')} cls="bg-warning/10 text-warning" />
-        <RadarStat n={d.d90} label={tx('≤90d', '≤٩٠ي')} cls="bg-success/10 text-success" />
+        <RadarStat n={d.d30} label={tx('≤30d', '≤30ي')} cls="bg-destructive/10 text-destructive" />
+        <RadarStat n={d.d60} label={tx('≤60d', '≤60ي')} cls="bg-warning/10 text-warning" />
+        <RadarStat n={d.d90} label={tx('≤90d', '≤90ي')} cls="bg-success/10 text-success" />
       </div>
 
       {/* Type chips */}
@@ -253,7 +253,7 @@ function DocumentRadarCard({ data, tx }: CardProps) {
         <EmptyState
           icon={CheckCircle2}
           title={tx('All documents valid 🎉', 'كل الوثائق سارية 🎉')}
-          description={tx('Nothing expiring in the next 90 days.', 'لا شيء ينتهي خلال ٩٠ يوماً.')}
+          description={tx('Nothing expiring in the next 90 days.', 'لا شيء ينتهي خلال 90 يوماً.')}
           className="py-8 sm:py-10"
         />
       ) : (
@@ -446,7 +446,7 @@ function ActionsDueCard({ data, tx }: CardProps) {
               <span className="tabular-nums text-foreground/70">({a.contracts_count})</span>
             </p>
             {a.contracts_expiring.length === 0 ? (
-              <p className="px-2 text-[12px] text-muted-foreground/70">{tx('None within 60 days.', 'لا شيء خلال ٦٠ يوماً.')}</p>
+              <p className="px-2 text-[12px] text-muted-foreground/70">{tx('None within 60 days.', 'لا شيء خلال 60 يوماً.')}</p>
             ) : (
               <div className="space-y-0.5">
                 {a.contracts_expiring.slice(0, 3).map((c, i) => (
@@ -533,7 +533,7 @@ function LiabilityCard({ data, tx, locale }: CardProps) {
       )}
 
       <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-        {tx('estimate — Art. 84 accrual + unused leave', 'تقديري — استحقاق المادة ٨٤ + رصيد الإجازات')}
+        {tx('estimate — Art. 84 accrual + unused leave', 'تقديري — استحقاق المادة 84 + رصيد الإجازات')}
       </p>
     </section>
   )

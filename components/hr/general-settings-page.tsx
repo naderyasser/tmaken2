@@ -41,6 +41,11 @@ export function GeneralSettingsPage() {
   const [em, setEm] = useState({ email_id: '', password: '', smtp_server: '', display_name: '', port: '0', secure: 'آلى', has_password: false })
   const [testTo, setTestTo] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
+  // 5.23 «اخري»: auto-logout minutes. base_meena.api.hr_settings.get_general_settings
+  // does not return this key today (checked 2026-09-20 — only `fiscal`/`email`), so
+  // this stays read-only ("غير مفعّل") until a backend key exists; the `supported`
+  // flag flips the field editable the moment the API starts sending `auto_logout`.
+  const [autoLogout, setAutoLogout] = useState<{ value: string; supported: boolean }>({ value: '', supported: false })
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }))
 
   useEffect(() => {
@@ -49,6 +54,7 @@ export function GeneralSettingsPage() {
         const d = r?.message ?? {}
         if (d.fiscal) setFy({ start: d.fiscal.start, end: d.fiscal.end })
         if (d.email) setEm((e) => ({ ...e, ...d.email, port: String(d.email.port ?? 0), password: '' }))
+        if (d.auto_logout != null) setAutoLogout({ value: String(d.auto_logout), supported: true })
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -67,6 +73,19 @@ export function GeneralSettingsPage() {
     setBusy('test-conn')
     try {
       const r: any = await frappeClient.call('base_meena.api.hr_settings.test_email_settings')
+      const res = r?.message ?? {}
+      toast(res.ok ? { title: res.message } : { title: 'فشل', description: res.message, variant: 'destructive' })
+    } catch (e: any) {
+      toast({ title: 'فشل', description: e?.message, variant: 'destructive' })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const sendTestEmail = async () => {
+    setBusy('test')
+    try {
+      const r: any = await frappeClient.call('base_meena.api.hr_settings.send_test_email', { to: testTo })
       const res = r?.message ?? {}
       toast(res.ok ? { title: res.message } : { title: 'فشل', description: res.message, variant: 'destructive' })
     } catch (e: any) {
@@ -104,10 +123,10 @@ export function GeneralSettingsPage() {
             <L label="اسم المضيف"><input value={em.smtp_server} onChange={(e) => setEm((s) => ({ ...s, smtp_server: e.target.value }))} className={FIELD} /></L>
             <L label="اسم الظهور"><input value={em.display_name} onChange={(e) => setEm((s) => ({ ...s, display_name: e.target.value }))} className={FIELD} /></L>
             <L label="المنفذ"><input type="number" value={em.port} onChange={(e) => setEm((s) => ({ ...s, port: e.target.value }))} className={FIELD} /></L>
-            <L label="Secure Sockets">
+            <L label="نوع الاتصال الآمن">
               <div className="relative">
                 <select value={em.secure} onChange={(e) => setEm((s) => ({ ...s, secure: e.target.value }))} className={FIELD + ' appearance-none'}>
-                  {['آلى', 'SSL', 'TLS', 'بدون'].map((o) => <option key={o}>{o}</option>)}
+                  {['آلى', 'SSL', 'TLS'].map((o) => <option key={o}>{o}</option>)}
                 </select>
                 <ChevronDown className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
               </div>
@@ -130,10 +149,39 @@ export function GeneralSettingsPage() {
               <input value={testTo} onChange={(e) => setTestTo(e.target.value)} className={FIELD} />
               <div className="flex items-center gap-3">
                 <a href="https://support.google.com/mail/answer/7126229" target="_blank" rel="noreferrer" className="text-[var(--apex-blue)] text-[14px] flex items-center gap-1"><Paperclip className="h-4 w-4" />اعدادات Gmail</a>
-                <SaveBtn label="ارسال" busy={busy === 'test'} onClick={() => run('test', () => frappeClient.call('base_meena.api.hr_settings.send_test_email', { to: testTo }), 'تم الإرسال')} />
+                <SaveBtn label="ارسال" busy={busy === 'test'} onClick={sendTestEmail} />
               </div>
             </div>
           </div>
+        </div>
+      </Accordion>
+
+      <Accordion title="اخري" open={!!open.other} onToggle={() => toggle('other')}>
+        <div className="space-y-3 max-w-md">
+          <L label="تسجيل الخروج التلقائي بعد (دقائق)">
+            {autoLogout.supported ? (
+              <input
+                type="number"
+                min={1}
+                value={autoLogout.value}
+                onChange={(e) => setAutoLogout((s) => ({ ...s, value: e.target.value }))}
+                className={FIELD}
+              />
+            ) : (
+              <input value="غير مفعّل" disabled readOnly className={FIELD + ' bg-slate-50 text-slate-400 cursor-not-allowed'} />
+            )}
+          </L>
+          {!autoLogout.supported && (
+            <p className="text-[12.5px] text-slate-500">
+              هذا الإعداد غير متاح حالياً من الخادم (لا يوجد مفتاح مقابل في hr_settings.get_general_settings) — سيصبح قابلاً للتعديل تلقائياً عند إضافته.
+            </p>
+          )}
+          {autoLogout.supported && (
+            <SaveBtn
+              busy={busy === 'auto-logout'}
+              onClick={() => run('auto-logout', () => frappeClient.call('base_meena.api.hr_settings.save_general_settings', { auto_logout: Number(autoLogout.value) }), 'تم الحفظ')}
+            />
+          )}
         </div>
       </Accordion>
     </div>

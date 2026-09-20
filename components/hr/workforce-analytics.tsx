@@ -165,7 +165,7 @@ function HeadcountTrendCard({ data, tx }: CardProps) {
         icon={TrendingUp}
         iconClass="bg-primary/10 text-primary"
         title={tx('Headcount Trend', 'نمو القوى العاملة')}
-        meta={<span className="text-[11px] font-medium text-muted-foreground">{tx('6 months', '٦ أشهر')}</span>}
+        meta={<span className="text-[11px] font-medium text-muted-foreground">{tx('6 months', '6 أشهر')}</span>}
       />
 
       {/* Big total + net delta chip */}
@@ -446,7 +446,7 @@ function TenureCard({ data, tx }: CardProps) {
       </div>
       <p className="mt-1 text-xs text-muted-foreground">
         <span className="font-semibold tabular-nums text-foreground/80">{loyalPct}%</span>{' '}
-        {tx('with 5+ years of service', 'أمضوا ٥ سنوات فأكثر')}
+        {tx('with 5+ years of service', 'أمضوا 5 سنوات فأكثر')}
       </p>
 
       {/* Segmented retention bar (ordered short → long, pinned LTR) */}

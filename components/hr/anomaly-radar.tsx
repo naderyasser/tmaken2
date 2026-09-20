@@ -122,7 +122,7 @@ function SummaryCard({ data, tx }: { data: AnomalyRadar; tx: TX }) {
       </div>
 
       <p className="mt-3 text-[11px] text-muted-foreground">
-        {tx('Last 30 days of attendance & payroll activity.', 'آخر ٣٠ يوماً من نشاط الحضور والرواتب.')}
+        {tx('Last 30 days of attendance & payroll activity.', 'آخر 30 يوماً من نشاط الحضور والرواتب.')}
       </p>
     </section>
   )
@@ -241,7 +241,7 @@ export default function AnomalyRadarSection() {
             <div>
               <p className="text-sm font-semibold text-foreground">{tx('No anomalies detected 🎉', 'لا شذوذ مكتشف 🎉')}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {tx('Attendance and payroll look clean for the last 30 days.', 'الحضور والرواتب سليمة خلال آخر ٣٠ يوماً.')}
+                {tx('Attendance and payroll look clean for the last 30 days.', 'الحضور والرواتب سليمة خلال آخر 30 يوماً.')}
               </p>
             </div>
           </div>

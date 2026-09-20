@@ -44,6 +44,7 @@ const VALID_MODULES: ModuleType[] = [
   'add-leave', 'add-permission', 'cancel-transactions',
   'user-transactions', 'ramadan-schedule', 'attendance-settings',
   'requests-settings', 'company-data', 'subscription-info', 'locations',
+  'holiday-days', 'employee-group-members',
 ]
 
 // Content-shaped skeleton shown while a module's chunk + first data load
@@ -125,6 +126,8 @@ function HRContent() {
       {activeModule === 'employee-groups' && <Module id="employee-groups" />}
       {activeModule === 'nationality' && <Module id="nationality" />}
       {activeModule === 'official-holidays' && <Module id="official-holidays" />}
+      {activeModule === 'holiday-days' && <Module id="holiday-days" />}
+      {activeModule === 'employee-group-members' && <Module id="employee-group-members" />}
       {activeModule === 'leave-types' && <Module id="leave-types" />}
 
       {/* ── الحضور والانصراف ── */}

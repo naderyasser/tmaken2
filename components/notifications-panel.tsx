@@ -14,6 +14,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/hooks/use-toast'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { getFrappeSocket } from '@/lib/frappe-realtime'
 
 // ==================== Types ====================
 
@@ -136,10 +137,12 @@ export function NotificationsPanel() {
     }
   }, [])
 
-  // Poll unread count every 60s even when panel is closed
+  // Poll unread count even when panel is closed — 2 min, now that the
+  // realtime subscription below is the primary way new notifications show
+  // up; this is just the fallback for when the socket is down.
   useEffect(() => {
     loadUnreadCount()
-    const interval = setInterval(loadUnreadCount, 60000)
+    const interval = setInterval(loadUnreadCount, 120000)
     return () => clearInterval(interval)
   }, [loadUnreadCount])
 
@@ -166,14 +169,42 @@ export function NotificationsPanel() {
     }
   }, [])
 
-  // Load full list when panel opens + refresh every 30s while open
+  // ==================== Realtime (Frappe socket.io) ====================
+  // Apex uses a SignalR NotificationHub for instant delivery; the Frappe
+  // equivalent is socket.io — `Notification Log.after_insert` does
+  // `frappe.publish_realtime("notification", user=self.for_user)`
+  // (apps/frappe/frappe/desk/doctype/notification_log/notification_log.py).
+  // Subscribe to that event so a new notification refreshes the bell (and
+  // the open list) immediately, without waiting for the poll interval above.
+  useEffect(() => {
+    let sock: any = null
+    let handler: (() => void) | null = null
+    let cancelled = false
+    getFrappeSocket().then((s) => {
+      if (cancelled || !s) return
+      sock = s
+      handler = () => {
+        loadUnreadCount()
+        if (open) loadNotifications()
+      }
+      s.on('notification', handler)
+    })
+    return () => {
+      cancelled = true
+      if (sock && handler) sock.off('notification', handler)
+    }
+  }, [open, loadUnreadCount, loadNotifications])
+
+  // Load full list when panel opens + refresh every 60s while open (fallback
+  // — realtime above covers new arrivals; this just catches read/delete
+  // drift from other tabs/devices, or a dropped socket).
   useEffect(() => {
     if (open) loadNotifications()
   }, [open, loadNotifications])
 
   useEffect(() => {
     if (!open) return
-    const interval = setInterval(loadNotifications, 30000)
+    const interval = setInterval(loadNotifications, 60000)
     return () => clearInterval(interval)
   }, [open, loadNotifications])
 

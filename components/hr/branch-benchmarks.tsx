@@ -197,7 +197,7 @@ export default function BranchBenchmarksSection() {
           </div>
 
           <p className="mt-3 text-[11px] text-muted-foreground">
-            {tx('Absence & lateness over the last 30 days. Cost = average monthly base wage.', 'الغياب والتأخير خلال آخر ٣٠ يوماً. التكلفة = متوسط الأجر الأساسي الشهري.')}
+            {tx('Absence & lateness over the last 30 days. Cost = average monthly base wage.', 'الغياب والتأخير خلال آخر 30 يوماً. التكلفة = متوسط الأجر الأساسي الشهري.')}
           </p>
         </section>
       )}
