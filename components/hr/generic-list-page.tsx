@@ -606,7 +606,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
                                     if (config.doctype === 'Employee') router.push(`/employee-details/${row.name}`)
                                     else setViewRow(row)
                                   }}
-                                  onHistory={config.rowMenu === 'master' ? () => setHistoryRow(row) : undefined}
+                                  onHistory={config.rowMenu ? () => setHistoryRow(row) : undefined}
                                   isActive={isActive}
                                   onActivate={config.active ? () => setRowActive(row, true) : undefined}
                                   onDeactivate={config.active ? () => setRowActive(row, false) : undefined}
@@ -711,7 +711,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
         />
       )}
 
-      {config.rowMenu === 'master' && (
+      {config.rowMenu && (
         <VersionLogDialog
           open={!!historyRow}
           onOpenChange={(o) => { if (!o) setHistoryRow(null) }}

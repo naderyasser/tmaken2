@@ -137,7 +137,6 @@ export function EmployeeViewPage({ employeeId }: { employeeId: string }) {
             </div>
             <div className={grid}>
               <Row label="كود الموظف" value={f.employee_number} />
-              <Row label="حالة الموظف" value={STATUS_LABEL[f.status] || f.status} />
               <Row label="اسم الموظف بالعربية" value={f.employee_name} />
               <Row label="اسم الموظف بالانجليزية" value={f.custom_employee_name_en} />
               <Row label="الوظيفة" value={f.designation} />

@@ -54,28 +54,23 @@ const STATUS = [['Active', 'نشط'], ['Inactive', 'غير نشط'], ['Suspended
 interface Opts { designations: string[]; branches: string[]; shifts: string[]; departments: string[]; groups: string[]; projects: string[]; employees: { name: string; employee_name: string }[]; countries: string[] }
 const EMPTY: Opts = { designations: [], branches: [], shifts: [], departments: [], groups: [], projects: [], employees: [], countries: [] }
 
-// 5.3 (Apex-exact): كود الموظف، صلاحية الموظف بالفروع and طريقة الحضور are
-// required in Apex's own AddEmployee form, so they're validated here too now.
-// date_of_birth stays required (it IS on the Employee doctype and Apex still
-// asks for it).
-//
-// «الجنس» WAS dropped from this list on the theory that Apex's own form has
-// no gender field — true, but incomplete: `Employee.gender` is `reqd: 1` on
-// the underlying ERPNext doctype regardless of what Apex shows, and this
-// form never set it for a new employee (no control existed to set it at
-// all). The result: every /employee/new submission failed server-side with
-// "Value missing for Employee: Gender", silently, with the toast reading
-// like a generic save failure — found by an exhaustive per-button DB audit,
-// 2026-09-20, that actually completed a create flow instead of assuming the
-// toast meant success. A working save takes priority over matching a
-// reference UI that happens to run on a schema without this constraint —
-// added back as a small required field rather than defaulting it silently.
-const REQUIRED = ['status', 'employee_name', 'branch', 'default_shift', 'date_of_birth', 'employee_number', 'custom_branch_access', 'custom_attendance_method', 'gender']
+// Client review of the real running system, 2026-09-20: new-employee save
+// was rejecting on fields that read as "already filled" to the person
+// entering data — because `custom_branch_access` ("صلاحية الموظف بالفروع")
+// sits right next to the real "الفرع" select and shares the same word
+// "فرع", so a missed checkbox there read as a broken Branch/Shift field.
+// The client's own spec: exactly 5 required fields for an instant save —
+// employee code, name, job, branch, shift — everything else optional.
+// `gender`/`date_of_birth` are `reqd: 1` on the core Employee schema
+// though (see setup_employee_optional_fields.py) — dropping them here
+// without also relaxing the schema would silently fail every save again,
+// the exact bug this file already carries scar tissue from once.
+const REQUIRED = ['employee_name', 'designation', 'branch', 'default_shift', 'attendance_device_id']
 /** Which collapsible section to open (so the field is actually in the DOM) when scrolling a
  *  failed-validation field into view. Fields in the always-open top block need no entry. */
 const FIELD_SECTION: Record<string, 'basic' | 'info' | 'personal' | 'ot' | undefined> = {
-  employee_number: 'basic', custom_branch_access: 'basic',
-  branch: 'info', default_shift: 'info', custom_attendance_method: 'info', date_of_birth: 'personal', gender: 'personal',
+  designation: 'basic', attendance_device_id: 'basic',
+  branch: 'info', default_shift: 'info',
 }
 
 export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
@@ -119,7 +114,12 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
     setLoading(true)
     try {
       const res: any = await frappeClient.get<F>('Employee', employeeId)
-      setF(res?.data ?? {})
+      const data = res?.data ?? {}
+      // «كود الموظف» و«رقم الموظف على جهاز البصمة» أصبحا حقلًا واحدًا (طلب
+      // العميل) — سجلات قديمة قد تحمل employee_number فقط بلا attendance_device_id
+      // (استيراد سابق قبل هذا التوحيد)؛ اعرض القيمة الموجودة أيًا كانت.
+      if (!data.attendance_device_id && data.employee_number) data.attendance_device_id = data.employee_number
+      setF(data)
     } catch (e: any) {
       toast({ title: 'تعذّر تحميل الموظف', description: e?.message, variant: 'destructive' })
     } finally {
@@ -214,7 +214,10 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
     try {
       const payload: F = {
         company: f.company || company || undefined,
-        employee_number: f.employee_number, status: f.status, employee_name: f.employee_name, first_name: f.employee_name,
+        // حقل واحد فقط: كود الموظف = رقم الموظف على جهاز البصمة (طلب العميل).
+        // الباك إند أيضًا يفرض هذا التطابق (employee_hooks.sync_employee_code)
+        // بغض النظر عن مسار الحفظ، فهذا مجرد اتساق مبكر مع ما سيُفرض على أي حال.
+        employee_number: f.attendance_device_id, status: f.status || 'Active', employee_name: f.employee_name, first_name: f.employee_name,
         middle_name: '', last_name: '',
         custom_employee_name_en: f.custom_employee_name_en || '', designation: f.designation || '', custom_branch_access: f.custom_branch_access,
         branch: f.branch, default_shift: f.default_shift, department: f.department || '', custom_employee_group: f.custom_employee_group || '',
@@ -413,12 +416,23 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
               Apex (previously a plain non-collapsible heading). */}
           {section('basic', 'تعريف الموظف', (
             <div className={grid}>
-              {Txt('employee_number', 'كود الموظف', true, 'number')}
-              {Sel('status', 'حالة الموظف', STATUS as [string, string][], true)}
+              <div>
+                {lbl('كود الموظف', true)}
+                <input
+                  name="attendance_device_id"
+                  type="text"
+                  inputMode="numeric"
+                  value={f.attendance_device_id ?? ''}
+                  onChange={(e) => setF((p) => ({ ...p, attendance_device_id: e.target.value.replace(/[^0-9]/g, '') }))}
+                  placeholder="كود الموظف (رقم الموظف على جهاز البصمة)"
+                  className={FIELD}
+                />
+              </div>
+              {Sel('status', 'حالة الموظف', STATUS as [string, string][])}
               {Txt('employee_name', 'اسم الموظف بالعربية', true)}
               {Txt('custom_employee_name_en', 'اسم الموظف بالانجليزية')}
-              {Sel('designation', 'الوظيفة', opts.designations)}
-              {MultiSel('custom_branch_access', 'صلاحية الموظف بالفروع', opts.branches, true)}
+              {Sel('designation', 'الوظيفة', opts.designations, true)}
+              {MultiSel('custom_branch_access', 'صلاحية الموظف بالفروع', opts.branches)}
             </div>
           ))}
 
@@ -432,34 +446,23 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
               {Combo('reports_to', 'المدير المباشر', reportsToText, onReportsToText, opts.employees.map((e) => e.employee_name))}
               {Sel('custom_project', 'المشروع', opts.projects)}
               {Combo('custom_task', 'المهمة', f.custom_task ?? '', (v) => setF((p) => ({ ...p, custom_task: v })), [])}
-              {MultiSel('custom_attendance_method', 'طريقة الحضور', ['جهاز البصمة', 'تطبيق الجوال'], true)}
-              <div>
-                {lbl('رقم الموظف على جهاز البصمة')}
-                <input
-                  name="attendance_device_id"
-                  type="text"
-                  inputMode="numeric"
-                  value={f.attendance_device_id ?? ''}
-                  onChange={(e) => setF((p) => ({ ...p, attendance_device_id: e.target.value.replace(/[^0-9]/g, '') }))}
-                  placeholder="رقم الموظف على جهاز البصمة"
-                  className={FIELD}
-                />
-              </div>
+              {MultiSel('custom_attendance_method', 'طريقة الحضور', ['جهاز البصمة', 'تطبيق الجوال'])}
               {Sel('custom_mobile_app', 'تفعيل تطبيق الجوال', ['نعم', 'لا'])}
             </div>
           ))}
 
           {section('personal', 'معلومات شخصية', (
             <div className={grid}>
-              {/* Apex's own AddEmployee form has no «الجنس» field, but
-                  Employee.gender is mandatory on this schema (see REQUIRED's
-                  comment above) — a small required field beats a form that
-                  can never actually save a new employee. */}
-              {Sel('gender', 'الجنس', [['Male', 'ذكر'], ['Female', 'أنثى']], true)}
+              {/* Optional per the client's own 5-field spec (2026-09-20).
+                  Employee.gender/date_of_birth were reqd:1 on the core
+                  schema — relaxed via Property Setter (see
+                  setup_employee_optional_fields.py) so leaving these blank
+                  actually saves instead of failing silently server-side. */}
+              {Sel('gender', 'الجنس', [['Male', 'ذكر'], ['Female', 'أنثى']])}
               {Sel('custom_nationality', 'الجنسية', opts.countries)}
               {Txt('custom_national_id', 'رقم الهوية')}
               {Sel('custom_religion', 'الديانة', ['مسلم', 'غير مسلم'])}
-              {Txt('date_of_birth', 'عيد الميلاد', true, 'date')}
+              {Txt('date_of_birth', 'عيد الميلاد', false, 'date')}
               {Txt('cell_number', 'رقم الجوال')}
               {Txt('personal_email', 'البريد الالكترونى', false, 'email')}
               <div className="md:col-span-2">{Txt('current_address', 'العنوان')}</div>

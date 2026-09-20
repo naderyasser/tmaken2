@@ -16,11 +16,13 @@ export type RowMenuProps = {
 
 /**
  * Apex row «⋮» menu — employee-kind lists (employees/jobs/unregistered) get
- * «عرض» + «تنشيط»/«إلغاء التنشيط» (whichever applies); master-kind lists
- * (branches/shifts/nationality/leave-types/devices/projects/tasks/groups)
- * get «عرض» + «سجل الحركات». Activation items only render when the caller
- * actually wired a backing status field (see hr_lists.set_active) — a
- * doctype with none simply shows «عرض» alone.
+ * «عرض» + «تنشيط»/«إلغاء التنشيط» (whichever applies) + «سجل حركة الموظف»;
+ * master-kind lists (branches/shifts/nationality/leave-types/devices/
+ * projects/tasks/groups) get «عرض» + «سجل الحركات». Both history items open
+ * the same generic Version-log dialog (client review, 2026-09-20: employee
+ * rows were missing this action entirely). Activation items only render
+ * when the caller actually wired a backing status field (see
+ * hr_lists.set_active) — a doctype with none simply shows «عرض» alone.
  */
 export function RowMenu({ kind, onView, onActivate, onDeactivate, isActive, onHistory }: RowMenuProps) {
   return (
@@ -42,8 +44,8 @@ export function RowMenu({ kind, onView, onActivate, onDeactivate, isActive, onHi
             ? onDeactivate && <DropdownMenuItem onClick={onDeactivate}>إلغاء التنشيط</DropdownMenuItem>
             : onActivate && <DropdownMenuItem onClick={onActivate}>تنشيط</DropdownMenuItem>
         )}
-        {kind === 'master' && onHistory && (
-          <DropdownMenuItem onClick={onHistory}>سجل الحركات</DropdownMenuItem>
+        {onHistory && (
+          <DropdownMenuItem onClick={onHistory}>{kind === 'employee' ? 'سجل حركة الموظف' : 'سجل الحركات'}</DropdownMenuItem>
         )}
       </DropdownMenuContent>
     </DropdownMenu>
