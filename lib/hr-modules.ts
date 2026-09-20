@@ -346,6 +346,11 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     print: false,
     editHref: (name) => `/hr/role-permissions/${encodeURIComponent(name)}`,
     linkField: 'perms',
+    // Role autonames on field:role_name — rename_doc is required or edits
+    // silently no-op. hr_lists.roles() lists custom roles plus a fixed set
+    // of standard platform roles (HR Manager, HR User, System Manager,
+    // Employee); rename applies to whichever of those rows the list shows.
+    nameField: 'role_name',
     fields: [
       { field: 'role_name', label: 'اسم الصلاحية', required: true },
       { field: 'perms', label: 'الصلاحيات', inForm: false },
@@ -554,6 +559,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       weekly_off: WEEKDAY_AR_TO_EN[p.weekly_off] || p.weekly_off,
       company: p.company,
     }),
+    nameField: 'holiday_list_name',
     fields: [
       { field: 'holiday_list_name', label: 'اسم العطلة', required: true },
       { field: 'from_date', label: 'من تاريخ', type: 'date', required: true },
@@ -822,6 +828,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     active: { field: 'custom_status', on: 'Active', off: 'Inactive' },
     noIndex: true,
     print: false,
+    nameField: 'location_name',
     fields: [
       { field: 'location_name', label: 'اسم الموقع', required: true },
       { field: 'parent_location', label: 'مجموعة المواقع' },
