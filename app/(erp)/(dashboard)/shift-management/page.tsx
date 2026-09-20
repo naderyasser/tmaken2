@@ -1,13 +1,12 @@
 /**
  * «أوقات العمل» — Apex list screen inside the unified HR shell (HrGuard owns the gate).
- * Columns and toolbar mirror the reference; rows come from base_meena.api.hr_lists.
+ * Bespoke ShiftListPage (not GenericListPage) — see its file header for why.
  */
 
 'use client'
 
-import { GenericListPage } from '@/components/hr/generic-list-page'
-import { getModuleConfig, type ListModuleConfig } from '@/lib/hr-modules'
+import { ShiftListPage } from '@/components/hr/shift-list-page'
 
 export default function Page() {
-  return <GenericListPage config={getModuleConfig('shift-management') as ListModuleConfig} />
+  return <ShiftListPage />
 }
