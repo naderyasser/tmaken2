@@ -62,6 +62,19 @@ export async function middleware(request: NextRequest) {
   const hasSession = !!sid && sid !== 'Guest'
   if (hasSession) return NextResponse.next()
 
+  // Next.js auto-prefetches every visible <Link>, including the "الرئيسية"
+  // link on the login page itself — that prefetch request comes through this
+  // same middleware. With the walkthrough flag on, redirecting it below would
+  // silently open a real Administrator session via a background request
+  // while the visitor is still looking at the (still-rendered) login form,
+  // having clicked nothing (exhaustive audit, 2026-09-20). Prefetches carry
+  // this header; let them pass through unauthenticated instead — the actual
+  // navigation, when it happens, is a real (non-prefetch) request and still
+  // gets bounced normally.
+  if (request.headers.get('Next-Router-Prefetch') || request.headers.get('purpose') === 'prefetch') {
+    return NextResponse.next()
+  }
+
   const target = `/login?redirect=${encodeURIComponent(pathname + search)}`
 
   if (process.env.NEXT_PUBLIC_WALKTHROUGH_AUTOLOGIN === '1') {

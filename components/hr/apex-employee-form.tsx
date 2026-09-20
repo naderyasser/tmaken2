@@ -56,15 +56,26 @@ const EMPTY: Opts = { designations: [], branches: [], shifts: [], departments: [
 
 // 5.3 (Apex-exact): كود الموظف، صلاحية الموظف بالفروع and طريقة الحضور are
 // required in Apex's own AddEmployee form, so they're validated here too now.
-// «الجنس» is intentionally NOT in this list — Apex's form has no gender field
-// at all (see the render below); date_of_birth stays required (it IS on the
-// Employee doctype and Apex still asks for it).
-const REQUIRED = ['status', 'employee_name', 'branch', 'default_shift', 'date_of_birth', 'employee_number', 'custom_branch_access', 'custom_attendance_method']
+// date_of_birth stays required (it IS on the Employee doctype and Apex still
+// asks for it).
+//
+// «الجنس» WAS dropped from this list on the theory that Apex's own form has
+// no gender field — true, but incomplete: `Employee.gender` is `reqd: 1` on
+// the underlying ERPNext doctype regardless of what Apex shows, and this
+// form never set it for a new employee (no control existed to set it at
+// all). The result: every /employee/new submission failed server-side with
+// "Value missing for Employee: Gender", silently, with the toast reading
+// like a generic save failure — found by an exhaustive per-button DB audit,
+// 2026-09-20, that actually completed a create flow instead of assuming the
+// toast meant success. A working save takes priority over matching a
+// reference UI that happens to run on a schema without this constraint —
+// added back as a small required field rather than defaulting it silently.
+const REQUIRED = ['status', 'employee_name', 'branch', 'default_shift', 'date_of_birth', 'employee_number', 'custom_branch_access', 'custom_attendance_method', 'gender']
 /** Which collapsible section to open (so the field is actually in the DOM) when scrolling a
  *  failed-validation field into view. Fields in the always-open top block need no entry. */
 const FIELD_SECTION: Record<string, 'basic' | 'info' | 'personal' | 'ot' | undefined> = {
   employee_number: 'basic', custom_branch_access: 'basic',
-  branch: 'info', default_shift: 'info', custom_attendance_method: 'info', date_of_birth: 'personal',
+  branch: 'info', default_shift: 'info', custom_attendance_method: 'info', date_of_birth: 'personal', gender: 'personal',
 }
 
 export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
@@ -440,10 +451,11 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
 
           {section('personal', 'معلومات شخصية', (
             <div className={grid}>
-              {/* 5.3 (X — removed): Apex's AddEmployee form has no «الجنس» field.
-                  The value is still carried in the save() payload unchanged —
-                  whatever was loaded for an existing employee, or unset for a
-                  new one — never invented here. */}
+              {/* Apex's own AddEmployee form has no «الجنس» field, but
+                  Employee.gender is mandatory on this schema (see REQUIRED's
+                  comment above) — a small required field beats a form that
+                  can never actually save a new employee. */}
+              {Sel('gender', 'الجنس', [['Male', 'ذكر'], ['Female', 'أنثى']], true)}
               {Sel('custom_nationality', 'الجنسية', opts.countries)}
               {Txt('custom_national_id', 'رقم الهوية')}
               {Sel('custom_religion', 'الديانة', ['مسلم', 'غير مسلم'])}

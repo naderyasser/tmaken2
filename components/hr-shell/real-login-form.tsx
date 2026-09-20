@@ -61,8 +61,22 @@ export function RealLoginForm() {
         }
         setResettingPassword(true)
         try {
-            await callMethod('frappe.core.doctype.user.user.reset_password', { user: username.trim() })
-            toast.success('تم إرسال رابط إعادة التعيين إلى بريدك', { duration: 1000 })
+            // Frappe's reset_password returns a plain string for every failure
+            // case ("not allowed" for Administrator, "disabled", "not found")
+            // and only msgprints on success (message comes back empty/null) —
+            // checking just the HTTP status showed a false "sent" toast for
+            // any of those three cases (found by an exhaustive audit, 2026-09-20).
+            const result = await callMethod('frappe.core.doctype.user.user.reset_password', { user: username.trim() })
+            const outcome = result?.message
+            if (outcome === 'not allowed') {
+                toast.error('لا يمكن إعادة تعيين كلمة مرور هذا الحساب', { duration: 1000 })
+            } else if (outcome === 'disabled') {
+                toast.error('هذا الحساب معطّل', { duration: 1000 })
+            } else if (outcome === 'not found') {
+                toast.error('لا يوجد حساب بهذا البريد او الاسم', { duration: 1000 })
+            } else {
+                toast.success('تم إرسال رابط إعادة التعيين إلى بريدك', { duration: 1000 })
+            }
         } catch {
             toast.error('تعذّر إرسال رابط إعادة التعيين، تحقق من البريد او اسم المستخدم', { duration: 1000 })
         } finally {

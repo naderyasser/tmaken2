@@ -356,7 +356,21 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     setSaving(true)
     try {
       let createResult: any
-      if (editing) await frappeClient.put(config.doctype, editing.name, payload)
+      if (editing) {
+        // Changing the doctype's autoname-source field via a plain PUT is a
+        // silent no-op in Frappe (200 OK, field unchanged — see nameField's
+        // doc comment). Rename first, then PUT whatever else changed under
+        // the new name.
+        const newName = config.nameField ? String(payload[config.nameField] ?? '').trim() : ''
+        if (newName && newName !== editing.name) {
+          await frappeClient.call('frappe.client.rename_doc', { doctype: config.doctype, old_name: editing.name, new_name: newName })
+          const rest = { ...payload }
+          delete rest[config.nameField as string]
+          if (Object.keys(rest).length) await frappeClient.put(config.doctype, newName, rest)
+        } else {
+          await frappeClient.put(config.doctype, editing.name, payload)
+        }
+      }
       else if (config.createMethod) createResult = (await frappeClient.call(config.createMethod, payload) as any)?.message
       else await frappeClient.post(config.doctype, payload)
       toast({
@@ -368,7 +382,15 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
       setDialogOpen(false)
       await load()
     } catch (e) {
-      toast({ title: 'فشل الحفظ', description: e instanceof Error ? e.message : 'تعذّر الاتصال بالخادم', variant: 'destructive' })
+      // A few core Frappe doctypes (Country among them) have renaming
+      // disabled outright (`allow_rename: 0`) — a correct rejection, but its
+      // message is raw English like every other core exception; wrap the one
+      // we can identify by text so it reads Arabic like the rest of the app.
+      const raw = e instanceof Error ? e.message : ''
+      const description = raw.includes('not allowed to be renamed')
+        ? 'لا يمكن تغيير اسم هذا العنصر — يمكنك تعديل الحقول الأخرى فقط'
+        : raw || 'تعذّر الاتصال بالخادم'
+      toast({ title: 'فشل الحفظ', description, variant: 'destructive' })
     } finally { setSaving(false) }
   }
 

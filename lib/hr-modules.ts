@@ -142,6 +142,20 @@ export interface ListModuleConfig {
    * comparison kinds.
    */
   deriveFields?: { as: string; from: (row: Record<string, any>) => string }[]
+  /**
+   * The field (if any) that IS this doctype's autoname source
+   * (`autoname: "field:<this>"` in the DocType — Branch.branch,
+   * Designation.designation_name, Country.country_name,
+   * Employee Group.employee_group_name, Location.location_name,
+   * Leave Type.leave_type_name…). A plain PUT that changes this field is a
+   * silent no-op in Frappe — the REST API returns 200 with the field
+   * unchanged, no error, because renaming a document requires
+   * frappe.rename_doc(), not a field update (exhaustive data audit,
+   * 2026-09-20: every "master list" edit dialog reported success while the
+   * name never actually changed). Declaring it here makes generic-list-page
+   * rename the document first, then PUT any other changed fields.
+   */
+  nameField?: string
 }
 
 export interface SettingsModuleConfig {
@@ -227,6 +241,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     print: false,
     rowMenu: 'master',
     linkField: 'branch',
+    nameField: 'branch',
     needsCompany: true,
     drawerFilters: [
       { field: 'status', label: 'الحالة', options: ['Active', 'Inactive'] },
@@ -357,6 +372,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     print: false,
     noIndex: true,
     rowMenu: 'employee',
+    nameField: 'designation_name',
     deriveFields: [
       { as: '_status_label', from: () => 'نشط' },
     ],
@@ -455,6 +471,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     // transactions screen (components/hr/location-group-details-page.tsx).
     editHref: (name) => `/location-groups/${encodeURIComponent(name)}`,
     linkField: 'location_name',
+    nameField: 'location_name',
     fields: [
       { field: 'location_name', label: 'اسم المجموعة', required: true },
       // Was a plain text input: any typed value (real or not) got submitted
@@ -487,6 +504,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     // same linkField/editHref pattern as إسم الدوام on shift-management.
     editHref: (name) => `/hr?module=employee-group-members&group=${encodeURIComponent(name)}`,
     linkField: 'employee_group_name',
+    nameField: 'employee_group_name',
     fields: [{ field: 'employee_group_name', label: 'اسم المجموعة', required: true }],
   },
 
@@ -502,6 +520,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     noIndex: true,
     print: false,
     rowMenu: 'master',
+    nameField: 'country_name',
     fields: [
       { field: 'country_name', label: 'اسم الجنسية', required: true },
       { field: 'code', label: 'الرمز', inTable: false },
@@ -555,6 +574,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     noIndex: true,
     print: false,
     rowMenu: 'master',
+    nameField: 'leave_type_name',
     fields: [
       { field: 'leave_type_name', label: 'اسم الاجازة', required: true },
       { field: 'max_leaves_allowed', label: 'أقصى عدد أيام', type: 'number', inTable: false },
