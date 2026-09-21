@@ -21,10 +21,14 @@ function LinkSelect({ field, value, onChange }: { field: FieldDef; value: any; o
   useEffect(() => {
     if (linkCache[key]) { setOpts(linkCache[key]); return }
     const title = field.link!.titleField
+    const labelMap = field.link!.labelMap
     frappeClient.getList<any>(field.link!.doctype, {
       fields: title ? ['name', title] : ['name'], filters: field.link!.filters, order_by: `${title || 'name'} asc`, limit_page_length: 0,
     }).then((rows) => {
-      linkCache[key] = rows.map((r) => ({ value: r.name, label: title && r[title] ? `${r[title]}${r[title] !== r.name ? ` (${r.name})` : ''}` : r.name }))
+      linkCache[key] = rows.map((r) => ({
+        value: r.name,
+        label: labelMap ? labelMap(r.name) : title && r[title] ? `${r[title]}${r[title] !== r.name ? ` (${r.name})` : ''}` : r.name,
+      }))
       setOpts(linkCache[key])
     }).catch(() => setOpts([]))
   }, [key, field.link])
@@ -72,7 +76,7 @@ export function FieldInput({
           <Checkbox checked={!!value} onCheckedChange={(v) => onChange(!!v)} id={`f-${field.field}`} aria-invalid={!!error || undefined} />
           <Label htmlFor={`f-${field.field}`} className="text-[13px] text-slate-600">{field.label}</Label>
         </div>
-        {error && <p className="text-[12px] text-red-500 mt-1">{error}</p>}
+        {error && <p className="text-[12px] text-red-500 mt-1 leading-[18px]">{error}</p>}
       </div>
     )
   }
@@ -86,7 +90,7 @@ export function FieldInput({
           aria-invalid={!!error || undefined}
           className="rounded-sm border-slate-300 text-right"
         />
-        {error && <p className="text-[12px] text-red-500 mt-1">{error}</p>}
+        {error && <p className="text-[12px] text-red-500 mt-1 leading-[18px]">{error}</p>}
       </>
     )
   }
@@ -94,7 +98,7 @@ export function FieldInput({
     return (
       <>
         <ApexDatePicker value={value ?? ''} onChange={onChange} />
-        {error && <p className="text-[12px] text-red-500 mt-1">{error}</p>}
+        {error && <p className="text-[12px] text-red-500 mt-1 leading-[18px]">{error}</p>}
       </>
     )
   }
@@ -102,7 +106,7 @@ export function FieldInput({
     return (
       <>
         <ApexTimePicker value={value ?? ''} onChange={onChange} />
-        {error && <p className="text-[12px] text-red-500 mt-1">{error}</p>}
+        {error && <p className="text-[12px] text-red-500 mt-1 leading-[18px]">{error}</p>}
       </>
     )
   }
@@ -110,7 +114,7 @@ export function FieldInput({
     return (
       <>
         <LinkSelect field={field} value={value} onChange={onChange} />
-        {error && <p className="text-[12px] text-red-500 mt-1">{error}</p>}
+        {error && <p className="text-[12px] text-red-500 mt-1 leading-[18px]">{error}</p>}
       </>
     )
   }
@@ -123,11 +127,11 @@ export function FieldInput({
           </SelectTrigger>
           <SelectContent>
             {(field.options || []).map((o) => (
-              <SelectItem key={o} value={o}>{o}</SelectItem>
+              <SelectItem key={o} value={o}>{field.optionLabels?.[o] ?? o}</SelectItem>
             ))}
           </SelectContent>
         </Select>
-        {error && <p className="text-[12px] text-red-500 mt-1">{error}</p>}
+        {error && <p className="text-[12px] text-red-500 mt-1 leading-[18px]">{error}</p>}
       </>
     )
   }
@@ -140,7 +144,7 @@ export function FieldInput({
         aria-invalid={!!error || undefined}
         className="rounded-sm border-slate-300 text-right"
       />
-      {error && <p className="text-[12px] text-red-500 mt-1">{error}</p>}
+      {error && <p className="text-[12px] text-red-500 mt-1 leading-[18px]">{error}</p>}
     </>
   )
 }

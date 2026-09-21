@@ -155,6 +155,18 @@ const DESIGNATION: EnumMap = {
   'مدير المبيعات': { ar: 'مدير المبيعات', en: 'Sales Manager' },
 }
 
+/** Arabic labels for the Frappe status values that show up in HR list cells
+ *  (moved here from generic-list-page.tsx so lib/hr-modules.ts field configs
+ *  can reuse the same map as `optionLabels` on `select` fields). */
+export const VALUE_AR: Record<string, string> = {
+  Approved: 'معتمد', Rejected: 'مرفوض', Open: 'مفتوح', Cancelled: 'ملغي', Draft: 'مسودة', Pending: 'قيد الانتظار',
+  Active: 'نشط', Inactive: 'غير نشط', Suspended: 'موقوف', Left: 'منتهي', Completed: 'مكتمل', Working: 'قيد العمل',
+  'Pending Review': 'قيد المراجعة', Low: 'منخفضة', Medium: 'متوسطة', High: 'عالية', Urgent: 'عاجلة',
+  'Work From Home': 'عمل من المنزل', 'On Duty': 'مهمة عمل',
+  Sunday: 'الأحد', Monday: 'الاثنين', Tuesday: 'الثلاثاء', Wednesday: 'الأربعاء',
+  Thursday: 'الخميس', Friday: 'الجمعة', Saturday: 'السبت',
+}
+
 const REGISTRY = {
   territory: TERRITORY,
   proposalStatus: PROPOSAL_STATUS,
@@ -179,6 +191,17 @@ export function translateEnum(
   if (value === null || value === undefined || value === '') return ''
   const entry = REGISTRY[category]?.[value]
   return entry ? entry[locale] : value
+}
+
+/**
+ * Arabic label for a Leave Type name. The stored/submitted value always stays
+ * the raw English name — final_settlement.py, leave_summary.py,
+ * hr_reports.PERMISSION_TYPES and leave_api.py all key on it — this is
+ * display-only, for list columns and link pickers. Unknown/custom leave
+ * types fall back to their raw value.
+ */
+export function leaveTypeAr(name: string | null | undefined): string {
+  return translateEnum('leaveType', name, 'ar')
 }
 
 /**

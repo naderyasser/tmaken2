@@ -55,12 +55,28 @@ const authError = (status: number, message: string): Error => {
     return err
 }
 
+// No caller-supplied signal → attach a client-side timeout so a hung request
+// (nginx proxy_read_timeout on /api/ is 120s) never spins the UI forever with
+// no feedback. Writes get a shorter budget than reads.
 const makeDirectRequest = async (path: string, options: RequestInit = {}): Promise<Response> => {
+    const method = (options.method || 'GET').toUpperCase()
+    const signal = options.signal ?? AbortSignal.timeout(method === 'GET' ? 60_000 : 45_000)
     return fetch(frappeApiUrl(path), {
         ...options,
         credentials: 'include',
+        signal,
     })
 }
+
+// Only AbortSignal.timeout() expiry (TimeoutError). A deliberate
+// AbortController.abort() (AbortError — map pans, unmounted widgets, the
+// cashier/real-estate callers that pass their own signal) must keep its
+// native name so those callers can keep silencing it.
+const isTimeoutError = (err: unknown): boolean =>
+    (err as { name?: string } | null)?.name === 'TimeoutError'
+
+const timeoutError = (): Error =>
+    new Error('انتهت مهلة الاتصال بالخادم — حدّث الصفحة وتحقق من القائمة قبل إعادة المحاولة')
 
 // ==================== Types ====================
 
@@ -284,8 +300,11 @@ constructor(_baseUrl?: string) { }
 
     private csrfToken: string | null = null
     // Guests get an EMPTY token from get_csrf_token, so caching only a truthy token would re-fetch
-    // on every call. `csrfFetched` records that we've already tried this session (token or not), and
-    // `csrfInflight` dedups concurrent attempts (e.g. a burst of map pans). Reset only on 403/417.
+    // on every call. `csrfFetched` records that we've already gotten an AUTHORITATIVE answer this
+    // session (a real token, or a confirmed-empty Guest token) — not merely that we tried, so a
+    // transient failure (server mid-restart, a dropped connection) doesn't permanently strand the
+    // client with no token for the rest of the session; see the bug this fixed below.
+    // `csrfInflight` dedups concurrent attempts (e.g. a burst of map pans). Reset also on 403/417.
     private csrfFetched = false
     private csrfInflight: Promise<void> | null = null
 
@@ -295,6 +314,19 @@ constructor(_baseUrl?: string) { }
                 method: 'GET',
                 headers: { 'Accept': 'application/json' },
             })
+            // `csrfFetched` only latches on an actual answer from the server (this
+            // line) — a thrown exception below (network failure, our own client
+            // timeout, a request that landed mid `supervisorctl restart` while a
+            // deploy was in progress) skips it entirely, so the NEXT write attempt
+            // retries the fetch instead of silently going out with no CSRF token
+            // for the rest of the session. Previously this was set in a `finally`
+            // unconditionally, which is the bug: the very first write of a fresh
+            // session could hit this fetch during exactly such a window, get no
+            // token, and every write after it would 400 with CSRFTokenError —
+            // "retry once" (below) papers over ONE such failure but not two in a
+            // row, matching a reported "first click does nothing, second click
+            // works" pattern that this specific bench restarts several times a day.
+            this.csrfFetched = true
             if (response.ok) {
                 const data = await response.json()
                 const token = data.message
@@ -306,8 +338,6 @@ constructor(_baseUrl?: string) { }
             }
         } catch (err) {
             console.warn('[API] Failed to fetch CSRF token:', err)
-        } finally {
-            this.csrfFetched = true // we tried once — don't re-fetch on every subsequent call
         }
         return null
     }
@@ -515,58 +545,68 @@ constructor(_baseUrl?: string) { }
         await this.ensureCsrfToken()
         const path = `/api/resource/${doctype}`
 
-        let response = await makeDirectRequest(path, {
-            method: 'POST',
-            headers: this.getHeaders(),
-            body: JSON.stringify(data),
-        })
-
-        // Retry once on CSRF error (token may have expired)
-        if (await this.isCsrfError(response)) {
-            await this.refreshCsrfToken()
-            response = await makeDirectRequest(path, {
+        try {
+            let response = await makeDirectRequest(path, {
                 method: 'POST',
                 headers: this.getHeaders(),
                 body: JSON.stringify(data),
             })
-        }
 
-        if (!response.ok) {
-            const errorMsg = await this.parseErrorResponse(response, 'POST', doctype)
-            if (response.status !== 401 && response.status !== 403) console.warn(`[API] ${errorMsg}`)
-            throw authError(response.status, errorMsg)
-        }
+            // Retry once on CSRF error (token may have expired)
+            if (await this.isCsrfError(response)) {
+                await this.refreshCsrfToken()
+                response = await makeDirectRequest(path, {
+                    method: 'POST',
+                    headers: this.getHeaders(),
+                    body: JSON.stringify(data),
+                })
+            }
 
-        return await response.json()
+            if (!response.ok) {
+                const errorMsg = await this.parseErrorResponse(response, 'POST', doctype)
+                if (response.status !== 401 && response.status !== 403) console.warn(`[API] ${errorMsg}`)
+                throw authError(response.status, errorMsg)
+            }
+
+            return await response.json()
+        } catch (err) {
+            if (isTimeoutError(err)) throw timeoutError()
+            throw err
+        }
     }
 
     async put<T = any, TData = Partial<T>>(doctype: string, name: string, data: TData): Promise<FrappeResponse<T>> {
         await this.ensureCsrfToken()
         const path = `/api/resource/${doctype}/${encodeURIComponent(name)}`
 
-        let response = await makeDirectRequest(path, {
-            method: 'PUT',
-            headers: this.getHeaders(),
-            body: JSON.stringify(data),
-        })
-
-        // Retry once on CSRF error
-        if (await this.isCsrfError(response)) {
-            await this.refreshCsrfToken()
-            response = await makeDirectRequest(path, {
+        try {
+            let response = await makeDirectRequest(path, {
                 method: 'PUT',
                 headers: this.getHeaders(),
                 body: JSON.stringify(data),
             })
-        }
 
-        if (!response.ok) {
-            const errorMsg = await this.parseErrorResponse(response, 'PUT', `${doctype}/${name}`)
-            if (response.status !== 401 && response.status !== 403) console.warn(`[API] ${errorMsg}`)
-            throw authError(response.status, errorMsg)
-        }
+            // Retry once on CSRF error
+            if (await this.isCsrfError(response)) {
+                await this.refreshCsrfToken()
+                response = await makeDirectRequest(path, {
+                    method: 'PUT',
+                    headers: this.getHeaders(),
+                    body: JSON.stringify(data),
+                })
+            }
 
-        return await response.json()
+            if (!response.ok) {
+                const errorMsg = await this.parseErrorResponse(response, 'PUT', `${doctype}/${name}`)
+                if (response.status !== 401 && response.status !== 403) console.warn(`[API] ${errorMsg}`)
+                throw authError(response.status, errorMsg)
+            }
+
+            return await response.json()
+        } catch (err) {
+            if (isTimeoutError(err)) throw timeoutError()
+            throw err
+        }
     }
 
     async getList<T = any>(
@@ -581,59 +621,69 @@ constructor(_baseUrl?: string) { }
         await this.ensureCsrfToken()
         const path = `/api/resource/${doctype}/${encodeURIComponent(name)}`
 
-        let response = await makeDirectRequest(path, {
-            method: 'DELETE',
-            headers: this.getHeaders(),
-        })
-
-        // Retry once on CSRF error
-        if (await this.isCsrfError(response)) {
-            await this.refreshCsrfToken()
-            response = await makeDirectRequest(path, {
+        try {
+            let response = await makeDirectRequest(path, {
                 method: 'DELETE',
                 headers: this.getHeaders(),
             })
-        }
 
-        if (!response.ok) {
-            const errorMsg = await this.parseErrorResponse(response, 'DELETE', `${doctype}/${name}`)
-            if (response.status !== 401 && response.status !== 403) console.warn(`[API] ${errorMsg}`)
-            throw authError(response.status, errorMsg)
-        }
+            // Retry once on CSRF error
+            if (await this.isCsrfError(response)) {
+                await this.refreshCsrfToken()
+                response = await makeDirectRequest(path, {
+                    method: 'DELETE',
+                    headers: this.getHeaders(),
+                })
+            }
 
-        return await response.json()
+            if (!response.ok) {
+                const errorMsg = await this.parseErrorResponse(response, 'DELETE', `${doctype}/${name}`)
+                if (response.status !== 401 && response.status !== 403) console.warn(`[API] ${errorMsg}`)
+                throw authError(response.status, errorMsg)
+            }
+
+            return await response.json()
+        } catch (err) {
+            if (isTimeoutError(err)) throw timeoutError()
+            throw err
+        }
     }
 
     async call<T = any>(method: string, args?: Record<string, any>, signal?: AbortSignal): Promise<FrappeResponse<T>> {
         await this.ensureCsrfToken()
         const path = `/api/method/${method}`
 
-        let response = await makeDirectRequest(path, {
-            method: 'POST',
-            headers: this.getHeaders(),
-            body: JSON.stringify(args || {}),
-            signal,
-        })
-
-        // Retry once on CSRF / auth error (Frappe returns 417 for missing/invalid
-        // CSRF token with body "Invalid Request" — no need to check body text)
-        if (await this.isCsrfError(response)) {
-            await this.refreshCsrfToken()
-            response = await makeDirectRequest(path, {
+        try {
+            let response = await makeDirectRequest(path, {
                 method: 'POST',
                 headers: this.getHeaders(),
                 body: JSON.stringify(args || {}),
                 signal,
             })
-        }
 
-        if (!response.ok) {
-            const errorMsg = await this.parseErrorResponse(response, 'CALL', method)
-            if (response.status !== 401 && response.status !== 403) console.warn(`[API] ${errorMsg}`)
-            throw authError(response.status, errorMsg)
-        }
+            // Retry once on CSRF / auth error (Frappe returns 417 for missing/invalid
+            // CSRF token with body "Invalid Request" — no need to check body text)
+            if (await this.isCsrfError(response)) {
+                await this.refreshCsrfToken()
+                response = await makeDirectRequest(path, {
+                    method: 'POST',
+                    headers: this.getHeaders(),
+                    body: JSON.stringify(args || {}),
+                    signal,
+                })
+            }
 
-        return await response.json()
+            if (!response.ok) {
+                const errorMsg = await this.parseErrorResponse(response, 'CALL', method)
+                if (response.status !== 401 && response.status !== 403) console.warn(`[API] ${errorMsg}`)
+                throw authError(response.status, errorMsg)
+            }
+
+            return await response.json()
+        } catch (err) {
+            if (isTimeoutError(err)) throw timeoutError()
+            throw err
+        }
     }
 
     // ==================== Employee Methods ====================

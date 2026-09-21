@@ -1,5 +1,7 @@
 import type { FrappeFilter } from '@/lib/api-client'
 import type { DrawerFilter } from '@/components/hr/advanced-search-drawer'
+import { VALUE_AR, leaveTypeAr } from '@/lib/enums'
+import { COUNTRY_AR } from '@/lib/country-names-ar'
 
 /**
  * Registry for the HR "proposed version" master-data / settings screens.
@@ -22,8 +24,19 @@ export interface FieldDef {
   type?: FieldType
   /** Options for `select`. */
   options?: string[]
+  /** Display labels for `select` options (value → Arabic label) — the stored
+   *  value stays the raw key; unmapped options fall back to the raw value. */
+  optionLabels?: Record<string, string>
   /** For `link`: the doctype to pick from, and the field shown as the label (default name). */
-  link?: { doctype: string; titleField?: string; filters?: FrappeFilter[] }
+  link?: {
+    doctype: string
+    titleField?: string
+    filters?: FrappeFilter[]
+    /** Display label for each option, keyed by the record's `name` — used when
+     *  the stored value must stay the raw English name (e.g. Leave Type) but
+     *  the picker itself should read Arabic. */
+    labelMap?: (name: string) => string
+  }
   required?: boolean
   /** Show as a table column. Default true. */
   inTable?: boolean
@@ -48,6 +61,9 @@ export interface FieldDef {
    *  for fields where the same write op would have an unwanted side effect
    *  (e.g. changing `email` on User renames the account). */
   lockedOnEdit?: boolean
+  /** Small grey helper text rendered under the form input (e.g. explaining
+   *  that a record key is saved in English but displayed in Arabic). */
+  hint?: string
 }
 
 export interface ListModuleConfig {
@@ -263,6 +279,19 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'custom_phone', label: 'الهاتف', inTable: false },
       { field: 'custom_fax', label: 'الفاكس', inTable: false },
       { field: 'custom_address_en', label: 'العنوان بالانجليزية', inTable: false },
+      // Existed on the doctype (setup_branch_location_fields) but was never
+      // exposed on this form — see hr_lists.branches() comment, item B5.
+      { field: 'custom_address', label: 'عنوان الفرع بالعربي', type: 'textarea', inTable: false },
+      // Apex-parity branch depth (item B5, 2026-09-21).
+      { field: 'custom_manager_name', label: 'اسم المدير', inTable: false },
+      { field: 'custom_manager_phone', label: 'رقم المدير', inTable: false },
+      { field: 'custom_commercial_register', label: 'السجل التجاري', inTable: false },
+      { field: 'custom_country', label: 'الدولة', type: 'link', link: { doctype: 'Country' }, inTable: false },
+      {
+        field: 'custom_location_group', label: 'مجموعة المواقع', type: 'link',
+        link: { doctype: 'Location', titleField: 'location_name', filters: [['is_group', '=', 1]] }, inTable: false,
+      },
+      { field: 'custom_notes', label: 'ملاحظات', type: 'textarea', inTable: false },
     ],
   },
 
@@ -417,7 +446,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'employee_name', label: 'الاسم', required: true },
       { field: 'default_shift', label: 'الدوام' },
       { field: 'attendance_device_id', label: 'جهاز البصمة' },
-      { field: 'status', label: 'الحالة', type: 'select', options: ['Active', 'Inactive', 'Suspended', 'Left'], inTable: false },
+      { field: 'status', label: 'الحالة', type: 'select', options: ['Active', 'Inactive', 'Suspended', 'Left'], optionLabels: VALUE_AR, inTable: false },
     ],
   },
 
@@ -437,7 +466,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     fields: [
       { field: 'name', label: 'الكود', inForm: false },
       { field: 'project_name', label: 'اسم المشروع', required: true },
-      { field: 'status', label: 'الحالة', type: 'select', options: ['Open', 'Completed', 'Cancelled'] },
+      { field: 'status', label: 'الحالة', type: 'select', options: ['Open', 'Completed', 'Cancelled'], optionLabels: VALUE_AR },
       { field: 'expected_end_date', label: 'تاريخ الانتهاء', type: 'date' },
     ],
   },
@@ -456,8 +485,8 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     fields: [
       { field: 'name', label: 'الكود', inForm: false },
       { field: 'subject', label: 'الموضوع', required: true },
-      { field: 'status', label: 'الحالة', type: 'select', options: ['Open', 'Working', 'Pending Review', 'Completed', 'Cancelled'] },
-      { field: 'priority', label: 'الأولوية', type: 'select', options: ['Low', 'Medium', 'High', 'Urgent'] },
+      { field: 'status', label: 'الحالة', type: 'select', options: ['Open', 'Working', 'Pending Review', 'Completed', 'Cancelled'], optionLabels: VALUE_AR },
+      { field: 'priority', label: 'الأولوية', type: 'select', options: ['Low', 'Medium', 'High', 'Urgent'], optionLabels: VALUE_AR },
       { field: 'exp_end_date', label: 'تاريخ الاستحقاق', type: 'date' },
     ],
   },
@@ -526,8 +555,18 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     print: false,
     rowMenu: 'master',
     nameField: 'country_name',
+    // `Country` is core Frappe (`allow_rename: 0`) and always stores the
+    // English name — COUNTRY_AR (lib/country-names-ar.ts) is display-only and
+    // never sent back to the server; unmapped countries fall back to English.
+    deriveFields: [
+      { as: '_name_ar', from: (r) => COUNTRY_AR[r.country_name] ?? r.country_name },
+    ],
     fields: [
-      { field: 'country_name', label: 'اسم الجنسية', required: true },
+      { field: '_name_ar', label: 'اسم الجنسية', inForm: false },
+      {
+        field: 'country_name', label: 'اسم الجنسية', required: true, inTable: false,
+        hint: 'يُحفظ الاسم بالإنجليزية ويُعرض بالعربية تلقائياً',
+      },
       { field: 'code', label: 'الرمز', inTable: false },
     ],
   },
@@ -581,8 +620,15 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     print: false,
     rowMenu: 'master',
     nameField: 'leave_type_name',
+    // Leave Type names stay English (final_settlement.py, leave_summary.py,
+    // hr_reports.PERMISSION_TYPES, leave_api.py all key on the raw name) —
+    // `_label` is display-only, computed from lib/enums.ts's LEAVE_TYPE map.
+    deriveFields: [
+      { as: '_label', from: (r) => leaveTypeAr(r.leave_type_name) },
+    ],
     fields: [
-      { field: 'leave_type_name', label: 'اسم الاجازة', required: true },
+      { field: '_label', label: 'اسم الاجازة', inForm: false },
+      { field: 'leave_type_name', label: 'اسم الاجازة', required: true, inTable: false },
       { field: 'max_leaves_allowed', label: 'أقصى عدد أيام', type: 'number', inTable: false },
       { field: 'is_carry_forward', label: 'يُرحّل', type: 'checkbox', inTable: false },
       { field: 'is_lwp', label: 'بدون راتب', type: 'checkbox', inTable: false },
@@ -625,15 +671,21 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'leave_type', label: 'نوع الاجازة', source: 'leave_types' },
       { field: 'from_date', label: 'التاريخ', date: true },
     ],
-    // Apex columns exactly: الكود · اسم الموظف · الفرع · نوع الاجازة · من ·
-    // إلى · المدة · ملاحظات (no separate الحالة column — the ⋮ menu still
-    // carries اعتماد/رفض/إلغاء regardless of whether a status column shows).
+    // Apex columns: الكود · اسم الموظف · الفرع · نوع الاجازة · من · إلى ·
+    // المدة · ملاحظات · الحالة (status column + state-aware ⋮ menu — QA fix
+    // 2026-09-20, item 4).
+    deriveFields: [
+      { as: '_leave_type_ar', from: (r) => leaveTypeAr(r.leave_type) },
+    ],
     fields: [
       { field: 'name', label: 'الكود', inForm: false },
       { field: 'employee', label: 'الموظف', type: 'link', link: { doctype: 'Employee', titleField: 'employee_name', filters: [['status', '=', 'Active']] }, required: true, inTable: false },
       { field: 'employee_name', label: 'اسم الموظف', inForm: false },
       { field: 'branch', label: 'الفرع', inForm: false },
-      { field: 'leave_type', label: 'نوع الاجازة', type: 'link', link: { doctype: 'Leave Type' }, required: true },
+      // Stored value stays the raw English Leave Type name — labelMap only
+      // changes what the picker itself displays.
+      { field: 'leave_type', label: 'نوع الاجازة', type: 'link', link: { doctype: 'Leave Type', labelMap: leaveTypeAr }, required: true, inTable: false },
+      { field: '_leave_type_ar', label: 'نوع الاجازة', inForm: false },
       { field: 'from_date', label: 'من', type: 'date', required: true },
       { field: 'to_date', label: 'إلى', type: 'date', required: true },
       { field: 'total_leave_days', label: 'المدة', type: 'number', inForm: false },
@@ -641,7 +693,9 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       // Approval happens through the ⋮ menu / bulk «تنشيط» (approve_request /
       // reject_request / cancel_request) — the create form no longer sets it,
       // and create_leave_application doesn't take a `status` kwarg anyway.
-      { field: 'status', label: 'الحالة', inForm: false, inTable: false, statusBadge: true },
+      // Now shown as the last table column too (statusBadge derives from
+      // docstatus, not the raw value) so the request's state is visible.
+      { field: 'status', label: 'الحالة', inForm: false, inTable: true, statusBadge: true },
       { field: 'docstatus', label: 'docstatus', inTable: false, inForm: false },
       { field: 'half_day', label: 'نصف يوم', type: 'checkbox', inTable: false },
       { field: 'department', label: 'الإدارة', inTable: false, inForm: false },
@@ -688,7 +742,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'employee_name', label: 'اسم الموظف', inForm: false },
       { field: 'from_date', label: 'من تاريخ', type: 'date', required: true },
       { field: 'to_date', label: 'إلى تاريخ', type: 'date', required: true },
-      { field: 'reason', label: 'السبب', type: 'select', options: ['Work From Home', 'On Duty'], required: true },
+      { field: 'reason', label: 'السبب', type: 'select', options: ['Work From Home', 'On Duty'], optionLabels: VALUE_AR, required: true },
       { field: 'explanation', label: 'التفاصيل', type: 'textarea', inTable: false },
       { field: 'department', label: 'الإدارة', inTable: false, inForm: false },
       { field: 'docstatus', label: 'docstatus', inTable: false, inForm: false },
@@ -733,7 +787,8 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: '_order_type', label: 'نوع الاذن', options: ['طلب اذن'] },
       { field: 'permission_date', label: 'التاريخ', date: true },
     ],
-    // Apex columns exactly: الكود · اسم الموظف · التاريخ · الفرع · نوع الاذن
+    // Apex columns: الكود · اسم الموظف · التاريخ · الفرع · نوع الاذن · الحالة
+    // (status column + state-aware ⋮ menu — QA fix 2026-09-20, item 4).
     fields: [
       { field: 'name', label: 'الكود', inForm: false },
       { field: 'employee', label: 'الموظف', type: 'link', link: { doctype: 'Employee', titleField: 'employee_name', filters: [['status', '=', 'Active']] }, required: true, inTable: false },
@@ -744,7 +799,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'from_time', label: 'من الساعة', type: 'time', required: true, inTable: false },
       { field: 'to_time', label: 'إلى الساعة', type: 'time', required: true, inTable: false },
       { field: 'reason', label: 'السبب', type: 'textarea', required: true, inTable: false },
-      { field: 'status', label: 'الحالة', type: 'select', options: ['Draft', 'Pending', 'Approved', 'Rejected'], statusBadge: true, inTable: false },
+      { field: 'status', label: 'الحالة', type: 'select', options: ['Draft', 'Pending', 'Approved', 'Rejected'], optionLabels: VALUE_AR, statusBadge: true, inTable: true },
       { field: 'docstatus', label: 'docstatus', inTable: false, inForm: false },
       { field: 'department', label: 'الإدارة', inTable: false, inForm: false },
       { field: 'designation', label: 'الوظائف', inTable: false, inForm: false },
@@ -761,11 +816,34 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     method: 'base_meena.api.user_activity.get_user_activity',
     readOnly: true,
     searchPlaceholder: 'إبحث في السجل',
+    // NOTE: module-page.tsx renders the bespoke components/hr/user-history-page.tsx
+    // for this id (it carries its own OPERATION_AR/STATUS_AR maps) — this config
+    // is only the generic-list fallback; keep the two maps in sync.
+    // Display-only translation of the raw Activity Log values — unmapped
+    // values (any future operation/status the backend starts sending) fall
+    // back to the raw string instead of disappearing.
+    deriveFields: [
+      {
+        as: '_operation_ar', from: (r) =>
+          r.operation === 'Login' ? 'تسجيل دخول'
+          : r.operation === 'Logout' ? 'تسجيل خروج'
+          : r.operation === 'Impersonate' ? 'انتحال هوية'
+          : String(r.operation ?? ''),
+      },
+      {
+        as: '_status_ar', from: (r) =>
+          r.status === 'Success' ? 'ناجح'
+          : r.status === 'Failed' ? 'فاشل'
+          : r.status === 'Linked' ? 'مرتبط'
+          : r.status === 'Closed' ? 'مغلق'
+          : String(r.status ?? ''),
+      },
+    ],
     fields: [
       { field: 'full_name', label: 'المستخدم' },
       { field: 'user', label: 'البريد' },
-      { field: 'operation', label: 'العملية' },
-      { field: 'status', label: 'الحالة' },
+      { field: '_operation_ar', label: 'العملية' },
+      { field: '_status_ar', label: 'الحالة' },
       { field: 'creation', label: 'الوقت' },
     ],
   },
@@ -803,10 +881,10 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       // name (found by the exhaustive data audit, 2026-09-20). Hidden from
       // the form so the auto-inject actually runs; still shown as a column.
       { field: 'company', label: 'الاسم', inForm: false },
-      { field: 'ramadan_start', label: 'تاريخ البداية', type: 'date' },
-      { field: 'ramadan_end', label: 'تاريخ النهاية', type: 'date' },
+      { field: 'ramadan_start', label: 'تاريخ البداية', type: 'date', required: true },
+      { field: 'ramadan_end', label: 'تاريخ النهاية', type: 'date', required: true },
       { field: '_status_label', label: 'الحالة', inForm: false, statusDot: { on: 'نشط', onLabel: 'نشط', offLabel: 'غير نشط' } },
-      { field: 'reduced_daily_hours', label: 'ساعات العمل المخفّضة', type: 'number', inTable: false },
+      { field: 'reduced_daily_hours', label: 'ساعات العمل المخفّضة', type: 'number', inTable: false, required: true },
     ],
   },
 
@@ -836,7 +914,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'longitude', label: 'خط الطول', type: 'number' },
       { field: 'custom_radius_m', label: 'نطاق الموقع بالمتر', type: 'number' },
       {
-        field: 'custom_status', label: 'الحالة', type: 'select', options: ['Active', 'Inactive'],
+        field: 'custom_status', label: 'الحالة', type: 'select', options: ['Active', 'Inactive'], optionLabels: VALUE_AR,
         statusDot: { on: 'Active', onLabel: 'نشط', offLabel: 'غير نشط' },
       },
     ],

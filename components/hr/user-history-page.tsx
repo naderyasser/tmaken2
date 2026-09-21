@@ -12,6 +12,13 @@ import { ReportIllustration } from '@/components/hr/report-page'
 interface Row { name: string; user: string; full_name?: string; subject?: string; operation?: string; status?: string; ip_address?: string; creation: string }
 interface UserOpt { name: string; full_name?: string }
 
+// Display-only Arabic for the raw Activity Log values (this bespoke page is
+// what module-page.tsx renders for «حركات المستخدمين», not the generic list,
+// so the mapping has to live here). Unmapped values fall back to the raw text.
+const OPERATION_AR: Record<string, string> = { Login: 'تسجيل دخول', Logout: 'تسجيل خروج', Impersonate: 'انتحال هوية' }
+const STATUS_AR: Record<string, string> = { Success: 'ناجح', Failed: 'فاشل', Linked: 'مرتبط', Closed: 'مغلق' }
+const ar = (map: Record<string, string>, v?: string) => (v && (map[v] || v)) || '—'
+
 function today() { return new Date().toISOString().slice(0, 10) }
 
 /**
@@ -154,8 +161,8 @@ export function UserHistoryPage() {
                 <tr key={r.name}>
                   <td>{r.full_name || r.user}</td>
                   <td>{r.user}</td>
-                  <td>{r.operation || '—'}</td>
-                  <td>{r.status || '—'}</td>
+                  <td>{ar(OPERATION_AR, r.operation)}</td>
+                  <td>{ar(STATUS_AR, r.status)}</td>
                   <td>{fmtDateTime(r.creation)}</td>
                 </tr>
               ))}

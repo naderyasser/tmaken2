@@ -28,6 +28,10 @@ interface EmployeeOpt { name: string; employee_name: string; employee_number?: s
 const PAGE_SIZES = [5, 10, 20, 50]
 const TH = { padding: '12px 12px 12px 60px' } as const
 const FIELD = 'h-[40px] w-full rounded border border-[var(--apex-border)] bg-white px-2.5 text-[13px] text-slate-800 outline-none focus:border-[var(--apex-blue)]'
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const ADD_FIELD_LABELS: Record<'username' | 'password' | 'email' | 'full_name', string> = {
+  username: 'اسم المستخدم', password: 'كلمة المرور', email: 'البريد الالكتروني', full_name: 'اسم الموظف',
+}
 
 /** Apex-style «الموظف» autocomplete showing «name - code» (5.14 G4 / 5.16 G6). */
 function EmployeeAutocomplete({ options, query, onQuery, onSelect }: {
@@ -99,6 +103,7 @@ export function UsersPage() {
   const [saving, setSaving] = useState(false)
   const [empQuery, setEmpQuery] = useState('')
   const [addForm, setAddForm] = useState({ username: '', password: '', email: '', full_name: '', enabled: true })
+  const [addErrors, setAddErrors] = useState<Record<string, string>>({})
 
   const [editing, setEditing] = useState<UserRow | null>(null)
   const [editForm, setEditForm] = useState({ username: '', enabled: true })
@@ -140,13 +145,26 @@ export function UsersPage() {
   const currentPage = Math.min(page, totalPages)
   const pageRows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
-  const resetAdd = () => { setAddForm({ username: '', password: '', email: '', full_name: '', enabled: true }); setEmpQuery('') }
+  const resetAdd = () => {
+    setAddForm({ username: '', password: '', email: '', full_name: '', enabled: true })
+    setEmpQuery('')
+    setAddErrors({})
+  }
 
   const submitAdd = async () => {
-    if (!addForm.username || !addForm.password || !addForm.email || !addForm.full_name) {
-      toast({ title: 'أكمل الحقول المطلوبة', variant: 'destructive' })
+    const errors: Record<string, string> = {}
+    if (!addForm.username.trim()) errors.username = 'هذا الحقل مطلوب'
+    if (!addForm.password.trim()) errors.password = 'هذا الحقل مطلوب'
+    if (!addForm.email.trim()) errors.email = 'هذا الحقل مطلوب'
+    else if (!EMAIL_RE.test(addForm.email.trim())) errors.email = 'بريد إلكتروني غير صالح'
+    if (!addForm.full_name.trim()) errors.full_name = 'هذا الحقل مطلوب'
+    if (Object.keys(errors).length) {
+      setAddErrors(errors)
+      const firstField = (['username', 'password', 'email', 'full_name'] as const).find((k) => errors[k])
+      toast({ title: 'أكمل الحقول المطلوبة', description: firstField ? ADD_FIELD_LABELS[firstField] : undefined, variant: 'destructive' })
       return
     }
+    setAddErrors({})
     setSaving(true)
     try {
       await frappeClient.call('base_meena.base_meena.api.company_create_user', {
@@ -209,7 +227,7 @@ export function UsersPage() {
       <ApexToolbar
         search={{ value: search, onChange: (v) => { setSearch(v); setPage(1) }, placeholder: 'ابحث باسم الموظف او اسم المستخدم' }}
         onFilter={() => setShowFilter(true)}
-        add={{ label: 'اضافة مستخدم', onClick: () => setAddOpen(true) }}
+        add={{ label: 'اضافة مستخدم', onClick: () => { resetAdd(); setAddOpen(true) } }}
       />
 
       <ApexTableCard>
@@ -278,24 +296,45 @@ export function UsersPage() {
       >
         <div>
           <label className="block text-[13px] text-slate-700 mb-1">اسم المستخدم <span className="text-red-500">*</span></label>
-          <input value={addForm.username} onChange={(e) => setAddForm((f) => ({ ...f, username: e.target.value }))} className={FIELD} />
+          <input
+            value={addForm.username}
+            onChange={(e) => { setAddForm((f) => ({ ...f, username: e.target.value })); setAddErrors((er) => ({ ...er, username: '' })) }}
+            aria-invalid={!!addErrors.username || undefined}
+            className={FIELD}
+          />
+          {addErrors.username && <p className="text-[12px] text-red-500 mt-1 leading-[18px]">{addErrors.username}</p>}
         </div>
         <div>
           <label className="block text-[13px] text-slate-700 mb-1">كلمة المرور <span className="text-red-500">*</span></label>
-          <input type="password" value={addForm.password} onChange={(e) => setAddForm((f) => ({ ...f, password: e.target.value }))} className={FIELD} />
+          <input
+            type="password"
+            value={addForm.password}
+            onChange={(e) => { setAddForm((f) => ({ ...f, password: e.target.value })); setAddErrors((er) => ({ ...er, password: '' })) }}
+            aria-invalid={!!addErrors.password || undefined}
+            className={FIELD}
+          />
+          {addErrors.password && <p className="text-[12px] text-red-500 mt-1 leading-[18px]">{addErrors.password}</p>}
         </div>
         <div>
           <label className="block text-[13px] text-slate-700 mb-1">البريد الالكتروني <span className="text-red-500">*</span></label>
-          <input type="email" value={addForm.email} onChange={(e) => setAddForm((f) => ({ ...f, email: e.target.value }))} className={FIELD} />
+          <input
+            type="email"
+            value={addForm.email}
+            onChange={(e) => { setAddForm((f) => ({ ...f, email: e.target.value })); setAddErrors((er) => ({ ...er, email: '' })) }}
+            aria-invalid={!!addErrors.email || undefined}
+            className={FIELD}
+          />
+          {addErrors.email && <p className="text-[12px] text-red-500 mt-1 leading-[18px]">{addErrors.email}</p>}
         </div>
         <div>
           <label className="block text-[13px] text-slate-700 mb-1">اسم الموظف <span className="text-red-500">*</span></label>
           <EmployeeAutocomplete
             options={employees}
             query={empQuery}
-            onQuery={(v) => { setEmpQuery(v); setAddForm((f) => ({ ...f, full_name: v })) }}
-            onSelect={(emp) => { setEmpQuery(`${emp.employee_name}${emp.employee_number ? ` - ${emp.employee_number}` : ''}`); setAddForm((f) => ({ ...f, full_name: emp.employee_name })) }}
+            onQuery={(v) => { setEmpQuery(v); setAddForm((f) => ({ ...f, full_name: v })); setAddErrors((er) => ({ ...er, full_name: '' })) }}
+            onSelect={(emp) => { setEmpQuery(`${emp.employee_name}${emp.employee_number ? ` - ${emp.employee_number}` : ''}`); setAddForm((f) => ({ ...f, full_name: emp.employee_name })); setAddErrors((er) => ({ ...er, full_name: '' })) }}
           />
+          {addErrors.full_name && <p className="text-[12px] text-red-500 mt-1 leading-[18px]">{addErrors.full_name}</p>}
         </div>
         <div className="col-span-2">
           <span className="block text-[13px] text-slate-700 mb-1">الحالة</span>
@@ -345,6 +384,7 @@ export function UsersPage() {
         title="حذف المستخدم؟"
         description={deleteTarget ? `سيتم حذف ${deleteTarget.employee_name || deleteTarget.name} نهائيًا.` : undefined}
         confirmLabel="حذف"
+        cancelLabel="إلغاء"
         onConfirm={confirmDelete}
         loading={deleting}
       />

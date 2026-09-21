@@ -295,7 +295,10 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
     return (
       <div>
         {lbl(label, req)}
-        <div name={k} className={cn(FIELD, 'h-auto min-h-[44px] py-2 flex flex-wrap items-center gap-1.5')}>
+        {/* `name` is not a typed div attribute, but the scroll-to-first-error
+            lookup above queries `[name="${k}"]` — spread it in as a plain DOM
+            attribute so the lookup keeps working without a TS error. */}
+        <div {...({ name: k } as Record<string, string>)} className={cn(FIELD, 'h-auto min-h-[44px] py-2 flex flex-wrap items-center gap-1.5')}>
           {selected.length === 0 && <span className="text-slate-400">{label}</span>}
           {selected.map((item) => (
             <span key={item} className="inline-flex items-center gap-1 rounded bg-[var(--apex-blue)]/10 text-[var(--apex-blue)] text-[12.5px] px-2 py-1">

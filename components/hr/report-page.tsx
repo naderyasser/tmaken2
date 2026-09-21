@@ -6,6 +6,7 @@ import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 import { fmtDate } from '@/lib/hr-format'
+import { leaveTypeAr } from '@/lib/enums'
 import type { ReportConfig } from '@/lib/hr-reports'
 import { PrintDialog } from '@/components/hr/apex/print-dialog'
 import { ApexDatePicker } from '@/components/hr/apex/date-picker'
@@ -195,7 +196,7 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-end">
             {config.extras?.includes('status') && <Sel value={f.status} onChange={set('status')} label="الحالة" items={['مقبولة', 'مرفوضة']} />}
-            {config.extras?.includes('leave_type') && <Sel value={f.leave_type} onChange={set('leave_type')} label="نوع الاجازة" items={opts.leave_types} />}
+            {config.extras?.includes('leave_type') && <Sel value={f.leave_type} onChange={set('leave_type')} label="نوع الاجازة" items={opts.leave_types} labelFor={leaveTypeAr} />}
             {config.extras?.includes('permission_type') && <Sel value={f.permission_type} onChange={set('permission_type')} label="نوع الاذن" items={opts.permission_types} />}
             {config.dates && <ApexDatePicker value={f.from_date} onChange={setDate('from_date')} label="من تاريخ" required />}
             {config.dates && <ApexDatePicker value={f.to_date} onChange={setDate('to_date')} label="إلى تاريخ" required />}
@@ -259,7 +260,10 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
 
 type Change = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void
 
-function Sel({ value, onChange, label, items }: { value: string; onChange: Change; label: string; items: string[] }) {
+/** `labelFor` translates an option's display text (e.g. Leave Type's English
+ *  name → Arabic via lib/enums.leaveTypeAr) — the submitted `value` stays the
+ *  raw option exactly as the backend filter expects. */
+function Sel({ value, onChange, label, items, labelFor }: { value: string; onChange: Change; label: string; items: string[]; labelFor?: (v: string) => string }) {
   return (
     <div className="relative">
       {value && <span className="absolute -top-5 right-1 text-[13px] text-slate-700">{label}</span>}
@@ -272,7 +276,7 @@ function Sel({ value, onChange, label, items }: { value: string; onChange: Chang
         )}
       >
         <option value="">{label}</option>
-        {items.map((o) => <option key={o} value={o}>{o}</option>)}
+        {items.map((o) => <option key={o} value={o}>{labelFor ? labelFor(o) : o}</option>)}
       </select>
       <ChevronDown className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
     </div>
@@ -310,7 +314,9 @@ function GroupRows({ g, gi, cols, collapsed, onToggle }: {
         <tr key={ri} className="border-b border-slate-200 bg-white hover:bg-slate-50">
           <td />
           {cols.map((c) => (
-            <td key={c.key} className={cn('py-2.5 px-2 whitespace-nowrap', cellClass(c.key, r[c.key]))}>{fmt(r[c.key])}</td>
+            <td key={c.key} className={cn('py-2.5 px-2 whitespace-nowrap', cellClass(c.key, r[c.key]))}>
+              {c.key === 'leave_type' ? leaveTypeAr(r[c.key]) : fmt(r[c.key])}
+            </td>
           ))}
         </tr>
       ))}

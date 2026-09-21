@@ -53,10 +53,10 @@ export function ApexDialog({ open, onOpenChange, title, size = 'lg', primary, se
               </DialogPrimitive.Title>
             </div>
 
-            <div className="-mx-1 overflow-x-auto px-1">
+            <div className="-mx-1 px-1">
               <div
                 className="grid gap-x-6 gap-y-4"
-                style={size === 'lg' ? { gridTemplateColumns: 'repeat(2, minmax(280px, 410px))', justifyContent: 'space-between' } : { gridTemplateColumns: '1fr' }}
+                style={size === 'lg' ? { gridTemplateColumns: 'repeat(2, minmax(0, 410px))', justifyContent: 'space-between' } : { gridTemplateColumns: '1fr' }}
               >
                 {children}
               </div>
@@ -73,7 +73,7 @@ export function ApexDialog({ open, onOpenChange, title, size = 'lg', primary, se
                     className="flex items-center justify-center gap-2 rounded-[4px] bg-[var(--apex-green)] text-[15px] text-white hover:bg-[var(--apex-green-dark)] disabled:opacity-50"
                   >
                     {primary.loading && <Loader2 className="h-4 w-4 animate-spin" />}
-                    {primary.label}
+                    {primary.loading ? 'جاري الحفظ…' : primary.label}
                   </button>
                 )}
                 {secondary}

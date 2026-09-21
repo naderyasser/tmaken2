@@ -9,9 +9,11 @@ import { useBreadcrumbs } from '@/lib/breadcrumbs'
 import { frappeClient } from '@/lib/api-client'
 
 /**
- * Apex «تعديل الصلاحيات»: one row per HR sidebar section, two toggles each
- * (عرض / اضافة). Every checkbox here is a real read/create DocPerm on the
- * underlying doctypes, not a cosmetic flag — but it goes through
+ * Apex «تعديل الصلاحيات»: one row per HR sidebar section, five toggles each
+ * (عرض / اضافة / تعديل / حذف / طباعة). Every checkbox here is a real
+ * read/create/write/delete/print DocPerm on the underlying doctypes, not a
+ * cosmetic flag — enforced by Frappe's own ORM and REST layer the moment
+ * it's set, not just gating this UI — but it goes through
  * base_meena.api.hr_permissions (not Frappe's own permission_manager, which
  * is System-Manager-only) because the HR walkthrough account is HR Manager
  * without System Manager. A page's checkbox reflects/controls ALL of that
@@ -21,8 +23,25 @@ import { frappeClient } from '@/lib/api-client'
 
 const GET_PERMS = 'base_meena.api.hr_permissions.get_permissions'
 const SET_PERM = 'base_meena.api.hr_permissions.set_permission'
+const ROLE_LABELS = 'base_meena.api.hr_lists.role_labels'
 
-interface PermRow { permlevel: number; read?: number; create?: number }
+// Module-scope cache: role_labels() returns the same dict for every role, so
+// fetch it once per page load instead of once per RolePermissionsPage mount.
+// The label is DISPLAY ONLY — get_permissions/set_permission always keep
+// using the raw `role` prop, never this map.
+let roleLabelsCache: Record<string, string> | null = null
+let roleLabelsPromise: Promise<Record<string, string>> | null = null
+function fetchRoleLabels(): Promise<Record<string, string>> {
+  if (roleLabelsCache) return Promise.resolve(roleLabelsCache)
+  if (!roleLabelsPromise) {
+    roleLabelsPromise = frappeClient.call<Record<string, string>>(ROLE_LABELS)
+      .then((r: any) => { roleLabelsCache = (r?.message ?? {}) as Record<string, string>; return roleLabelsCache })
+      .catch(() => ({}) as Record<string, string>)
+  }
+  return roleLabelsPromise
+}
+
+interface PermRow { permlevel: number; read?: number; create?: number; write?: number; delete?: number; print?: number }
 
 interface PageGroup {
   key: string
@@ -41,7 +60,10 @@ const PAGE_GROUPS: PageGroup[] = [
   { key: 'settings', label: 'الاعدادات', doctypes: ['Company'] },
 ]
 
-type GroupState = { view: boolean; add: boolean; loading: boolean }
+type PermKind = 'view' | 'add' | 'edit' | 'del' | 'print'
+const PTYPE_OF: Record<PermKind, keyof PermRow> = { view: 'read', add: 'create', edit: 'write', del: 'delete', print: 'print' }
+type GroupState = { view: boolean; add: boolean; edit: boolean; del: boolean; print: boolean; loading: boolean }
+const EMPTY_GROUP_STATE: GroupState = { view: false, add: false, edit: false, del: false, print: false, loading: false }
 
 export function RolePermissionsPage({ role }: { role: string }) {
   const router = useRouter()
@@ -49,6 +71,14 @@ export function RolePermissionsPage({ role }: { role: string }) {
   const crumbs = useBreadcrumbs()
   const [loading, setLoading] = useState(true)
   const [state, setState] = useState<Record<string, GroupState>>({})
+  const [roleLabel, setRoleLabel] = useState(role)
+
+  useEffect(() => {
+    let alive = true
+    setRoleLabel(role) // raw name until the Arabic label resolves (or there isn't one)
+    fetchRoleLabels().then((labels) => { if (alive) setRoleLabel(labels[role] || role) })
+    return () => { alive = false }
+  }, [role])
 
   const loadGroup = useCallback(async (group: PageGroup): Promise<GroupState> => {
     const results = await Promise.all(
@@ -59,9 +89,11 @@ export function RolePermissionsPage({ role }: { role: string }) {
     )
     // A page only counts as "granted" once every one of its doctypes is —
     // toggling it back on re-applies to all of them, so this never drifts.
-    const view = results.every((rows) => rows.some((r) => r.permlevel === 0 && r.read))
-    const add = results.every((rows) => rows.some((r) => r.permlevel === 0 && r.create))
-    return { view, add, loading: false }
+    const granted = (field: keyof PermRow) => results.every((rows) => rows.some((r) => r.permlevel === 0 && r[field]))
+    return {
+      view: granted('read'), add: granted('create'), edit: granted('write'),
+      del: granted('delete'), print: granted('print'), loading: false,
+    }
   }, [role])
 
   const load = useCallback(async () => {
@@ -80,9 +112,9 @@ export function RolePermissionsPage({ role }: { role: string }) {
 
   useEffect(() => { load() }, [load])
 
-  const toggle = async (group: PageGroup, kind: 'view' | 'add', value: boolean) => {
+  const toggle = async (group: PageGroup, kind: PermKind, value: boolean) => {
     setState((prev) => ({ ...prev, [group.key]: { ...prev[group.key], loading: true } }))
-    const ptype = kind === 'view' ? 'read' : 'create'
+    const ptype = PTYPE_OF[kind]
     try {
       for (const dt of group.doctypes) {
         await frappeClient.call(SET_PERM, { doctype: dt, role, ptype, value: value ? 1 : 0 })
@@ -118,7 +150,7 @@ export function RolePermissionsPage({ role }: { role: string }) {
       <div className="bg-white rounded shadow-sm border border-slate-200/60 p-6">
         <div className="flex items-center gap-2 mb-5">
           <ShieldCheck className="h-5 w-5 text-[#2960b6]" />
-          <h3 className="text-[16px] font-bold text-slate-800">صلاحية: {role}</h3>
+          <h3 className="text-[16px] font-bold text-slate-800">صلاحية: {roleLabel}</h3>
         </div>
 
         {loading ? (
@@ -128,26 +160,26 @@ export function RolePermissionsPage({ role }: { role: string }) {
             <thead>
               <tr className="border-b border-slate-200 text-slate-500">
                 <th className="text-start py-2.5 px-3 font-medium">اسم الصفحة</th>
-                <th className="text-center py-2.5 px-3 font-medium w-28">عرض</th>
-                <th className="text-center py-2.5 px-3 font-medium w-28">اضافة</th>
+                <th className="text-center py-2.5 px-3 font-medium w-20">عرض</th>
+                <th className="text-center py-2.5 px-3 font-medium w-20">اضافة</th>
+                <th className="text-center py-2.5 px-3 font-medium w-20">تعديل</th>
+                <th className="text-center py-2.5 px-3 font-medium w-20">حذف</th>
+                <th className="text-center py-2.5 px-3 font-medium w-20">طباعة</th>
               </tr>
             </thead>
             <tbody>
               {PAGE_GROUPS.map((g) => {
-                const s = state[g.key] || { view: false, add: false, loading: false }
+                const s = state[g.key] || EMPTY_GROUP_STATE
                 return (
                   <tr key={g.key} className="border-b border-slate-100 last:border-0">
                     <td className="py-3 px-3 text-slate-700">{g.label}</td>
-                    <td className="py-3 px-3 text-center">
-                      <input type="checkbox" checked={s.view} disabled={s.loading}
-                        onChange={(e) => toggle(g, 'view', e.target.checked)}
-                        className="h-4 w-4 accent-[#2e71c8] cursor-pointer disabled:opacity-50" />
-                    </td>
-                    <td className="py-3 px-3 text-center">
-                      <input type="checkbox" checked={s.add} disabled={s.loading}
-                        onChange={(e) => toggle(g, 'add', e.target.checked)}
-                        className="h-4 w-4 accent-[#2e71c8] cursor-pointer disabled:opacity-50" />
-                    </td>
+                    {(['view', 'add', 'edit', 'del', 'print'] as const).map((kind) => (
+                      <td key={kind} className="py-3 px-3 text-center">
+                        <input type="checkbox" checked={s[kind]} disabled={s.loading}
+                          onChange={(e) => toggle(g, kind, e.target.checked)}
+                          className="h-4 w-4 accent-[#2e71c8] cursor-pointer disabled:opacity-50" />
+                      </td>
+                    ))}
                   </tr>
                 )
               })}

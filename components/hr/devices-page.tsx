@@ -193,7 +193,6 @@ export function DevicesPage() {
   /** «طباعة الصفحة» prints just the current page's rows; «طباعة الكل» prints
    *  every row matching the active search/branch filter. */
   const doPrint = (all: boolean) => {
-    setPrintOpen(false)
     setPrintRows(all ? filtered : pageRows)
     requestAnimationFrame(() => window.print())
   }

@@ -40,12 +40,27 @@ export function GeneralSettingsPage() {
   const [fy, setFy] = useState({ start: '', end: '' })
   const [em, setEm] = useState({ email_id: '', password: '', smtp_server: '', display_name: '', port: '0', secure: 'آلى', has_password: false })
   const [testTo, setTestTo] = useState('')
-  const [busy, setBusy] = useState<string | null>(null)
-  // 5.23 «اخري»: auto-logout minutes. base_meena.api.hr_settings.get_general_settings
-  // does not return this key today (checked 2026-09-20 — only `fiscal`/`email`), so
-  // this stays read-only ("غير مفعّل") until a backend key exists; the `supported`
-  // flag flips the field editable the moment the API starts sending `auto_logout`.
-  const [autoLogout, setAutoLogout] = useState<{ value: string; supported: boolean }>({ value: '', supported: false })
+  // A single shared `busy: string | null` used to mean only one save button on
+  // this whole page could ever show "loading" at a time — saving one field
+  // (e.g. العلامات العشرية) while a DIFFERENT field's save was still in
+  // flight (e.g. الوقت المسموح للجلسة, right below it) silently stole the
+  // other one's spinner: whichever request's `finally` ran last just set the
+  // single shared slot back to null, so the FIRST field's button could get
+  // stuck showing a spinner forever if a second save started and finished
+  // before it did (its own `finally` had nothing left to clear once the
+  // shared slot no longer held its key) — the save itself always went through
+  // fine server-side, only the UI's own busy/toast bookkeeping desynced.
+  // Found live, 2026-09-21. A Set of independently-tracked keys removes the
+  // possibility of one button's loading state ever depending on another's.
+  const [busyKeys, setBusyKeys] = useState<Set<string>>(new Set())
+  const startBusy = (key: string) => setBusyKeys((s) => new Set(s).add(key))
+  const stopBusy = (key: string) => setBusyKeys((s) => { const next = new Set(s); next.delete(key); return next })
+  // 5.23 «اخري»: real System Settings fields (Apex parity item A2, 2026-09-21) —
+  // decimal_places is Frappe's own float_precision (every flt() rounding in the
+  // app already respects it) and session_timeout_minutes is session_expiry
+  // (Frappe's own idle-session cutoff, enforced on every request — nothing extra
+  // to wire up client-side for either one to actually take effect).
+  const [other, setOther] = useState({ decimal_places: '2', session_timeout_minutes: '15' })
   const toggle = (k: string) => setOpen((o) => ({ ...o, [k]: !o[k] }))
 
   useEffect(() => {
@@ -54,23 +69,23 @@ export function GeneralSettingsPage() {
         const d = r?.message ?? {}
         if (d.fiscal) setFy({ start: d.fiscal.start, end: d.fiscal.end })
         if (d.email) setEm((e) => ({ ...e, ...d.email, port: String(d.email.port ?? 0), password: '' }))
-        if (d.auto_logout != null) setAutoLogout({ value: String(d.auto_logout), supported: true })
+        if (d.other) setOther({ decimal_places: String(d.other.decimal_places ?? 2), session_timeout_minutes: String(d.other.session_timeout_minutes ?? 15) })
       })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
   const run = async (key: string, fn: () => Promise<any>, ok: string) => {
-    setBusy(key)
+    startBusy(key)
     try { await fn(); toast({ title: ok }) }
     catch (e: any) { toast({ title: 'فشل', description: e?.message, variant: 'destructive' }) }
-    finally { setBusy(null) }
+    finally { stopBusy(key) }
   }
 
   const ddmmyyyy = (iso: string) => iso ? iso.split('-').reverse().join('/') : ''
 
   const testEmailConnection = async () => {
-    setBusy('test-conn')
+    startBusy('test-conn')
     try {
       const r: any = await frappeClient.call('base_meena.api.hr_settings.test_email_settings')
       const res = r?.message ?? {}
@@ -78,12 +93,12 @@ export function GeneralSettingsPage() {
     } catch (e: any) {
       toast({ title: 'فشل', description: e?.message, variant: 'destructive' })
     } finally {
-      setBusy(null)
+      stopBusy('test-conn')
     }
   }
 
   const sendTestEmail = async () => {
-    setBusy('test')
+    startBusy('test')
     try {
       const r: any = await frappeClient.call('base_meena.api.hr_settings.send_test_email', { to: testTo })
       const res = r?.message ?? {}
@@ -91,7 +106,7 @@ export function GeneralSettingsPage() {
     } catch (e: any) {
       toast({ title: 'فشل', description: e?.message, variant: 'destructive' })
     } finally {
-      setBusy(null)
+      stopBusy('test')
     }
   }
 
@@ -110,7 +125,7 @@ export function GeneralSettingsPage() {
                 <input type="date" value={fy.end} onChange={(e) => setFy((f) => ({ ...f, end: e.target.value }))} className={FIELD} title={ddmmyyyy(fy.end)} />
               </div>
             </div>
-            <SaveBtn busy={busy === 'fy'} onClick={() => run('fy', () => frappeClient.call('base_meena.api.hr_settings.save_fiscal_year', { start: fy.start, end: fy.end }), 'تم حفظ السنة المالية')} />
+            <SaveBtn busy={busyKeys.has('fy')} onClick={() => run('fy', () => frappeClient.call('base_meena.api.hr_settings.save_fiscal_year', { start: fy.start, end: fy.end }), 'تم حفظ السنة المالية')} />
           </div>
         )}
       </Accordion>
@@ -133,11 +148,11 @@ export function GeneralSettingsPage() {
             </L>
           </div>
           <div className="flex items-center gap-3">
-            <SaveBtn busy={busy === 'em'} onClick={() => run('em', () => frappeClient.call('base_meena.api.hr_settings.save_email_settings', {
+            <SaveBtn busy={busyKeys.has('em')} onClick={() => run('em', () => frappeClient.call('base_meena.api.hr_settings.save_email_settings', {
               email_id: em.email_id, smtp_server: em.smtp_server, display_name: em.display_name, port: em.port, secure: em.secure, password: em.password || undefined,
             }), 'تم حفظ إعدادات البريد')} />
-            <button type="button" disabled={busy === 'test-conn'} onClick={testEmailConnection} className="h-[40px] px-4 rounded border border-[var(--apex-blue)] text-[var(--apex-blue)] text-[14px] flex items-center gap-2 hover:bg-[var(--apex-blue)]/5 disabled:opacity-60">
-              {busy === 'test-conn' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            <button type="button" disabled={busyKeys.has('test-conn')} onClick={testEmailConnection} className="h-[40px] px-4 rounded border border-[var(--apex-blue)] text-[var(--apex-blue)] text-[14px] flex items-center gap-2 hover:bg-[var(--apex-blue)]/5 disabled:opacity-60">
+              {busyKeys.has('test-conn') ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               اختبار الاتصال
             </button>
           </div>
@@ -149,7 +164,7 @@ export function GeneralSettingsPage() {
               <input value={testTo} onChange={(e) => setTestTo(e.target.value)} className={FIELD} />
               <div className="flex items-center gap-3">
                 <a href="https://support.google.com/mail/answer/7126229" target="_blank" rel="noreferrer" className="text-[var(--apex-blue)] text-[14px] flex items-center gap-1"><Paperclip className="h-4 w-4" />اعدادات Gmail</a>
-                <SaveBtn label="ارسال" busy={busy === 'test'} onClick={sendTestEmail} />
+                <SaveBtn label="ارسال" busy={busyKeys.has('test')} onClick={sendTestEmail} />
               </div>
             </div>
           </div>
@@ -157,31 +172,47 @@ export function GeneralSettingsPage() {
       </Accordion>
 
       <Accordion title="اخري" open={!!open.other} onToggle={() => toggle('other')}>
-        <div className="space-y-3 max-w-md">
-          <L label="تسجيل الخروج التلقائي بعد (دقائق)">
-            {autoLogout.supported ? (
+        <div className="space-y-5 max-w-md">
+          <div>
+            <L label="العلامات العشرية">
+              <div className="relative">
+                <select
+                  value={other.decimal_places}
+                  onChange={(e) => setOther((s) => ({ ...s, decimal_places: e.target.value }))}
+                  className={FIELD + ' appearance-none'}
+                >
+                  {['2', '3', '4', '5', '6', '7', '8', '9'].map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+                <ChevronDown className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+              </div>
+            </L>
+            <p className="text-[12.5px] text-slate-500 mt-1.5">
+              عدد الخانات العشرية التي تُقرّب إليها الأرقام والمبالغ في كل شاشات النظام (مثال: عند 2 يظهر 10.456 كـ 10.46).
+            </p>
+            <SaveBtn
+              busy={busyKeys.has('decimal-places')}
+              onClick={() => run('decimal-places', () => frappeClient.call('base_meena.api.hr_settings.save_general_settings', { decimal_places: Number(other.decimal_places) }), 'تم الحفظ')}
+            />
+          </div>
+
+          <div>
+            <L label="الوقت المسموح للجلسة بالدقائق">
               <input
                 type="number"
                 min={1}
-                value={autoLogout.value}
-                onChange={(e) => setAutoLogout((s) => ({ ...s, value: e.target.value }))}
+                value={other.session_timeout_minutes}
+                onChange={(e) => setOther((s) => ({ ...s, session_timeout_minutes: e.target.value }))}
                 className={FIELD}
               />
-            ) : (
-              <input value="غير مفعّل" disabled readOnly className={FIELD + ' bg-slate-50 text-slate-400 cursor-not-allowed'} />
-            )}
-          </L>
-          {!autoLogout.supported && (
-            <p className="text-[12.5px] text-slate-500">
-              هذا الإعداد غير متاح حالياً من الخادم (لا يوجد مفتاح مقابل في hr_settings.get_general_settings) — سيصبح قابلاً للتعديل تلقائياً عند إضافته.
+            </L>
+            <p className="text-[12.5px] text-slate-500 mt-1.5">
+              يتم تسجيل خروج المستخدم تلقائياً بعد هذه المدة من عدم النشاط.
             </p>
-          )}
-          {autoLogout.supported && (
             <SaveBtn
-              busy={busy === 'auto-logout'}
-              onClick={() => run('auto-logout', () => frappeClient.call('base_meena.api.hr_settings.save_general_settings', { auto_logout: Number(autoLogout.value) }), 'تم الحفظ')}
+              busy={busyKeys.has('session-timeout')}
+              onClick={() => run('session-timeout', () => frappeClient.call('base_meena.api.hr_settings.save_general_settings', { session_timeout_minutes: Number(other.session_timeout_minutes) }), 'تم الحفظ')}
             />
-          )}
+          </div>
         </div>
       </Accordion>
     </div>

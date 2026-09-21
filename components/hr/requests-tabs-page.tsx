@@ -138,6 +138,12 @@ export function RequestsTabsPage() {
   const [deleting, setDeleting] = useState(false)
   const [employees, setEmployees] = useState<EmployeeOpt[]>([])
   const [leaveTypes, setLeaveTypes] = useState<{ name: string; leave_type_name: string }[]>([])
+  // «طباعة» prints the current page only, «طباعة متقدمة» prints every row
+  // matching the active search/filter (same distinction as generic-list-page
+  // and devices-page's طباعة الصفحة/طباعة الكل — item B7, 2026-09-21: this
+  // page's two buttons used to both alias to a plain window.print(), so
+  // "متقدمة" never actually printed anything extra).
+  const [printRows, setPrintRows] = useState<Row[] | null>(null)
 
   const activeTabDef = TABS.find((t) => t.id === tab)!
   const cfg = getModuleConfig(activeTabDef.module) as ListModuleConfig
@@ -176,6 +182,15 @@ export function RequestsTabsPage() {
   }, [cfg, toast])
   useEffect(() => { setSelected(new Set()); setPage(1); setSearch(''); setDrawer({}); load() }, [tab]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Mirrors generic-list-page.tsx / devices-page.tsx: render a hidden
+  // print-only table into `printRows`, call window.print(), then restore
+  // the normal screen view once the print dialog closes (or is cancelled).
+  useEffect(() => {
+    const restore = () => setPrintRows(null)
+    window.addEventListener('afterprint', restore)
+    return () => window.removeEventListener('afterprint', restore)
+  }, [])
+
   const tableFields = useMemo(() => cfg.fields.filter((f) => f.inTable !== false), [cfg])
 
   const filtered = useMemo(() => {
@@ -200,10 +215,24 @@ export function RequestsTabsPage() {
     return next
   })
 
+  /** «طباعة» prints just the current page's rows; «طباعة متقدمة» prints every
+   *  row matching the active tab/search/filter. */
+  const doPrint = (all: boolean) => {
+    setPrintRows(all ? filtered : pageRows)
+    requestAnimationFrame(() => window.print())
+  }
+
   const requestAction = async (action: 'approve' | 'reject' | 'cancel', row: Row) => {
     try {
-      await frappeClient.call(HR_REQUEST_METHOD[action], { doctype: cfg.doctype, name: row.name })
-      toast({ title: action === 'approve' ? 'تم الاعتماد' : action === 'reject' ? 'تم الرفض' : 'تم الإلغاء' })
+      const r: any = await frappeClient.call(HR_REQUEST_METHOD[action], { doctype: cfg.doctype, name: row.name })
+      // approve_request/reject_request return `already: true` when the doc
+      // was already in that state (no-op on the backend) — surface that
+      // instead of a false "تم الاعتماد/الرفض".
+      if ((action === 'approve' || action === 'reject') && r?.message?.already === true) {
+        toast({ title: action === 'approve' ? 'الطلب معتمد مسبقاً' : 'الطلب مرفوض مسبقاً' })
+      } else {
+        toast({ title: action === 'approve' ? 'تم الاعتماد' : action === 'reject' ? 'تم الرفض' : 'تم الإلغاء' })
+      }
       refreshCounts(); load()
     } catch (e: any) {
       toast({ title: 'فشلت العملية', description: e?.message, variant: 'destructive' })
@@ -274,10 +303,26 @@ export function RequestsTabsPage() {
 
   return (
     <div dir="rtl" className="p-4 font-[family-name:var(--font-arabic)]">
+      {printRows && (
+        <div className="hidden print:block">
+          <table className="w-full text-[13px]">
+            <thead>
+              <tr>{tableFields.map((f) => <th key={f.field} className="text-right py-1.5 px-2">{f.label}</th>)}</tr>
+            </thead>
+            <tbody>
+              {printRows.map((row) => (
+                <tr key={row.name}>{tableFields.map((f) => <td key={f.field} className="py-1.5 px-2">{cellValue(f, row)}</td>)}</tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="print:hidden">
       <ApexToolbar
         search={{ value: search, onChange: (v) => { setSearch(v); setPage(1) }, placeholder: cfg.searchPlaceholder || 'ابحث' }}
         onFilter={cfg.drawerFilters ? () => setShowFilter(true) : undefined}
-        print={{ onPrint: () => window.print(), onAdvancedPrint: () => window.print() }}
+        print={{ onPrint: () => doPrint(false), onAdvancedPrint: () => doPrint(true) }}
         deleteButton={{ onClick: () => setBulkDeleteOpen(true), disabled: selected.size === 0 }}
         add={{ label: cfg.addLabel || 'اضافة', onClick: openAdd }}
       />
@@ -321,26 +366,38 @@ export function RequestsTabsPage() {
               <tr><td colSpan={tableFields.length + 2} className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-[var(--apex-blue)]" /></td></tr>
             ) : pageRows.length === 0 ? (
               <tr><td colSpan={tableFields.length + 2} className="py-10 text-center text-slate-500">لا يوجد نتائج للبحث ابحث مرة اخري</td></tr>
-            ) : pageRows.map((row) => (
-              <tr key={row.name}>
-                <td className="text-center">
-                  <input type="checkbox" checked={selected.has(row.name)} onChange={() => toggleOne(row.name)} className="h-4 w-4 accent-[var(--apex-green)]" />
-                </td>
-                {tableFields.map((f) => <td key={f.field}>{cellValue(f, row)}</td>)}
-                <td className="text-center">
-                  <DropdownMenu dir="rtl">
-                    <DropdownMenuTrigger asChild>
-                      <button title="خيارات" aria-label="خيارات" className="text-slate-500 hover:text-slate-700 px-1"><MoreVertical className="h-[18px] w-[18px]" /></button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="text-[13px] min-w-[120px]">
-                      <DropdownMenuItem onClick={() => requestAction('approve', row)}>اعتماد</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => requestAction('reject', row)}>رفض</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => requestAction('cancel', row)} className="text-red-600 focus:text-red-600">إلغاء</DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </td>
-              </tr>
-            ))}
+            ) : pageRows.map((row) => {
+              // docstatus 0 = draft (اعتماد/رفض/حذف تقدر تحذف مسودة), 1 = submitted
+              // (اعتماد سابق، يبقى إلغاء فقط), 2 = cancelled (لا إجراء ممكن).
+              const ds = Number(row.docstatus ?? 0)
+              return (
+                <tr key={row.name}>
+                  <td className="text-center">
+                    <input type="checkbox" checked={selected.has(row.name)} onChange={() => toggleOne(row.name)} className="h-4 w-4 accent-[var(--apex-green)]" />
+                  </td>
+                  {tableFields.map((f) => <td key={f.field}>{cellValue(f, row)}</td>)}
+                  <td className="text-center">
+                    {ds === 2 ? (
+                      <button type="button" title="طلب ملغي" aria-label="خيارات" disabled className="text-slate-300 px-1 cursor-not-allowed">
+                        <MoreVertical className="h-[18px] w-[18px]" />
+                      </button>
+                    ) : (
+                      <DropdownMenu dir="rtl">
+                        <DropdownMenuTrigger asChild>
+                          <button type="button" title="خيارات" aria-label="خيارات" className="text-slate-500 hover:text-slate-700 px-1"><MoreVertical className="h-[18px] w-[18px]" /></button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="text-[13px] min-w-[120px]">
+                          {ds === 0 && <DropdownMenuItem onClick={() => requestAction('approve', row)}>اعتماد</DropdownMenuItem>}
+                          {ds === 0 && <DropdownMenuItem onClick={() => requestAction('reject', row)}>رفض</DropdownMenuItem>}
+                          {ds === 0 && <DropdownMenuItem onClick={() => requestAction('cancel', row)} className="text-red-600 focus:text-red-600">حذف</DropdownMenuItem>}
+                          {ds === 1 && <DropdownMenuItem onClick={() => requestAction('cancel', row)} className="text-red-600 focus:text-red-600">إلغاء</DropdownMenuItem>}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </ApexTableCard>
@@ -349,6 +406,7 @@ export function RequestsTabsPage() {
         page={currentPage} pageCount={totalPages} pageSize={pageSize} total={filtered.length}
         onPageChange={setPage} onPageSizeChange={(n) => { setPageSize(n); setPage(1) }}
       />
+      </div>
 
       {cfg.drawerFilters && (
         <AdvancedSearchDrawer
@@ -466,6 +524,7 @@ export function RequestsTabsPage() {
         title="حذف الطلبات المحددة؟"
         description={`سيتم إلغاء/حذف ${selected.size} طلب.`}
         confirmLabel="حذف"
+        cancelLabel="إلغاء"
         onConfirm={confirmBulkDelete}
         loading={deleting}
       />

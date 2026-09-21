@@ -76,12 +76,31 @@ export function PermissionsListPage() {
     if (!name) { toast({ title: 'اسم الصلاحية مطلوب', variant: 'destructive' }); return }
     setSaving(true)
     try {
-      await frappeClient.post('Role', { role_name: name })
+      // Frappe's own DuplicateEntryError only catches an exact raw-name collision.
+      // It never catches typing a role's Arabic DISPLAY label (e.g. "موظف", the
+      // label hr_lists.ROLE_LABELS_AR shows for "Employee") — that creates a
+      // second, genuinely different Role that then displays identically to the
+      // one it collides with, indistinguishable except by its (0) user count.
+      // Found live, 2026-09-21 — check both the raw name and every role's label.
+      const exists = await frappeClient.call<boolean>('base_meena.api.hr_permissions.role_exists', { role_name: name })
+      if ((exists as any)?.message) {
+        toast({ title: 'فشل إضافة الصلاحية', description: 'هذه الصلاحية موجودة بالفعل', variant: 'destructive' })
+        setSaving(false)
+        return
+      }
+      // hr_lists.roles() only returns is_custom=1 roles (plus the 4 platform
+      // HR roles) — without is_custom:1 here Frappe defaults new roles to
+      // is_custom=0 and they never show up in this list even though they exist.
+      await frappeClient.post('Role', { role_name: name, is_custom: 1, desk_access: 1 })
       toast({ title: 'تم إضافة الصلاحية' })
       setAddOpen(false); setAddName('')
       load()
     } catch (e: any) {
-      toast({ title: 'فشل إضافة الصلاحية', description: e?.message, variant: 'destructive' })
+      // Frappe's DuplicateEntryError comes back as raw English ("Role X already
+      // exists") — belt-and-suspenders behind the role_exists() pre-check above.
+      const raw = String(e?.message ?? '')
+      const description = /already exists|DuplicateEntry/i.test(raw) ? 'هذه الصلاحية موجودة بالفعل' : raw || 'تعذّر الاتصال بالخادم'
+      toast({ title: 'فشل إضافة الصلاحية', description, variant: 'destructive' })
     } finally {
       setSaving(false)
     }
@@ -108,12 +127,30 @@ export function PermissionsListPage() {
     if (!deleteTarget) return
     setDeleting(true)
     try {
-      await frappeClient.delete('Role', deleteTarget.name)
+      // Goes through hr_permissions.delete_role (not a plain REST DELETE) —
+      // it sweeps any all-zero Custom DocPerm rows for this role first (legacy
+      // ones from before the 2026-09-21 set_permission auto-clear fix, or from
+      // anything else that touched this role's perms) so a role that's really
+      // free of active grants doesn't get stuck on dead-weight link rows the
+      // user never saw or intended. A role with a REAL grant still refuses,
+      // same as before.
+      await frappeClient.call('base_meena.api.hr_permissions.delete_role', { role: deleteTarget.name })
       toast({ title: 'تم الحذف' })
       setDeleteTarget(null)
       load()
     } catch (e: any) {
-      toast({ title: 'فشل الحذف', description: e?.message, variant: 'destructive' })
+      // Frappe phrases a still-blocking LinkExistsError two different ways
+      // depending on the path taken ("You can disable this Role instead…" /
+      // "Role X is linked with Custom DocPerm Y") and the second one arrives as
+      // raw HTML (`<a href=…>`) — caught live 2026-09-21, the tags rendered as
+      // literal text in the toast. Reword it either way, and strip any stray
+      // tags as a last resort so raw HTML can never reach the toast again.
+      const raw = String(e?.message ?? '')
+      const isLinkExists = /LinkExistsError|disable this Role instead|is linked with/i.test(raw)
+      const description = isLinkExists
+        ? 'هذه الصلاحية بها أذونات ممنوحة من صفحة تعديل الصلاحيات — أزل كل أذوناتها أولاً ثم احذفها'
+        : (raw.replace(/<[^>]+>/g, '').trim() || 'تعذّر الاتصال بالخادم')
+      toast({ title: 'فشل الحذف', description, variant: 'destructive' })
     } finally {
       setDeleting(false)
     }
@@ -215,6 +252,7 @@ export function PermissionsListPage() {
         title="حذف الصلاحية؟"
         description={deleteTarget ? `سيتم حذف ${deleteTarget.role_name} نهائيًا.` : undefined}
         confirmLabel="حذف"
+        cancelLabel="إلغاء"
         onConfirm={confirmDelete}
         loading={deleting}
       />

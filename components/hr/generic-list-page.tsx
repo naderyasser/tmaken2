@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { FieldInput, toFormValue, toPayload } from '@/components/hr/field-input'
 import type { FieldDef, ListModuleConfig } from '@/lib/hr-modules'
+import { VALUE_AR } from '@/lib/enums'
 import { ApexEmptyState, BoxIllustration } from '@/components/hr/apex-empty-state'
 import { AdvancedSearchDrawer, applyDrawer, type DrawerValues } from '@/components/hr/advanced-search-drawer'
 import { ApexToolbar } from '@/components/hr/apex/toolbar'
@@ -33,15 +34,9 @@ type Row = Record<string, any> & { name: string }
 
 const PAGE_SIZES = [5, 10, 25, 50, 100]
 
-/** Arabic labels for the Frappe status values that show up in list cells. */
-const VALUE_AR: Record<string, string> = {
-  Approved: 'معتمد', Rejected: 'مرفوض', Open: 'مفتوح', Cancelled: 'ملغي', Draft: 'مسودة', Pending: 'قيد الانتظار',
-  Active: 'نشط', Inactive: 'غير نشط', Suspended: 'موقوف', Left: 'منتهي', Completed: 'مكتمل', Working: 'قيد العمل',
-  'Pending Review': 'قيد المراجعة', Low: 'منخفضة', Medium: 'متوسطة', High: 'عالية', Urgent: 'عاجلة',
-  'Work From Home': 'عمل من المنزل', 'On Duty': 'مهمة عمل',
-  Sunday: 'الأحد', Monday: 'الاثنين', Tuesday: 'الثلاثاء', Wednesday: 'الأربعاء',
-  Thursday: 'الخميس', Friday: 'الجمعة', Saturday: 'السبت',
-}
+/** Arabic labels for the Frappe status values that show up in list cells
+ *  (defined in lib/enums.ts so lib/hr-modules.ts field configs can reuse the
+ *  same map as `optionLabels`). */
 const ar = (v: any) => (typeof v === 'string' && VALUE_AR[v]) || v
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -217,8 +212,13 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     const q = search.trim().toLowerCase()
     const base = config.drawerFilters ? applyDrawer(rows, config.drawerFilters, drawer) : rows
     if (!q) return base
-    return base.filter((r) => tableFields.some((f) => String(r[f.field] ?? '').toLowerCase().includes(q)))
-  }, [rows, search, tableFields, config.drawerFilters, drawer])
+    // Over ALL configured fields, not just table columns — a raw field
+    // hidden from the table in favour of a translated column (e.g. Leave
+    // Type's English name behind `_label`, or Country's `country_name`
+    // behind `_name_ar`) must still be searchable, so a user typing either
+    // language still finds the row.
+    return base.filter((r) => config.fields.some((f) => String(r[f.field] ?? '').toLowerCase().includes(q)))
+  }, [rows, search, config.fields, config.drawerFilters, drawer])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const currentPage = Math.min(page, totalPages)
@@ -280,12 +280,19 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     }
   }
 
-  /** Per-row اعتماد / رفض / إلغاء — only offered when config.requestActions. */
+  /** Per-row اعتماد / رفض / إلغاء — only offered when config.requestActions.
+   *  `message.already` (approve_request/reject_request already found the doc
+   *  in that state, e.g. a stale ⋮ menu) means nothing actually changed — say
+   *  so instead of the normal success toast. */
   const requestAction = async (action: 'approve' | 'reject' | 'cancel', row: Row) => {
     const method = HR_REQUEST_METHOD[action]
     try {
-      await frappeClient.call(method, { doctype: config.doctype, name: row.name })
-      toast({ title: action === 'approve' ? 'تم الاعتماد' : action === 'reject' ? 'تم الرفض' : 'تم الإلغاء' })
+      const res = await frappeClient.call(method, { doctype: config.doctype, name: row.name })
+      const already = (res as any)?.message?.already === true
+      const title = already
+        ? (action === 'approve' ? 'الطلب معتمد مسبقاً' : 'الطلب مرفوض مسبقاً')
+        : (action === 'approve' ? 'تم الاعتماد' : action === 'reject' ? 'تم الرفض' : 'تم الإلغاء')
+      toast({ title })
       load()
     } catch (e) {
       toast({ title: 'فشلت العملية', description: e instanceof Error ? e.message : 'تعذّر الاتصال بالخادم', variant: 'destructive' })
@@ -559,6 +566,11 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
                     pageRows.map((row, i) => {
                       const canDelete = config.deletable ? config.deletable(row) : true
                       const isActive = config.active ? row[config.active.field] === config.active.on : undefined
+                      // docstatus lifecycle for config.requestActions lists only
+                      // (0 = مسودة, 1 = معتمد, 2 = ملغي) — drives which ⋮ menu
+                      // items make sense (item 4, 2026-09-20 QA fix).
+                      const ds = config.requestActions ? Number(row.docstatus ?? 0) : 0
+                      const requestsLocked = !!config.requestActions && ds === 2
                       return (
                         <tr key={row.name}>
                           {!config.readOnly && (
@@ -613,26 +625,32 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
                                 />
                               ) : (!config.readOnly || config.requestActions) && (
                                 <DropdownMenu dir="rtl">
-                                  <DropdownMenuTrigger asChild>
+                                  <DropdownMenuTrigger asChild disabled={requestsLocked}>
                                     <button
-                                      title="خيارات"
+                                      title={requestsLocked ? 'طلب ملغي' : 'خيارات'}
                                       aria-label="خيارات"
-                                      className="apex-icon-more px-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--apex-blue)] focus-visible:ring-offset-1"
+                                      disabled={requestsLocked}
+                                      className={`apex-icon-more px-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--apex-blue)] focus-visible:ring-offset-1 ${requestsLocked ? 'opacity-40 cursor-not-allowed' : ''}`}
                                     >
                                       <MoreVertical className="h-[18px] w-[18px]" />
                                     </button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end" className="text-[13px] min-w-[140px]">
-                                    {!config.readOnly && <DropdownMenuItem onClick={() => openEdit(row)}>تعديل</DropdownMenuItem>}
-                                    {!config.readOnly && (
+                                    {/* A submitted request (ds 1) can neither be edited nor
+                                        DELETEd in Frappe — it has to be cancelled (below) first,
+                                        so both generic items only apply to drafts here. */}
+                                    {!config.readOnly && ds === 0 && <DropdownMenuItem onClick={() => openEdit(row)}>تعديل</DropdownMenuItem>}
+                                    {!config.readOnly && ds === 0 && (
                                       <DropdownMenuItem onClick={() => setDeleteTarget(row)} className="text-red-600 focus:text-red-600">حذف</DropdownMenuItem>
                                     )}
                                     {config.requestActions && (
                                       <>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={() => requestAction('approve', row)}>اعتماد</DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => requestAction('reject', row)}>رفض</DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => requestAction('cancel', row)} className="text-red-600 focus:text-red-600">إلغاء</DropdownMenuItem>
+                                        {ds === 0 && <DropdownMenuSeparator />}
+                                        {ds === 0 && <DropdownMenuItem onClick={() => requestAction('approve', row)}>اعتماد</DropdownMenuItem>}
+                                        {ds === 0 && <DropdownMenuItem onClick={() => requestAction('reject', row)}>رفض</DropdownMenuItem>}
+                                        {ds === 1 && (
+                                          <DropdownMenuItem onClick={() => requestAction('cancel', row)} className="text-red-600 focus:text-red-600">إلغاء</DropdownMenuItem>
+                                        )}
                                       </>
                                     )}
                                   </DropdownMenuContent>
@@ -689,6 +707,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
                 }}
               />
             )}
+            {f.hint && <p className="text-[11px] text-slate-400 mt-1 leading-[16px]">{f.hint}</p>}
           </div>
         ))}
       </ApexDialog>
@@ -725,7 +744,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
         onOpenChange={(o) => { if (!o) setDeleteTarget(null) }}
         title="تأكيد الحذف"
         description={deleteTarget ? `سيتم حذف السجل "${deleteTarget.name}" نهائياً.` : ''}
-        confirmLabel="حذف"
+        confirmLabel={deleting ? 'جاري الحذف…' : 'حذف'}
         cancelLabel="إلغاء"
         loading={deleting}
         onConfirm={confirmDelete}
@@ -735,7 +754,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
         onOpenChange={setBulkDelete}
         title="حذف السجلات المحددة"
         description={`سيتم حذف ${selected.size} سجل نهائياً.`}
-        confirmLabel="حذف"
+        confirmLabel={deleting ? 'جاري الحذف…' : 'حذف'}
         cancelLabel="رجوع"
         loading={deleting}
         variant="destructive"
