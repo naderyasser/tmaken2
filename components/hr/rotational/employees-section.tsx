@@ -15,6 +15,15 @@ import { EmployeeCombobox } from '@/components/hr/devices/employee-combobox'
 import type { UnmappedEmployee } from '@/components/hr/devices/types'
 import type { RotationalEmployeeRow } from './types'
 
+/** Local YYYY-MM-DD — never `new Date().toISOString().slice(0, 10)`, which
+ *  converts to UTC first and is off by a day near midnight in any timezone
+ *  ahead of UTC, e.g. Saudi Arabia (UTC+3): 00:00-02:59 local still reads
+ *  as "yesterday" (Opus review round 2, item 6). */
+function todayLocalIso(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 /**
  * «الموظفون» — employees assigned to one rotational shift group. Backed by
  * base_meena.api.hr_rotational_shifts.get_group_employees /
@@ -57,7 +66,7 @@ export function EmployeesSection({ groupId }: { groupId?: string }) {
   const openAdd = async () => {
     if (!groupId) return
     setPick('')
-    setFromDate(new Date().toISOString().slice(0, 10))
+    setFromDate(todayLocalIso())
     setAddOpen(true)
     setLoadingAvailable(true)
     try {
@@ -223,7 +232,7 @@ export function EmployeesSection({ groupId }: { groupId?: string }) {
               <Input
                 type="date"
                 value={fromDate}
-                min={new Date().toISOString().slice(0, 10)}
+                min={todayLocalIso()}
                 onChange={(e) => setFromDate(e.target.value)}
                 className="h-9 rounded border-slate-300"
               />
