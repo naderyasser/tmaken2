@@ -80,8 +80,9 @@ export function BlockTable({
                     <input
                       type="number"
                       min={0}
+                      step={1}
                       value={row.work_days}
-                      onChange={(e) => update(i, { work_days: e.target.value === '' ? '' : Number(e.target.value) })}
+                      onChange={(e) => update(i, { work_days: e.target.value === '' ? '' : Math.trunc(Number(e.target.value)) })}
                       placeholder="عدد أيام الدوام"
                       aria-label={`عدد أيام الدوام — فترة ${i + 1}`}
                       className={INPUT}
@@ -91,8 +92,9 @@ export function BlockTable({
                     <input
                       type="number"
                       min={0}
+                      step={1}
                       value={row.rest_days}
-                      onChange={(e) => update(i, { rest_days: e.target.value === '' ? '' : Number(e.target.value) })}
+                      onChange={(e) => update(i, { rest_days: e.target.value === '' ? '' : Math.trunc(Number(e.target.value)) })}
                       placeholder="عدد أيام العطلة"
                       aria-label={`عدد أيام العطلة — فترة ${i + 1}`}
                       className={INPUT}

@@ -217,7 +217,16 @@ export function EmployeesSection({ groupId }: { groupId?: string }) {
             </div>
             <div className="space-y-1.5">
               <span className="block text-[13px] text-slate-600">تاريخ الإسناد</span>
-              <Input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 rounded border-slate-300" />
+              {/* A past date is rejected server-side too (assign_employees) —
+                  rotational-gap.md item 4: a rotation's coverage is always
+                  future(-or-today), never re-materialised into history. */}
+              <Input
+                type="date"
+                value={fromDate}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="h-9 rounded border-slate-300"
+              />
             </div>
           </div>
           <DialogFooter className="gap-2">

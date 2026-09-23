@@ -36,6 +36,21 @@ export function RotationalShiftEditorPage({ groupId }: { groupId?: string }) {
       .catch(() => setShiftTypes([]))
   }, [])
 
+  // Clear a block's shift_type once the current shift list confirms it no
+  // longer exists (e.g. deleted/renamed since this group was last saved) —
+  // rotational-gap.md item 7. Only runs once shiftTypes has actually
+  // loaded (non-empty), so it never wipes a value during the brief window
+  // before that fetch resolves.
+  useEffect(() => {
+    if (shiftTypes.length === 0) return
+    setF((p) => {
+      const cleaned = p.blocks.map((b) => (
+        b.shift_type && !shiftTypes.includes(b.shift_type) ? { ...b, shift_type: '' } : b
+      ))
+      return cleaned.some((b, i) => b !== p.blocks[i]) ? { ...p, blocks: cleaned } : p
+    })
+  }, [shiftTypes])
+
   const load = useCallback(async () => {
     if (!groupId) {
       // Defensive reset — belt-and-braces against the editor ever showing a
