@@ -12,7 +12,9 @@ import { useToast } from '@/hooks/use-toast'
  * plain «تصدير» button for every other report; keep this in sync with
  * hr_print.py's TEMPLATES dict as reports are added.
  */
-export const SERVER_PRINTABLE_REPORTS = ['detailed'] as const
+export const SERVER_PRINTABLE_REPORTS = [
+  'detailed', 'total', 'delays', 'late-early', 'daystatus', 'incomplete', 'by-branch', 'absences',
+] as const
 
 /** base64 (as returned by base_meena.api.hr_print.report_pdf) -> a same-origin Blob URL. */
 function base64ToBlobUrl(base64: string, type = 'application/pdf'): string {
