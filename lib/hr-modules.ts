@@ -308,17 +308,16 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     print: false,
     rowMenu: 'master',
     linkField: 'name',
-    // Apex `GetMasterShift` columns: اسم الدوام · نوع الدوام · وقت إنتهاء
-    // الدوام. Full-page editor (B2) instead of the generic dialog — الحقول
-    // custom_shift_kind/custom_day_end_time show «—» via cellValue's default
-    // fallback until a shift actually sets them.
+    // Apex `GetMasterShift` columns: اسم الدوام · نوع الدوام · الاجراءات (no
+    // end-time column — see the shifts-apex-rework batch, ShiftListPage is
+    // the actual renderer here; this config is kept only as a schema
+    // reference, not itself wired into a GenericListPage route).
     addHref: '/shift-management/new',
     editHref: (name) => `/shift-management/${encodeURIComponent(name)}`,
     deleteMethod: 'base_meena.api.hr_shifts.delete_shift',
     fields: [
       { field: 'name', label: 'اسم الدوام', required: true },
       { field: 'custom_shift_kind', label: 'نوع الدوام', inForm: false },
-      { field: 'custom_day_end_time', label: 'وقت إنتهاء الدوام', type: 'time', inForm: false },
     ],
   },
 

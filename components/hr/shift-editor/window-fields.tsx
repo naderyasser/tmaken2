@@ -1,73 +1,84 @@
 'use client'
 
 import { Checkbox } from '@/components/ui/checkbox'
+import { DurationInput, TimeInput24 } from '@/components/hr/apex/time-input'
 import type { DayWindow } from './types'
 
-const TIME_INPUT = 'h-9 w-full rounded border border-[var(--apex-border)] bg-white px-1.5 text-[12.5px] text-slate-800 outline-none focus:border-[var(--apex-blue)] disabled:bg-slate-100 disabled:text-slate-400'
-const NUM_INPUT = TIME_INPUT
+const TD = 'border border-[#0056b3] px-2 py-2 text-center align-middle'
 
 /**
- * One «وردية» row inside the Apex day dialog (G10) table — `<tr>` only, the
- * parent renders `<table>`/`<thead>`. Rows 2-4 carry a leading checkbox that
- * enables/disables the row (row 1 is always enabled — `onToggleEnabled`
- * omitted). Column set/order matches Apex's own field labels for the 6
- * `Shift Day Window` columns this schema actually has — see the note in
- * ./types.ts on why «حضور»/«إنصراف» aren't rendered as separate inputs.
+ * One «وردية» row inside the Apex day dialog's 11-column table — `<tr>`
+ * only, the parent renders `<table>`/`<thead>`. Row 1 is always enabled (no
+ * leading checkbox — `onToggleEnabled` omitted); rows 2-4 carry one that
+ * enables/disables the row, gated by the previous row (day-dialog.tsx owns
+ * that D7 gating, this component only renders what it's told).
  */
 export function WindowFields({
-  ordinal, value: w, enabled, onToggleEnabled, onChange, disabled,
+  ordinal, value: w, enabled, canEnable, isLastEnabled, onToggleEnabled, onChange, disabled,
 }: {
   ordinal: string
   value: DayWindow
   enabled: boolean
+  /** Only meaningful when `onToggleEnabled` is set: may this row be turned ON? */
+  canEnable?: boolean
+  /** May THIS row's «شفت ممتد» be ticked (it's the last enabled row)? */
+  isLastEnabled: boolean
   onToggleEnabled?: (next: boolean) => void
   onChange: (patch: Partial<DayWindow>) => void
   disabled?: boolean
 }) {
-  const rowDisabled = disabled || !enabled
-  const num = (v: string) => (v === '' ? '' : Number(v))
+  const rowDisabled = !!disabled || !enabled
+  const toggleDisabled = !!disabled || (!enabled && !canEnable)
 
   return (
-    <tr className={rowDisabled && !disabled ? 'opacity-60' : undefined}>
-      <td className="px-2 py-1.5 text-center border-b border-slate-100">
+    <tr className="hover:bg-[#f5f5f5]">
+      <td className={TD} style={{ width: '2%' }}>
         {onToggleEnabled ? (
           <Checkbox
             checked={enabled}
-            disabled={disabled}
+            disabled={toggleDisabled}
             onCheckedChange={(v) => onToggleEnabled(!!v)}
             aria-label={`تفعيل ${ordinal}`}
           />
         ) : null}
       </td>
-      <td className="px-2 py-1.5 text-[13px] font-bold text-slate-700 whitespace-nowrap border-b border-slate-100">{ordinal}</td>
-      <td className="px-2 py-1.5 border-b border-slate-100">
-        <input type="time" value={w.start_in} disabled={rowDisabled}
-          onChange={(e) => onChange({ start_in: e.target.value })} className={TIME_INPUT} />
+      <td className={`${TD} font-bold whitespace-nowrap`} style={{ width: '7%' }}>{ordinal}</td>
+      <td className={TD}>
+        <TimeInput24 value={w.start_in} disabled={rowDisabled} ariaLabel={`بداية الحضور ${ordinal}`}
+          onChange={(v) => onChange({ start_in: v })} />
       </td>
-      <td className="px-2 py-1.5 border-b border-slate-100">
-        <input type="number" min={0} value={w.late_allowance_min} disabled={rowDisabled}
-          onChange={(e) => onChange({ late_allowance_min: num(e.target.value) })} className={NUM_INPUT} />
+      <td className={TD}>
+        <TimeInput24 value={w.check_in} disabled={rowDisabled} ariaLabel={`حضور ${ordinal}`}
+          onChange={(v) => onChange({ check_in: v })} />
       </td>
-      <td className="px-2 py-1.5 border-b border-slate-100">
-        <input type="time" value={w.end_in} disabled={rowDisabled}
-          onChange={(e) => onChange({ end_in: e.target.value })} className={TIME_INPUT} />
+      <td className={TD}>
+        <DurationInput value={w.late_allowance_min} disabled={rowDisabled} ariaLabel={`التأخير المسموح ${ordinal}`}
+          onChange={(v) => onChange({ late_allowance_min: v })} />
       </td>
-      <td className="px-2 py-1.5 border-b border-slate-100">
-        <input type="time" value={w.start_out} disabled={rowDisabled}
-          onChange={(e) => onChange({ start_out: e.target.value })} className={TIME_INPUT} />
+      <td className={TD}>
+        <TimeInput24 value={w.end_in} disabled={rowDisabled} ariaLabel={`نهاية الحضور ${ordinal}`}
+          onChange={(v) => onChange({ end_in: v })} />
       </td>
-      <td className="px-2 py-1.5 border-b border-slate-100">
-        <input type="number" min={0} value={w.early_out_min} disabled={rowDisabled}
-          onChange={(e) => onChange({ early_out_min: num(e.target.value) })} className={NUM_INPUT} />
+      <td className={TD}>
+        <TimeInput24 value={w.start_out} disabled={rowDisabled} ariaLabel={`بداية الانصراف ${ordinal}`}
+          onChange={(v) => onChange({ start_out: v })} />
       </td>
-      <td className="px-2 py-1.5 border-b border-slate-100">
-        <input type="time" value={w.end_out} disabled={rowDisabled}
-          onChange={(e) => onChange({ end_out: e.target.value })} className={TIME_INPUT} />
+      <td className={TD}>
+        <DurationInput value={w.early_out_min} disabled={rowDisabled} ariaLabel={`الانصراف المبكر ${ordinal}`}
+          onChange={(v) => onChange({ early_out_min: v })} />
       </td>
-      <td className="px-2 py-1.5 text-center border-b border-slate-100">
+      <td className={TD}>
+        <TimeInput24 value={w.check_out} disabled={rowDisabled} ariaLabel={`إنصراف ${ordinal}`}
+          onChange={(v) => onChange({ check_out: v })} />
+      </td>
+      <td className={TD}>
+        <TimeInput24 value={w.end_out} disabled={rowDisabled} ariaLabel={`نهاية الانصراف ${ordinal}`}
+          onChange={(v) => onChange({ end_out: v })} />
+      </td>
+      <td className={TD}>
         <Checkbox
           checked={w.extended}
-          disabled={rowDisabled}
+          disabled={rowDisabled || !isLastEnabled}
           onCheckedChange={(v) => onChange({ extended: !!v })}
           aria-label={`${ordinal} شفت ممتد`}
         />

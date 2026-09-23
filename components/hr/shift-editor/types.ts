@@ -1,20 +1,10 @@
 /** Shared shapes for the Apex-style shift list + editor
  *  (components/hr/shift-list-page.tsx, components/hr/shift-editor-page.tsx +
- *  the parts under this folder). Mirrors base_meena.api.hr_shifts / the
- *  `Shift Day Window` child doctype field for field.
- *
- *  Column-mapping note (day dialog / G10): the live Apex reference shows 8
- *  time-ish columns per وردية row (بداية الحضور · حضور · التأخير المسموح ·
- *  نهاية الحضور · بداية الانصراف · الانصراف المبكر · إنصراف · نهاية الانصراف).
- *  The migrated `Shift Day Window` schema only carries 6 of those as real
- *  fields — start_in/end_in/start_out/end_out (whose Arabic names, per
- *  hr_shifts._validate_windows' own message text, ARE «بداية الحضور» /
- *  «نهاية الحضور» / «بداية الانصراف» / «نهاية الانصراف») plus the two grace
- *  minutes. «حضور»/«إنصراف» have no backing column in this batch's schema
- *  (no migration was made — see the batch brief), so this editor renders
- *  the 6 fields that ARE real, under Apex's own labels for them, and drops
- *  the two that aren't backed by storage rather than fabricate inputs that
- *  would silently discard whatever the user types into them. */
+ *  the parts under this folder). Mirrors base_meena.api.hr_shifts.get_shift's
+ *  response — one unified row shape for both شفت kinds: a Normal day carries
+ *  the eight وردية times + grace + extended; an Open day is exactly one row
+ *  (window_no 1) carrying required_minutes / extends_next_day / day_end_time
+ *  instead. See ./rules.ts for the validation this shape feeds. */
 
 export type ShiftKind = 'Open' | 'Normal' | 'Rotational'
 export type CalendarType = 'Year' | 'Ramadan'
@@ -23,13 +13,20 @@ export interface DayWindow {
   calendar_type: CalendarType
   day: string
   window_no: number
+  // Normal-only — the 8 times + grace + extension of one وردية.
   start_in: string
+  check_in: string
   late_allowance_min: number | ''
   end_in: string
   start_out: string
   early_out_min: number | ''
+  check_out: string
   end_out: string
   extended: boolean
+  // Open-only — one row per working day.
+  required_minutes: number | ''
+  extends_next_day: boolean
+  day_end_time: string
 }
 
 /** Full base_meena.api.hr_shifts.get_shift response shape. */
@@ -38,12 +35,11 @@ export interface ShiftData {
   arabic_name: string
   latin_name: string
   kind: ShiftKind
-  open_hours: number | string | null
   windows: DayWindow[]
 }
 
 export const EMPTY_SHIFT_DATA: ShiftData = {
-  name: null, arabic_name: '', latin_name: '', kind: 'Normal', open_hours: null, windows: [],
+  name: null, arabic_name: '', latin_name: '', kind: 'Normal', windows: [],
 }
 
 /** «نوع الدوام» radio (Apex G9) — دوام عادي / دوام مفتوح / ورديات متغيرة. */
@@ -73,12 +69,14 @@ export const MAX_WINDOWS = 4
 
 export const emptyWindow = (calendar_type: CalendarType, day: string, window_no: number): DayWindow => ({
   calendar_type, day, window_no,
-  start_in: '', late_allowance_min: '', end_in: '',
-  start_out: '', early_out_min: '', end_out: '',
+  start_in: '', check_in: '', late_allowance_min: '', end_in: '',
+  start_out: '', early_out_min: '', check_out: '', end_out: '',
   extended: false,
+  required_minutes: '', extends_next_day: false, day_end_time: '',
 })
 
-/** This day's windows (already filtered to one calendar_type), sorted by window_no. */
+/** This day's rows (already filtered to one calendar_type), sorted by
+ *  window_no — 0..4 rows for Normal, 0..1 for Open. */
 export function windowsForDay(windows: DayWindow[], calendarType: CalendarType, day: string): DayWindow[] {
   return windows
     .filter((w) => w.calendar_type === calendarType && w.day === day)
@@ -87,27 +85,24 @@ export function windowsForDay(windows: DayWindow[], calendarType: CalendarType, 
 
 function toMinutes(t: string): number | null {
   if (!t) return null
-  const m = /^(\d{1,2}):(\d{2})/.exec(t)
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t)
   if (!m) return null
   return Number(m[1]) * 60 + Number(m[2])
 }
 
-/** Total worked minutes for one day's windows — sum of (end_out − start_in)
- *  per window (matches the Apex reference's «إجمالي الساعات», e.g. a single
- *  09:00→17:00 window shows 08:00). */
+/** Total worked minutes for one Normal day — sum of (check_out − check_in)
+ *  per وردية (the OFFICIAL times, not the device-open start_in/end_out —
+ *  see the API CONTRACT's D1/business-rules note). An extended وردية whose
+ *  check_out clock time is at/before its check_in wraps past midnight
+ *  (+24h) before subtracting, matching the Apex reference's «إجمالي الساعات». */
 export function dayTotalMinutes(dayWindows: DayWindow[]): number {
   let total = 0
   for (const w of dayWindows) {
-    const start = toMinutes(w.start_in)
-    const end = toMinutes(w.end_out)
-    if (start !== null && end !== null && end > start) total += end - start
+    const start = toMinutes(w.check_in)
+    let end = toMinutes(w.check_out)
+    if (start === null || end === null) continue
+    if (w.extended && end <= start) end += 24 * 60
+    if (end > start) total += end - start
   }
   return total
-}
-
-/** Minutes → 'HH:MM', Latin digits, e.g. 480 → '08:00'. */
-export function fmtHoursMinutes(totalMinutes: number): string {
-  const h = Math.floor(totalMinutes / 60)
-  const m = totalMinutes % 60
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }

@@ -38,18 +38,22 @@ export function ShiftEditorPage({ shiftId }: { shiftId: string }) {
         arabic_name: data.arabic_name || '',
         latin_name: data.latin_name || '',
         kind: data.kind || 'Normal',
-        open_hours: data.open_hours ?? null,
         windows: (data.windows || []).map((w: any): DayWindow => ({
           calendar_type: w.calendar_type || 'Year',
           day: w.day,
           window_no: Number(w.window_no) || 1,
           start_in: fmtTime(w.start_in),
+          check_in: fmtTime(w.check_in),
           late_allowance_min: w.late_allowance_min ?? '',
           end_in: fmtTime(w.end_in),
           start_out: fmtTime(w.start_out),
           early_out_min: w.early_out_min ?? '',
+          check_out: fmtTime(w.check_out),
           end_out: fmtTime(w.end_out),
           extended: !!w.extended,
+          required_minutes: w.required_minutes ?? '',
+          extends_next_day: !!w.extends_next_day,
+          day_end_time: fmtTime(w.day_end_time),
         })),
       })
     } catch (e: any) {
@@ -63,33 +67,37 @@ export function ShiftEditorPage({ shiftId }: { shiftId: string }) {
   const toApiWindows = (windows: DayWindow[]) => windows.map((w) => ({
     window_no: w.window_no,
     start_in: w.start_in || null,
+    check_in: w.check_in || null,
     late_allowance_min: Number(w.late_allowance_min || 0),
     end_in: w.end_in || null,
     start_out: w.start_out || null,
     early_out_min: Number(w.early_out_min || 0),
+    check_out: w.check_out || null,
     end_out: w.end_out || null,
-    extended: w.extended ? 1 : 0,
+    extended: !!w.extended,
   }))
+
+  // save_day itself — shared by "تعديل" and the first half of "تطبيق علي كل
+  // الايام". Deliberately doesn't catch: DayDialog's own handler awaits this
+  // and routes a rejection's `.message` into its in-dialog alert instead of
+  // a toast (backend validation errors must land there, not as a toast).
+  const callSaveDay = (payload: DaySavePayload) => frappeClient.call('base_meena.api.hr_shifts.save_day', {
+    name: shiftId,
+    calendar_type: tab,
+    day: editingDay,
+    weekly_off: payload.weeklyOff ? 1 : 0,
+    windows: shift.kind === 'Normal' && !payload.weeklyOff ? toApiWindows(payload.windows) : undefined,
+    open_day: shift.kind === 'Open' && !payload.weeklyOff ? payload.openDay : undefined,
+  })
 
   const saveDay = async (payload: DaySavePayload) => {
     if (!editingDay) return
     setSaving(true)
     try {
-      await frappeClient.call('base_meena.api.hr_shifts.save_day', {
-        name: shiftId,
-        calendar_type: tab,
-        day: editingDay,
-        weekly_off: payload.weeklyOff ? 1 : 0,
-        windows: toApiWindows(payload.windows),
-        open_hours: shift.kind === 'Open' ? payload.openHours : undefined,
-      })
+      await callSaveDay(payload)
       toast({ title: 'تم الحفظ' })
       setEditingDay(null)
       await load()
-    } catch (e: any) {
-      // e?.message carries the backend's Arabic validation text verbatim
-      // (see base_meena.api.hr_shifts._validate_windows).
-      toast({ title: 'فشل الحفظ', description: e?.message, variant: 'destructive' })
     } finally {
       setSaving(false)
     }
@@ -99,22 +107,13 @@ export function ShiftEditorPage({ shiftId }: { shiftId: string }) {
     if (!editingDay) return
     setSaving(true)
     try {
-      await frappeClient.call('base_meena.api.hr_shifts.save_day', {
-        name: shiftId,
-        calendar_type: tab,
-        day: editingDay,
-        weekly_off: payload.weeklyOff ? 1 : 0,
-        windows: toApiWindows(payload.windows),
-        open_hours: shift.kind === 'Open' ? payload.openHours : undefined,
-      })
+      await callSaveDay(payload)
       await frappeClient.call('base_meena.api.hr_shifts.apply_day_to_all', {
         name: shiftId, calendar_type: tab, day: editingDay,
       })
       toast({ title: 'تم التطبيق على كل الأيام' })
       setEditingDay(null)
       await load()
-    } catch (e: any) {
-      toast({ title: 'فشل الحفظ', description: e?.message, variant: 'destructive' })
     } finally {
       setSaving(false)
     }
@@ -152,30 +151,27 @@ export function ShiftEditorPage({ shiftId }: { shiftId: string }) {
         </div>
       ) : (
         <>
-          {shift.kind === 'Normal' && (
-            <div className="flex items-center justify-center border-b border-slate-200 mb-4">
-              {(['Year', 'Ramadan'] as CalendarType[]).map((ct) => (
-                <button
-                  key={ct}
-                  type="button"
-                  onClick={() => setTab(ct)}
-                  className={cn(
-                    'relative px-6 h-[46px] text-[15px] font-bold transition-colors',
-                    tab === ct ? 'text-[var(--apex-green)]' : 'text-slate-500 hover:text-slate-700',
-                  )}
-                >
-                  {ct === 'Year' ? 'أيام السنة' : 'أيام رمضان'}
-                  {tab === ct && <span className="absolute bottom-0 right-0 left-0 h-[2px] bg-[var(--apex-green)]" />}
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="flex items-center justify-center border-b border-slate-200 mb-4">
+            {(['Year', 'Ramadan'] as CalendarType[]).map((ct) => (
+              <button
+                key={ct}
+                type="button"
+                onClick={() => setTab(ct)}
+                className={cn(
+                  'relative px-6 h-[46px] text-[15px] font-bold transition-colors',
+                  tab === ct ? 'text-[var(--apex-green)]' : 'text-slate-500 hover:text-slate-700',
+                )}
+              >
+                {ct === 'Year' ? 'أيام السنة' : 'أيام رمضان'}
+                {tab === ct && <span className="absolute bottom-0 right-0 left-0 h-[2px] bg-[var(--apex-green)]" />}
+              </button>
+            ))}
+          </div>
 
           <DayTable
             kind={shift.kind}
             calendarType={tab}
             windows={shift.windows}
-            openHours={shift.open_hours}
             onEditDay={(day) => setEditingDay(day)}
           />
 
@@ -183,9 +179,10 @@ export function ShiftEditorPage({ shiftId }: { shiftId: string }) {
             open={!!editingDay}
             onOpenChange={(o) => { if (!o) setEditingDay(null) }}
             kind={shift.kind}
+            calendarType={tab}
+            day={editingDay || ''}
             dayLabel={dayLabel}
             initialWindows={editingDay ? windowsForDay(shift.windows, tab, editingDay) : []}
-            initialOpenHours={shift.open_hours}
             saving={saving}
             onSaveDay={saveDay}
             onApplyToAll={applyToAll}
