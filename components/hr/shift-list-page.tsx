@@ -252,7 +252,8 @@ export function ShiftListPage() {
                         <button
                           type="button"
                           onClick={() => router.push(`/shift-management/${encodeURIComponent(row.name)}`)}
-                          className="text-[var(--apex-link)] hover:underline"
+                          className="hover:underline"
+                          style={{ color: 'rgb(0, 123, 255)', fontSize: '14px', fontWeight: 400 }}
                         >
                           {row.name}
                         </button>
