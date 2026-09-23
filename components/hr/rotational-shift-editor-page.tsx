@@ -6,7 +6,7 @@ import { Check, Loader2, X } from 'lucide-react'
 import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { fmtDate } from '@/lib/hr-format'
-import { IntervalTable } from '@/components/hr/rotational/interval-table'
+import { BlockTable } from '@/components/hr/rotational/block-table'
 import { EmployeesSection } from '@/components/hr/rotational/employees-section'
 import { EMPTY_ROTATIONAL_FORM, type RotationalGroupForm } from '@/components/hr/rotational/types'
 
@@ -37,7 +37,17 @@ export function RotationalShiftEditorPage({ groupId }: { groupId?: string }) {
   }, [])
 
   const load = useCallback(async () => {
-    if (!groupId) return
+    if (!groupId) {
+      // Defensive reset — belt-and-braces against the editor ever showing a
+      // previously-opened group's blocks (see rotational-gap.md's stale-data
+      // bug 3c). `/new` and `/[id]` are separate route files so React
+      // normally remounts this component fresh on navigation, but this
+      // keeps «إضافة مجموعة دوام» correct even if that ever changes.
+      setF(EMPTY_ROTATIONAL_FORM)
+      setSavedId(undefined)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     try {
       const res: any = await frappeClient.call('base_meena.api.hr_rotational_shifts.get_group', { name: groupId })
@@ -47,11 +57,11 @@ export function RotationalShiftEditorPage({ groupId }: { groupId?: string }) {
         group_name: data.group_name || '',
         start_date: data.start_date ? String(data.start_date).slice(0, 10) : '',
         cycle_days: data.cycle_days === '' || data.cycle_days == null ? '' : Number(data.cycle_days),
-        intervals: (data.intervals || []).map((iv: any) => ({
-          day_from: iv.day_from ?? '',
-          day_to: iv.day_to ?? '',
-          shift_type: iv.shift_type || '',
-          is_off: !!iv.is_off,
+        days_off: data.days_off === '' || data.days_off == null ? '' : Number(data.days_off),
+        blocks: (data.blocks || []).map((b: any) => ({
+          shift_type: b.shift_type || '',
+          work_days: b.work_days === '' || b.work_days == null ? '' : Number(b.work_days),
+          rest_days: b.rest_days === '' || b.rest_days == null ? '' : Number(b.rest_days),
         })),
       })
       setSavedId(data.name || groupId)
@@ -63,28 +73,29 @@ export function RotationalShiftEditorPage({ groupId }: { groupId?: string }) {
   }, [groupId, toast])
   useEffect(() => { load() }, [load])
 
-  /** Live «عدد أيام العطلة» preview — the authoritative value is
-   *  recomputed server-side on save from the same intervals. */
-  const daysOffPreview = useMemo(
-    () => f.intervals.reduce((sum, r) => {
-      if (!r.is_off || r.day_from === '' || r.day_to === '') return sum
-      const span = Number(r.day_to) - Number(r.day_from) + 1
-      return span > 0 ? sum + span : sum
-    }, 0),
-    [f.intervals],
-  )
+  /** Live «عدد أيام الدوام» / «عدد أيام العطلة» preview from the block list
+   *  being edited — both header fields are read-only, server-computed sums
+   *  (base_meena.api.hr_rotational_shifts.blocks_to_intervals is the
+   *  authority on save); this just keeps the boxes in sync while typing,
+   *  like Apex's own live totals. */
+  const totals = useMemo(() => {
+    let cycleDays = 0, daysOff = 0
+    for (const b of f.blocks) {
+      const work = b.work_days === '' ? 0 : Number(b.work_days)
+      const rest = b.rest_days === '' ? 0 : Number(b.rest_days)
+      cycleDays += work + rest
+      daysOff += rest
+    }
+    return { cycleDays, daysOff }
+  }, [f.blocks])
 
   const save = async () => {
     if (!f.group_name.trim()) {
       toast({ title: 'حقول مطلوبة', description: 'إسم مجموعة الدوام مطلوب', variant: 'destructive' })
       return
     }
-    if (!f.cycle_days || Number(f.cycle_days) < 1) {
-      toast({ title: 'حقول مطلوبة', description: 'عدد أيام الدوام مطلوب', variant: 'destructive' })
-      return
-    }
-    if (f.intervals.length === 0) {
-      toast({ title: 'حقول مطلوبة', description: 'يجب تغطية كل أيام الدورة', variant: 'destructive' })
+    if (f.blocks.length === 0) {
+      toast({ title: 'حقول مطلوبة', description: 'يجب إضافة فترة واحدة على الأقل', variant: 'destructive' })
       return
     }
     setSaving(true)
@@ -93,12 +104,10 @@ export function RotationalShiftEditorPage({ groupId }: { groupId?: string }) {
         name: f.name,
         group_name: f.group_name.trim(),
         start_date: f.start_date || undefined,
-        cycle_days: Number(f.cycle_days),
-        intervals: f.intervals.map((r) => ({
-          day_from: Number(r.day_from || 0),
-          day_to: Number(r.day_to || 0),
-          shift_type: r.is_off ? '' : r.shift_type,
-          is_off: r.is_off ? 1 : 0,
+        blocks: f.blocks.map((b) => ({
+          shift_type: b.shift_type,
+          work_days: Number(b.work_days || 0),
+          rest_days: Number(b.rest_days || 0),
         })),
       })
       const newName = res?.message?.name
@@ -112,7 +121,7 @@ export function RotationalShiftEditorPage({ groupId }: { groupId?: string }) {
       }
     } catch (e: any) {
       // e?.message carries the backend's Arabic validation text verbatim
-      // (see base_meena.api.hr_rotational_shifts._validate_intervals).
+      // (see base_meena.api.hr_rotational_shifts._validate_blocks).
       toast({ title: 'فشل الحفظ', description: e?.message, variant: 'destructive' })
     } finally {
       setSaving(false)
@@ -165,29 +174,23 @@ export function RotationalShiftEditorPage({ groupId }: { groupId?: string }) {
               />
             </div>
             <div>
-              <span className="block text-[13px] text-slate-700 mb-1">عدد أيام الدوام<span className="text-red-500"> *</span></span>
-              <input
-                type="number"
-                min={1}
-                value={f.cycle_days}
-                onChange={(e) => setF((p) => ({ ...p, cycle_days: e.target.value === '' ? '' : Number(e.target.value) }))}
-                placeholder="عدد أيام الدوام"
-                aria-label="عدد أيام الدوام"
-                className={FIELD}
-              />
+              <span className="block text-[13px] text-slate-700 mb-1">عدد أيام الدوام</span>
+              <div className={`${FIELD} flex items-center bg-slate-50 text-slate-500`} aria-label="عدد أيام الدوام (محسوبة تلقائياً من فترات الدورة)">
+                {totals.cycleDays}
+              </div>
             </div>
             <div>
               <span className="block text-[13px] text-slate-700 mb-1">عدد أيام العطلة</span>
-              <div className={`${FIELD} flex items-center bg-slate-50 text-slate-500`} aria-label="عدد أيام العطلة (محسوبة تلقائياً)">
-                {daysOffPreview}
+              <div className={`${FIELD} flex items-center bg-slate-50 text-slate-500`} aria-label="عدد أيام العطلة (محسوبة تلقائياً من فترات الدورة)">
+                {totals.daysOff}
               </div>
             </div>
           </div>
 
-          <IntervalTable
-            intervals={f.intervals}
+          <BlockTable
+            blocks={f.blocks}
             shiftTypes={shiftTypes}
-            onChange={(next) => setF((p) => ({ ...p, intervals: next }))}
+            onChange={(next) => setF((p) => ({ ...p, blocks: next }))}
           />
 
           <EmployeesSection groupId={savedId} />
