@@ -26,7 +26,17 @@ export function DayTable({
   const td = 'px-3 py-1.5 text-[13px] text-center whitespace-nowrap border-b border-slate-100'
   const thNeutral = `${th} text-[var(--apex-text)]`
   const tdNeutral = `${td} text-[var(--apex-text)]`
-  const statusStyle = (isWorkDay: boolean) => ({ color: isWorkDay ? 'var(--apex-green)' : 'var(--apex-red)' })
+  // Apex-measured (getComputedStyle) values below are applied INLINE because
+  // globals.css's `.theme-hr .apex-table th/td` rule (font-size:14px,
+  // color:var(--apex-text)) outranks any Tailwind utility class here.
+  const headerCellStyle = { fontSize: '16px', fontWeight: 700, color: 'rgb(0,0,0)' }
+  const attendanceHeaderStyle = { fontSize: '16px', fontWeight: 700, color: 'rgb(0,128,0)' }
+  const departureHeaderStyle = { fontSize: '16px', fontWeight: 700, color: 'rgb(255,0,0)' }
+  const subHeaderRowStyle = { backgroundColor: 'rgb(220,220,220)' }
+  const bodyRowStyle = { height: '61.5px' }
+  const dayNameStyle = { color: 'rgb(41,96,182)' }
+  const blackValueStyle = { color: 'rgb(0,0,0)' }
+  const statusStyle = (isWorkDay: boolean) => ({ color: isWorkDay ? 'rgb(0,128,0)' : 'rgb(255,0,0)', fontWeight: 400 })
 
   if (kind === 'Open') {
     return (
@@ -34,10 +44,10 @@ export function DayTable({
         <table className="apex-table w-full border-collapse">
           <thead>
             <tr className="bg-[var(--apex-thead)]">
-              <th className={thNeutral}>اليوم</th>
-              <th className={thNeutral}>ساعات العمل</th>
-              <th className={thNeutral}>حالة اليوم</th>
-              <th className={thNeutral}>اجراءات</th>
+              <th className={thNeutral} style={headerCellStyle}>اليوم</th>
+              <th className={thNeutral} style={headerCellStyle}>ساعات العمل</th>
+              <th className={thNeutral} style={headerCellStyle}>حالة اليوم</th>
+              <th className={thNeutral} style={headerCellStyle}>اجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -48,10 +58,10 @@ export function DayTable({
                 ? minutesToHHMM(Number(row.required_minutes))
                 : '_'
               return (
-                <tr key={d.value}>
-                  <td className={td} style={{ color: '#0056b3' }}>{d.label}</td>
-                  <td className={tdNeutral}>{hours}</td>
-                  <td className={`${td} font-bold`} style={statusStyle(isWorkDay)}>{isWorkDay ? 'عمل' : 'عطله'}</td>
+                <tr key={d.value} style={bodyRowStyle}>
+                  <td className={td} style={dayNameStyle}>{d.label}</td>
+                  <td className={tdNeutral} style={blackValueStyle}>{hours}</td>
+                  <td className={td} style={statusStyle(isWorkDay)}>{isWorkDay ? 'عمل' : 'عطله'}</td>
                   <td className={tdNeutral}>
                     <button type="button" onClick={() => onEditDay(d.value)} aria-label={`تعديل ${d.label}`} className="text-[var(--apex-link)] hover:opacity-70">
                       <Pencil className="h-4 w-4 mx-auto" />
@@ -71,20 +81,20 @@ export function DayTable({
       <table className="apex-table w-full border-collapse">
         <thead>
           <tr className="bg-[var(--apex-thead)]">
-            <th className={thNeutral} rowSpan={2}>اليوم</th>
-            <th className={thNeutral} colSpan={2}>الوردية الاولي</th>
-            <th className={thNeutral} colSpan={2}>الوردية الثانية</th>
-            <th className={thNeutral} colSpan={2}>الوردية الثالثة</th>
-            <th className={thNeutral} colSpan={2}>الوردية الرابعة</th>
-            <th className={thNeutral} rowSpan={2}>إجمالي الساعات</th>
-            <th className={thNeutral} rowSpan={2}>حالة اليوم</th>
-            <th className={thNeutral} rowSpan={2}>اجراءات</th>
+            <th className={thNeutral} style={headerCellStyle} rowSpan={2}>اليوم</th>
+            <th className={thNeutral} style={headerCellStyle} colSpan={2}>الوردية الاولي</th>
+            <th className={thNeutral} style={headerCellStyle} colSpan={2}>الوردية الثانية</th>
+            <th className={thNeutral} style={headerCellStyle} colSpan={2}>الوردية الثالثة</th>
+            <th className={thNeutral} style={headerCellStyle} colSpan={2}>الوردية الرابعة</th>
+            <th className={thNeutral} style={headerCellStyle} rowSpan={2}>إجمالي الساعات</th>
+            <th className={thNeutral} style={headerCellStyle} rowSpan={2}>حالة اليوم</th>
+            <th className={thNeutral} style={headerCellStyle} rowSpan={2}>اجراءات</th>
           </tr>
-          <tr className="bg-[var(--apex-thead)]">
+          <tr style={subHeaderRowStyle}>
             {[0, 1, 2, 3].map((i) => (
               <Fragment key={i}>
-                <th className={th} style={{ color: 'var(--apex-green)' }}>حضور</th>
-                <th className={th} style={{ color: 'var(--apex-red)' }}>إنصراف</th>
+                <th className={th} style={attendanceHeaderStyle}>حضور</th>
+                <th className={th} style={departureHeaderStyle}>إنصراف</th>
               </Fragment>
             ))}
           </tr>
@@ -95,19 +105,19 @@ export function DayTable({
             const totalMinutes = dayTotalMinutes(dayWindows)
             const isWorkDay = dayWindows.length > 0
             return (
-              <tr key={d.value}>
-                <td className={td} style={{ color: '#0056b3' }}>{d.label}</td>
+              <tr key={d.value} style={bodyRowStyle}>
+                <td className={td} style={dayNameStyle}>{d.label}</td>
                 {[0, 1, 2, 3].map((i) => {
                   const w = dayWindows[i]
                   return (
                     <Fragment key={i}>
-                      <td className={tdNeutral}>{w?.check_in || '_'}</td>
-                      <td className={tdNeutral}>{w?.check_out || '_'}</td>
+                      <td className={tdNeutral} style={blackValueStyle}>{w?.check_in || '_'}</td>
+                      <td className={tdNeutral} style={blackValueStyle}>{w?.check_out || '_'}</td>
                     </Fragment>
                   )
                 })}
-                <td className={tdNeutral}>{isWorkDay ? minutesToHHMM(totalMinutes) : '_'}</td>
-                <td className={`${td} font-bold`} style={statusStyle(isWorkDay)}>{isWorkDay ? 'عمل' : 'عطله'}</td>
+                <td className={tdNeutral} style={blackValueStyle}>{isWorkDay ? minutesToHHMM(totalMinutes) : '_'}</td>
+                <td className={td} style={statusStyle(isWorkDay)}>{isWorkDay ? 'عمل' : 'عطله'}</td>
                 <td className={tdNeutral}>
                   <button type="button" onClick={() => onEditDay(d.value)} aria-label={`تعديل ${d.label}`} className="text-[var(--apex-link)] hover:opacity-70">
                     <Pencil className="h-4 w-4 mx-auto" />

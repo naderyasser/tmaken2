@@ -20,11 +20,17 @@ import { ApexPagination } from '@/components/hr/apex/pagination'
 import { ApexDialog } from '@/components/hr/apex/dialog'
 import { ApexEmptyState } from '@/components/hr/apex-empty-state'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { RowMenu } from '@/components/hr/apex/row-menu'
+import { ViewRecordDialog } from '@/components/hr/apex/view-record-dialog'
+import { VersionLogDialog } from '@/components/hr/apex/version-log-dialog'
 import { KIND_LABELS, KIND_OPTIONS, type ShiftKind } from '@/components/hr/shift-editor/types'
 
 interface Row {
   name: string
   custom_shift_kind?: string | null
+  /** From base_meena.api.hr_lists.shifts — true when some Employee has this
+   *  as its default_shift (one grouped query server-side, never per-row). */
+  in_use?: boolean
 }
 
 interface MetaForm {
@@ -54,6 +60,11 @@ export function ShiftListPage() {
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<Row | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [viewRow, setViewRow] = useState<Row | null>(null)
+  const [historyRow, setHistoryRow] = useState<Row | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -89,6 +100,41 @@ export function ShiftListPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const currentPage = Math.min(page, totalPages)
   const pageRows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+  const allChecked = pageRows.length > 0 && pageRows.every((r) => selected.has(r.name))
+
+  const toggleAll = () => {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (allChecked) pageRows.forEach((r) => next.delete(r.name))
+      else pageRows.forEach((r) => next.add(r.name))
+      return next
+    })
+  }
+  const toggleOne = (name: string) => setSelected((prev) => {
+    const next = new Set(prev)
+    next.has(name) ? next.delete(name) : next.add(name)
+    return next
+  })
+
+  const confirmBulkDelete = async () => {
+    setBulkDeleting(true)
+    let ok = 0, failed = 0
+    for (const name of selected) {
+      try {
+        await frappeClient.call('base_meena.api.hr_shifts.delete_shift', { name })
+        ok++
+      } catch { failed++ }
+    }
+    setBulkDeleting(false)
+    setBulkDeleteOpen(false)
+    setSelected(new Set())
+    toast({
+      title: `تم حذف ${ok}`,
+      description: failed ? `تعذّر حذف ${failed} — تأكد من عدم وجود موظفين على هذه الأوقات` : undefined,
+      variant: failed ? 'destructive' : undefined,
+    })
+    await load()
+  }
 
   const openAdd = () => { setForm(EMPTY_FORM); setDialogMode('add') }
   const openEdit = (row: Row) => {
@@ -157,6 +203,10 @@ export function ShiftListPage() {
 
       <ApexToolbar
         search={{ value: search, onChange: (v) => { setSearch(v); setPage(1) }, placeholder: 'إبحث بإسم الدوام' }}
+        actions={{
+          disabled: selected.size === 0,
+          items: [{ label: 'حذف', onSelect: () => setBulkDeleteOpen(true) }],
+        }}
         add={{ label: 'إضافة دوام', onClick: openAdd }}
       />
 
@@ -170,38 +220,71 @@ export function ShiftListPage() {
             <table className="apex-table w-full border-collapse">
               <thead>
                 <tr className="bg-[var(--apex-thead)]">
+                  <th className="w-10 border-b border-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={allChecked}
+                      onChange={toggleAll}
+                      className="h-4 w-4 cursor-pointer align-middle accent-[var(--apex-blue-light)]"
+                      aria-label="تحديد الكل"
+                    />
+                  </th>
                   <th className="px-3 py-2 text-[14px] font-bold text-[var(--apex-text)] border-b border-slate-200">إسم الدوام</th>
                   <th className="px-3 py-2 text-[14px] font-bold text-[var(--apex-text)] border-b border-slate-200">نوع الدوام</th>
                   <th className="px-3 py-2 text-[14px] font-bold text-[var(--apex-text)] border-b border-slate-200 text-center">الاجراءات</th>
                 </tr>
               </thead>
               <tbody>
-                {pageRows.map((row) => (
-                  <tr key={row.name}>
-                    <td className="px-3 py-1.5 text-[14px] border-b border-slate-100">
-                      <button
-                        type="button"
-                        onClick={() => router.push(`/shift-management/${encodeURIComponent(row.name)}`)}
-                        className="text-[var(--apex-link)] hover:underline"
-                      >
-                        {row.name}
-                      </button>
-                    </td>
-                    <td className="px-3 py-1.5 text-[14px] text-[var(--apex-text)] border-b border-slate-100">
-                      {KIND_LABELS[row.custom_shift_kind || 'Normal'] || KIND_LABELS.Normal}
-                    </td>
-                    <td className="px-3 py-1.5 border-b border-slate-100">
-                      <div className="flex items-center justify-center gap-3">
-                        <button type="button" onClick={() => openEdit(row)} aria-label={`تعديل ${row.name}`} className="text-[var(--apex-link)] hover:opacity-70">
-                          <Pencil className="h-4 w-4" />
+                {pageRows.map((row) => {
+                  const canDelete = !row.in_use
+                  return (
+                    <tr key={row.name}>
+                      <td className="border-b border-slate-100 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(row.name)}
+                          onChange={() => toggleOne(row.name)}
+                          className="h-4 w-4 cursor-pointer align-middle accent-[var(--apex-blue-light)]"
+                          aria-label={`تحديد ${row.name}`}
+                        />
+                      </td>
+                      <td className="px-3 py-1.5 text-[14px] border-b border-slate-100">
+                        <button
+                          type="button"
+                          onClick={() => router.push(`/shift-management/${encodeURIComponent(row.name)}`)}
+                          className="text-[var(--apex-link)] hover:underline"
+                        >
+                          {row.name}
                         </button>
-                        <button type="button" onClick={() => setDeleteTarget(row)} aria-label={`حذف ${row.name}`} className="text-[var(--apex-red)] hover:opacity-70">
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-3 py-1.5 text-[14px] text-[var(--apex-text)] border-b border-slate-100">
+                        {KIND_LABELS[row.custom_shift_kind || 'Normal'] || KIND_LABELS.Normal}
+                      </td>
+                      <td className="apex-col-actions px-3 py-1.5 border-b border-slate-100">
+                        <div className="flex items-center justify-center gap-1">
+                          <button type="button" onClick={() => openEdit(row)} title="تعديل" aria-label={`تعديل ${row.name}`} className="apex-icon-edit px-1 hover:opacity-75">
+                            <Pencil className="h-[17px] w-[17px]" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => canDelete && setDeleteTarget(row)}
+                            disabled={!canDelete}
+                            title="حذف"
+                            aria-label={`حذف ${row.name}`}
+                            className={`apex-icon-delete px-1 ${canDelete ? 'hover:opacity-75' : 'is-disabled cursor-not-allowed'}`}
+                          >
+                            <Trash2 className="h-[17px] w-[17px]" />
+                          </button>
+                          <RowMenu
+                            kind="master"
+                            onView={() => setViewRow(row)}
+                            onHistory={() => setHistoryRow(row)}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </ApexTableCard>
@@ -276,6 +359,37 @@ export function ShiftListPage() {
         variant="destructive"
         loading={deleting}
         onConfirm={confirmDelete}
+      />
+
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        title="حذف أوقات العمل المحددة"
+        description={`سيتم حذف ${selected.size} دوام نهائياً.`}
+        confirmLabel={bulkDeleting ? 'جاري الحذف…' : 'حذف'}
+        cancelLabel="إلغاء"
+        variant="destructive"
+        loading={bulkDeleting}
+        onConfirm={confirmBulkDelete}
+      />
+
+      {viewRow && (
+        <ViewRecordDialog
+          open={!!viewRow}
+          onOpenChange={(o) => { if (!o) setViewRow(null) }}
+          title="أوقات العمل"
+          fields={[
+            { label: 'اسم الدوام', value: viewRow.name },
+            { label: 'نوع الدوام', value: KIND_LABELS[viewRow.custom_shift_kind || 'Normal'] || KIND_LABELS.Normal },
+          ]}
+        />
+      )}
+
+      <VersionLogDialog
+        open={!!historyRow}
+        onOpenChange={(o) => { if (!o) setHistoryRow(null) }}
+        doctype="Shift Type"
+        name={historyRow?.name ?? null}
       />
     </div>
   )

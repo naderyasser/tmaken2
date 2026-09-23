@@ -42,7 +42,7 @@ export function WindowFields({
           />
         ) : null}
       </td>
-      <td className={`${TD} font-bold whitespace-nowrap`} style={{ width: '7%' }}>{ordinal}</td>
+      <td className={`${TD} font-bold whitespace-nowrap`} style={{ width: '7%', fontSize: '14px', color: 'rgba(0,0,0,.87)' }}>{ordinal}</td>
       <td className={TD}>
         <TimeInput24 value={w.start_in} disabled={rowDisabled} ariaLabel={`بداية الحضور ${ordinal}`}
           onChange={(v) => onChange({ start_in: v })} />

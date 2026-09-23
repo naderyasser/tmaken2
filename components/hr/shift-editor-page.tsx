@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
-import { cn } from '@/lib/utils'
 import { fmtTime } from '@/lib/hr-format'
 import { DayTable } from '@/components/hr/shift-editor/day-table'
 import { DayDialog, type DaySavePayload } from '@/components/hr/shift-editor/day-dialog'
@@ -152,20 +151,24 @@ export function ShiftEditorPage({ shiftId }: { shiftId: string }) {
       ) : (
         <>
           <div className="flex items-center justify-center border-b border-slate-200 mb-4">
-            {(['Year', 'Ramadan'] as CalendarType[]).map((ct) => (
-              <button
-                key={ct}
-                type="button"
-                onClick={() => setTab(ct)}
-                className={cn(
-                  'relative px-6 h-[46px] text-[15px] font-bold transition-colors',
-                  tab === ct ? 'text-[var(--apex-green)]' : 'text-slate-500 hover:text-slate-700',
-                )}
-              >
-                {ct === 'Year' ? 'أيام السنة' : 'أيام رمضان'}
-                {tab === ct && <span className="absolute bottom-0 right-0 left-0 h-[2px] bg-[var(--apex-green)]" />}
-              </button>
-            ))}
+            {(['Year', 'Ramadan'] as CalendarType[]).map((ct) => {
+              const active = tab === ct
+              return (
+                <button
+                  key={ct}
+                  type="button"
+                  onClick={() => setTab(ct)}
+                  className="relative px-6 h-[46px] transition-colors"
+                  style={{ fontSize: '19.2px', fontWeight: 400, color: active ? 'rgb(0,204,0)' : 'rgb(128,128,128)' }}
+                >
+                  {ct === 'Year' ? 'أيام السنة' : 'أيام رمضان'}
+                  <span
+                    className="absolute bottom-0 right-0 left-0 h-[2px]"
+                    style={{ backgroundColor: active ? 'rgb(0,204,0)' : 'rgb(128,128,128)' }}
+                  />
+                </button>
+              )
+            })}
           </div>
 
           <DayTable

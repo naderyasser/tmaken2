@@ -21,7 +21,8 @@ export interface DaySavePayload {
   openDay: { required_minutes: number; extends_next_day: boolean; day_end_time: string | null } | null
 }
 
-const TH = 'border border-[#0056b3] bg-[#f2f2f2] px-2 py-2 text-center font-bold text-[14px] text-slate-700 whitespace-nowrap'
+const TH = 'border border-[#0056b3] bg-[#f2f2f2] px-2 py-2 text-center font-bold text-[14px] whitespace-nowrap'
+const TH_STYLE = { color: 'rgba(0,0,0,.87)' }
 const RADIO = 'flex items-center gap-1.5 text-[14.4px] font-bold text-slate-700 cursor-pointer'
 
 /**
@@ -217,17 +218,17 @@ export function DayDialog({
                 <table className="inline-table border-collapse text-[13px]" style={{ margin: '0 2rem', width: 'auto' }}>
                   <thead>
                     <tr>
-                      <th className={TH} style={{ width: '2%' }} />
-                      <th className={TH} style={{ width: '7%' }}>الوردية</th>
-                      <th className={TH}>بداية الحضور</th>
-                      <th className={TH}>حضور</th>
-                      <th className={TH}>التأخير المسموح</th>
-                      <th className={TH}>نهاية الحضور</th>
-                      <th className={TH}>بداية الانصراف</th>
-                      <th className={TH}>الانصراف المبكر</th>
-                      <th className={TH}>إنصراف</th>
-                      <th className={TH}>نهاية الانصراف</th>
-                      <th className={TH}>شفت ممتد</th>
+                      <th className={TH} style={{ width: '2%', ...TH_STYLE }} />
+                      <th className={TH} style={{ width: '7%', ...TH_STYLE }}>الوردية</th>
+                      <th className={TH} style={TH_STYLE}>بداية الحضور</th>
+                      <th className={TH} style={TH_STYLE}>حضور</th>
+                      <th className={TH} style={TH_STYLE}>التأخير المسموح</th>
+                      <th className={TH} style={TH_STYLE}>نهاية الحضور</th>
+                      <th className={TH} style={TH_STYLE}>بداية الانصراف</th>
+                      <th className={TH} style={TH_STYLE}>الانصراف المبكر</th>
+                      <th className={TH} style={TH_STYLE}>إنصراف</th>
+                      <th className={TH} style={TH_STYLE}>نهاية الانصراف</th>
+                      <th className={TH} style={TH_STYLE}>شفت ممتد</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -254,8 +255,8 @@ export function DayDialog({
                 type="button"
                 disabled={saving}
                 onClick={() => runAction(onApplyToAll)}
-                style={{ padding: '6px 12px', borderRadius: 4 }}
-                className="text-[16px] text-white bg-[var(--apex-navy)] hover:opacity-90 disabled:opacity-60"
+                style={{ padding: '0 12px', height: 38, borderRadius: 4, backgroundColor: 'rgb(41,96,182)' }}
+                className="text-[16px] text-white hover:opacity-90 disabled:opacity-60"
               >
                 تطبيق علي كل الايام
               </button>
@@ -263,7 +264,7 @@ export function DayDialog({
                 type="button"
                 disabled={saving}
                 onClick={() => runAction(onSaveDay)}
-                style={{ padding: '6px 12px', borderRadius: 4 }}
+                style={{ padding: '0 12px', height: 38, borderRadius: 4 }}
                 className="flex items-center gap-2 text-[16px] text-white bg-[var(--apex-green)] hover:opacity-90 disabled:opacity-60"
               >
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
