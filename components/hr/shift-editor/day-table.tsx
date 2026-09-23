@@ -47,7 +47,7 @@ export function DayTable({
                 : '_'
               return (
                 <tr key={d.value}>
-                  <td className={td}>{d.label}</td>
+                  <td className={`${td} text-[#0056b3]`}>{d.label}</td>
                   <td className={td}>{hours}</td>
                   <td className={`${td} ${statusClass(isWorkDay)}`}>{isWorkDay ? 'عمل' : 'عطله'}</td>
                   <td className={td}>
@@ -94,7 +94,7 @@ export function DayTable({
             const isWorkDay = dayWindows.length > 0
             return (
               <tr key={d.value}>
-                <td className={td}>{d.label}</td>
+                <td className={`${td} text-[#0056b3]`}>{d.label}</td>
                 {[0, 1, 2, 3].map((i) => {
                   const w = dayWindows[i]
                   return (

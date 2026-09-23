@@ -58,7 +58,7 @@ export function hhmmToMinutes(value: string): number | null {
   return Number(m[1]) * 60 + Number(m[2])
 }
 
-const BASE_CLASS = 'h-10 w-24 rounded border bg-white text-center text-[13px] text-slate-800 outline-none focus:border-[var(--apex-blue)] disabled:bg-slate-100 disabled:text-slate-400'
+const BASE_CLASS = 'h-10 w-24 rounded border bg-white text-center text-[16px] text-slate-800 outline-none focus:border-[var(--apex-blue)] disabled:bg-slate-100 disabled:text-slate-400'
 
 export interface TimeInput24Props {
   value: string

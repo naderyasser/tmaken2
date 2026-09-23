@@ -21,7 +21,7 @@ export interface DaySavePayload {
   openDay: { required_minutes: number; extends_next_day: boolean; day_end_time: string | null } | null
 }
 
-const TH = 'border border-[#0056b3] bg-[#f2f2f2] px-2 py-2 text-center font-bold text-slate-700 whitespace-nowrap'
+const TH = 'border border-[#0056b3] bg-[#f2f2f2] px-2 py-2 text-center font-bold text-[14px] text-slate-700 whitespace-nowrap'
 const RADIO = 'flex items-center gap-1.5 text-[14.4px] font-bold text-slate-700 cursor-pointer'
 
 /**
@@ -179,15 +179,6 @@ export function DayDialog({
             {kind === 'Open' ? (
               <>
                 <div className="my-4 flex flex-wrap items-center justify-center gap-[8%]">
-                  <label className="flex w-[30%] items-center justify-center gap-[24%] text-[16px] font-bold text-slate-700 cursor-pointer">
-                    يمتد لليوم التالي
-                    <Checkbox
-                      checked={openRow.extends_next_day}
-                      disabled={allDisabled}
-                      onCheckedChange={(v) => setOpenRow((r) => ({ ...r, extends_next_day: !!v }))}
-                      aria-label="يمتد لليوم التالي"
-                    />
-                  </label>
                   <label className="flex items-center gap-2 text-[14.4px] font-bold text-slate-700">
                     <DurationInput
                       value={openRow.required_minutes}
@@ -196,6 +187,15 @@ export function DayDialog({
                       onChange={(v) => setOpenRow((r) => ({ ...r, required_minutes: v }))}
                     />
                     الساعات
+                  </label>
+                  <label className="flex w-[30%] items-center justify-center gap-[24%] text-[16px] font-bold text-slate-700 cursor-pointer">
+                    يمتد لليوم التالي
+                    <Checkbox
+                      checked={openRow.extends_next_day}
+                      disabled={allDisabled}
+                      onCheckedChange={(v) => setOpenRow((r) => ({ ...r, extends_next_day: !!v }))}
+                      aria-label="يمتد لليوم التالي"
+                    />
                   </label>
                 </div>
                 {openRow.extends_next_day && (
@@ -213,8 +213,8 @@ export function DayDialog({
                 )}
               </>
             ) : (
-              <div className="overflow-x-auto" style={{ maxWidth: '100%' }}>
-                <table className="border-collapse text-[13px]" style={{ margin: '0 2rem' }}>
+              <div className="overflow-x-auto text-center" style={{ maxWidth: '100%' }}>
+                <table className="inline-table border-collapse text-[13px]" style={{ margin: '0 2rem', width: 'auto' }}>
                   <thead>
                     <tr>
                       <th className={TH} style={{ width: '2%' }} />
@@ -253,21 +253,21 @@ export function DayDialog({
               <button
                 type="button"
                 disabled={saving}
+                onClick={() => runAction(onApplyToAll)}
+                style={{ padding: '6px 12px', borderRadius: 4 }}
+                className="text-[16px] text-white bg-[var(--apex-navy)] hover:opacity-90 disabled:opacity-60"
+              >
+                تطبيق علي كل الايام
+              </button>
+              <button
+                type="button"
+                disabled={saving}
                 onClick={() => runAction(onSaveDay)}
                 style={{ padding: '6px 12px', borderRadius: 4 }}
                 className="flex items-center gap-2 text-[16px] text-white bg-[var(--apex-green)] hover:opacity-90 disabled:opacity-60"
               >
                 {saving && <Loader2 className="h-4 w-4 animate-spin" />}
                 تعديل
-              </button>
-              <button
-                type="button"
-                disabled={saving}
-                onClick={() => runAction(onApplyToAll)}
-                style={{ padding: '6px 12px', borderRadius: 4 }}
-                className="text-[16px] text-white bg-[var(--apex-navy)] hover:opacity-90 disabled:opacity-60"
-              >
-                تطبيق علي كل الايام
               </button>
             </div>
           </div>
