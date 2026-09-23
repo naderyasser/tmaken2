@@ -9,6 +9,7 @@ import { fmtDate } from '@/lib/hr-format'
 import { leaveTypeAr } from '@/lib/enums'
 import type { ReportConfig } from '@/lib/hr-reports'
 import { PrintDialog } from '@/components/hr/apex/print-dialog'
+import { ExportMenu, SERVER_PRINTABLE_REPORTS } from '@/components/hr/apex/export-menu'
 import { ApexDatePicker } from '@/components/hr/apex/date-picker'
 
 interface Column { key: string; label: string; children?: Column[] }
@@ -94,6 +95,14 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
   // re-run after the parent changed data (add / delete)
   useEffect(() => { if (reloadKey && data) run() }, [reloadKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // same shape run_report/report_pdf expect — mirrors `run()`'s own filters object
+  // so the PDF/طباعة menu always reflects exactly what's on screen.
+  const activeFilters = useMemo(() => {
+    const filters = { ...f }
+    if (!config.dates) { delete filters.from_date; delete filters.to_date }
+    return filters
+  }, [f, config.dates])
+
   // flat leaf columns for the body
   const leafCols = useMemo(() => {
     if (!data) return []
@@ -155,14 +164,18 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
             <ChevronDown className="h-4 w-4" />
             {showFilters ? 'اخفاء البحث' : 'اظهار البحث'}
           </button>
-          <button
-            type="button"
-            onClick={() => setPrintOpen(true)}
-            className="h-[38px] px-3 min-w-[120px] rounded border border-[var(--apex-blue-border)] bg-white text-[14px] text-[var(--apex-blue)] flex items-center justify-between gap-3"
-          >
-            <ChevronDown className="h-4 w-4" />
-            <span>تصدير</span>
-          </button>
+          {(SERVER_PRINTABLE_REPORTS as readonly string[]).includes(config.report) ? (
+            <ExportMenu report={config.report} filters={activeFilters} onAdvancedPrint={() => setPrintOpen(true)} />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setPrintOpen(true)}
+              className="h-[38px] px-3 min-w-[120px] rounded border border-[var(--apex-blue-border)] bg-white text-[14px] text-[var(--apex-blue)] flex items-center justify-between gap-3"
+            >
+              <ChevronDown className="h-4 w-4" />
+              <span>تصدير</span>
+            </button>
+          )}
           {addSlot}
         </div>
       </div>
