@@ -1,5 +1,5 @@
 /**
- * «دوام ورديات المصنع المتغير» — Apex list screen inside the unified HR shell
+ * «الدوام المتغير» — Apex list screen inside the unified HR shell
  * (HrGuard owns the gate). See components/hr/rotational-shifts-page.tsx.
  */
 

@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * «دوام ورديات المصنع المتغير» (Apex M2, `hr/RotationalShifts`) — the list
+ * «الدوام المتغير» (Apex M2, `hr/RotationalShifts`) — the list
  * of rotational shift groups. Columns/toolbar mirror
  * components/hr/generic-list-page.tsx's Apex look; a bespoke component
  * (not GenericListPage) because two columns here are server-computed
@@ -26,7 +26,7 @@ import { TableSkeleton } from '@/components/hr/ui/table-skeleton'
 import type { RotationalGroupListRow } from '@/components/hr/rotational/types'
 
 const PAGE_SIZES = [5, 10, 20, 50]
-const TITLE = 'دوام ورديات المصنع المتغير'
+const TITLE = 'الدوام المتغير'
 
 export function RotationalShiftsPage() {
   const router = useRouter()

@@ -125,7 +125,7 @@ export function RotationalShiftEditorPage({ groupId }: { groupId?: string }) {
       <div className="flex items-center justify-between px-6 h-[62px] bg-[var(--apex-form-bar-bg)]">
         <div className="text-[14px] text-slate-700">
           <span className="text-slate-600">البيانات الاساسية</span><span className="mx-2 text-slate-400">/</span>
-          <button type="button" onClick={() => router.push('/rotational-shifts')} className="text-[var(--apex-blue)]">دوام ورديات المصنع المتغير</button><span className="mx-2 text-slate-400">/</span>
+          <button type="button" onClick={() => router.push('/rotational-shifts')} className="text-[var(--apex-blue)]">الدوام المتغير</button><span className="mx-2 text-slate-400">/</span>
           <span>{isNew ? 'إضافة مجموعة دوام' : 'تعديل مجموعة دوام'}</span>
         </div>
         <div className="flex items-center gap-2">

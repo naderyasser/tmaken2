@@ -3023,7 +3023,7 @@ const translations: Record<'en' | 'ar', Record<string, string>> = {
     // ── عناصر البيانات الاساسية ──
     'nav.jobs': 'الوظائف',
     'nav.work_times': 'أوقات العمل',
-    'nav.rotational_shifts': 'دوام ورديات المصنع المتغير',
+    'nav.rotational_shifts': 'الدوام المتغير',
     'nav.unregistered_employees': 'موظفين غير مسجلين',
     'nav.projects': 'المشاريع',
     'nav.tasks': 'المهام',

@@ -42,15 +42,15 @@ export const EMPTY_SHIFT_DATA: ShiftData = {
   name: null, arabic_name: '', latin_name: '', kind: 'Normal', windows: [],
 }
 
-/** «نوع الدوام» radio (Apex G9) — دوام عادي / دوام مفتوح / ورديات متغيرة. */
+/** «نوع الدوام» radio (Apex G9) — دوام عادي / دوام مفتوح / دوام متغير. */
 export const KIND_OPTIONS: { value: ShiftKind; label: string }[] = [
   { value: 'Normal', label: 'دوام عادي' },
   { value: 'Open', label: 'دوام مفتوح' },
-  { value: 'Rotational', label: 'ورديات متغيرة' },
+  { value: 'Rotational', label: 'دوام متغير' },
 ]
 
 export const KIND_LABELS: Record<string, string> = {
-  Normal: 'دوام عادي', Open: 'دوام مفتوح', Rotational: 'ورديات متغيرة',
+  Normal: 'دوام عادي', Open: 'دوام مفتوح', Rotational: 'دوام متغير',
 }
 
 /** السبت…الجمعة, Saturday first — same order/labels as generic-list-page.tsx's VALUE_AR. */

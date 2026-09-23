@@ -138,14 +138,14 @@ export function ShiftEditorPage({ shiftId }: { shiftId: string }) {
       ) : shift.kind === 'Rotational' ? (
         <div className="bg-white rounded-[15px] shadow-[0_8px_16px_rgba(0,0,0,.15)] p-10 text-center">
           <p className="text-[15px] text-slate-700 mb-4">
-            هذا الدوام من نوع «ورديات متغيرة» — يُدار من صفحة دوام ورديات المصنع المتغير.
+            هذا الدوام من نوع «دوام متغير» — يُدار من صفحة الدوام المتغير.
           </p>
           <Link
             href="/rotational-shifts"
             className="inline-flex items-center gap-1.5 h-[40px] px-4 rounded bg-[var(--apex-blue)] text-white text-[14px] hover:bg-[var(--apex-blue-hover)]"
           >
             <ArrowLeft className="h-4 w-4" />
-            الانتقال إلى دوام ورديات المصنع المتغير
+            الانتقال إلى الدوام المتغير
           </Link>
         </div>
       ) : (
