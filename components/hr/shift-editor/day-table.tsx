@@ -22,8 +22,10 @@ export function DayTable({
   windows: DayWindow[]
   onEditDay: (day: string) => void
 }) {
-  const th = 'px-3 py-2 text-[13px] font-bold text-[var(--apex-text)] whitespace-nowrap border-b border-slate-200'
-  const td = 'px-3 py-1.5 text-[13px] text-[var(--apex-text)] text-center whitespace-nowrap border-b border-slate-100'
+  const th = 'px-3 py-2 text-[13px] font-bold whitespace-nowrap border-b border-slate-200'
+  const td = 'px-3 py-1.5 text-[13px] text-center whitespace-nowrap border-b border-slate-100'
+  const thNeutral = `${th} text-[var(--apex-text)]`
+  const tdNeutral = `${td} text-[var(--apex-text)]`
   const statusClass = (isWorkDay: boolean) => (isWorkDay ? 'text-[var(--apex-green)] font-bold' : 'text-[var(--apex-red)] font-bold')
 
   if (kind === 'Open') {
@@ -32,10 +34,10 @@ export function DayTable({
         <table className="apex-table w-full border-collapse">
           <thead>
             <tr className="bg-[var(--apex-thead)]">
-              <th className={th}>اليوم</th>
-              <th className={th}>ساعات العمل</th>
-              <th className={th}>حالة اليوم</th>
-              <th className={th}>اجراءات</th>
+              <th className={thNeutral}>اليوم</th>
+              <th className={thNeutral}>ساعات العمل</th>
+              <th className={thNeutral}>حالة اليوم</th>
+              <th className={thNeutral}>اجراءات</th>
             </tr>
           </thead>
           <tbody>
@@ -48,9 +50,9 @@ export function DayTable({
               return (
                 <tr key={d.value}>
                   <td className={`${td} text-[#0056b3]`}>{d.label}</td>
-                  <td className={td}>{hours}</td>
+                  <td className={tdNeutral}>{hours}</td>
                   <td className={`${td} ${statusClass(isWorkDay)}`}>{isWorkDay ? 'عمل' : 'عطله'}</td>
-                  <td className={td}>
+                  <td className={tdNeutral}>
                     <button type="button" onClick={() => onEditDay(d.value)} aria-label={`تعديل ${d.label}`} className="text-[var(--apex-link)] hover:opacity-70">
                       <Pencil className="h-4 w-4 mx-auto" />
                     </button>
@@ -69,14 +71,14 @@ export function DayTable({
       <table className="apex-table w-full border-collapse">
         <thead>
           <tr className="bg-[var(--apex-thead)]">
-            <th className={th} rowSpan={2}>اليوم</th>
-            <th className={th} colSpan={2}>الوردية الاولي</th>
-            <th className={th} colSpan={2}>الوردية الثانية</th>
-            <th className={th} colSpan={2}>الوردية الثالثة</th>
-            <th className={th} colSpan={2}>الوردية الرابعة</th>
-            <th className={th} rowSpan={2}>إجمالي الساعات</th>
-            <th className={th} rowSpan={2}>حالة اليوم</th>
-            <th className={th} rowSpan={2}>اجراءات</th>
+            <th className={thNeutral} rowSpan={2}>اليوم</th>
+            <th className={thNeutral} colSpan={2}>الوردية الاولي</th>
+            <th className={thNeutral} colSpan={2}>الوردية الثانية</th>
+            <th className={thNeutral} colSpan={2}>الوردية الثالثة</th>
+            <th className={thNeutral} colSpan={2}>الوردية الرابعة</th>
+            <th className={thNeutral} rowSpan={2}>إجمالي الساعات</th>
+            <th className={thNeutral} rowSpan={2}>حالة اليوم</th>
+            <th className={thNeutral} rowSpan={2}>اجراءات</th>
           </tr>
           <tr className="bg-[var(--apex-thead)]">
             {[0, 1, 2, 3].map((i) => (
@@ -99,14 +101,14 @@ export function DayTable({
                   const w = dayWindows[i]
                   return (
                     <Fragment key={i}>
-                      <td className={td}>{w?.check_in || '_'}</td>
-                      <td className={td}>{w?.check_out || '_'}</td>
+                      <td className={tdNeutral}>{w?.check_in || '_'}</td>
+                      <td className={tdNeutral}>{w?.check_out || '_'}</td>
                     </Fragment>
                   )
                 })}
-                <td className={td}>{isWorkDay ? minutesToHHMM(totalMinutes) : '_'}</td>
+                <td className={tdNeutral}>{isWorkDay ? minutesToHHMM(totalMinutes) : '_'}</td>
                 <td className={`${td} ${statusClass(isWorkDay)}`}>{isWorkDay ? 'عمل' : 'عطله'}</td>
-                <td className={td}>
+                <td className={tdNeutral}>
                   <button type="button" onClick={() => onEditDay(d.value)} aria-label={`تعديل ${d.label}`} className="text-[var(--apex-link)] hover:opacity-70">
                     <Pencil className="h-4 w-4 mx-auto" />
                   </button>

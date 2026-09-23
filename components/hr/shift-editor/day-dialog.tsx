@@ -249,7 +249,7 @@ export function DayDialog({
               </div>
             )}
 
-            <div className="flex items-center gap-[3%] p-8" dir="rtl">
+            <div className="flex items-center justify-end gap-[3%] p-8" dir="rtl">
               <button
                 type="button"
                 disabled={saving}
