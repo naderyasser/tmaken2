@@ -26,7 +26,7 @@ export function DayTable({
   const td = 'px-3 py-1.5 text-[13px] text-center whitespace-nowrap border-b border-slate-100'
   const thNeutral = `${th} text-[var(--apex-text)]`
   const tdNeutral = `${td} text-[var(--apex-text)]`
-  const statusClass = (isWorkDay: boolean) => (isWorkDay ? 'text-[var(--apex-green)] font-bold' : 'text-[var(--apex-red)] font-bold')
+  const statusStyle = (isWorkDay: boolean) => ({ color: isWorkDay ? 'var(--apex-green)' : 'var(--apex-red)' })
 
   if (kind === 'Open') {
     return (
@@ -49,9 +49,9 @@ export function DayTable({
                 : '_'
               return (
                 <tr key={d.value}>
-                  <td className={`${td} text-[#0056b3]`}>{d.label}</td>
+                  <td className={td} style={{ color: '#0056b3' }}>{d.label}</td>
                   <td className={tdNeutral}>{hours}</td>
-                  <td className={`${td} ${statusClass(isWorkDay)}`}>{isWorkDay ? 'عمل' : 'عطله'}</td>
+                  <td className={`${td} font-bold`} style={statusStyle(isWorkDay)}>{isWorkDay ? 'عمل' : 'عطله'}</td>
                   <td className={tdNeutral}>
                     <button type="button" onClick={() => onEditDay(d.value)} aria-label={`تعديل ${d.label}`} className="text-[var(--apex-link)] hover:opacity-70">
                       <Pencil className="h-4 w-4 mx-auto" />
@@ -83,8 +83,8 @@ export function DayTable({
           <tr className="bg-[var(--apex-thead)]">
             {[0, 1, 2, 3].map((i) => (
               <Fragment key={i}>
-                <th className={`${th} text-[var(--apex-green)]`}>حضور</th>
-                <th className={`${th} text-[var(--apex-red)]`}>إنصراف</th>
+                <th className={th} style={{ color: 'var(--apex-green)' }}>حضور</th>
+                <th className={th} style={{ color: 'var(--apex-red)' }}>إنصراف</th>
               </Fragment>
             ))}
           </tr>
@@ -96,7 +96,7 @@ export function DayTable({
             const isWorkDay = dayWindows.length > 0
             return (
               <tr key={d.value}>
-                <td className={`${td} text-[#0056b3]`}>{d.label}</td>
+                <td className={td} style={{ color: '#0056b3' }}>{d.label}</td>
                 {[0, 1, 2, 3].map((i) => {
                   const w = dayWindows[i]
                   return (
@@ -107,7 +107,7 @@ export function DayTable({
                   )
                 })}
                 <td className={tdNeutral}>{isWorkDay ? minutesToHHMM(totalMinutes) : '_'}</td>
-                <td className={`${td} ${statusClass(isWorkDay)}`}>{isWorkDay ? 'عمل' : 'عطله'}</td>
+                <td className={`${td} font-bold`} style={statusStyle(isWorkDay)}>{isWorkDay ? 'عمل' : 'عطله'}</td>
                 <td className={tdNeutral}>
                   <button type="button" onClick={() => onEditDay(d.value)} aria-label={`تعديل ${d.label}`} className="text-[var(--apex-link)] hover:opacity-70">
                     <Pencil className="h-4 w-4 mx-auto" />
