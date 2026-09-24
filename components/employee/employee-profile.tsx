@@ -1158,7 +1158,11 @@ export function EmployeeProfile({ onBack, employeeId }: EmployeeProfileProps) {
         frappeClient.get('Department', undefined, { fields: ['name', 'department_name' as any, 'company'], limit_page_length: 200 }),
         frappeClient.get('Designation', undefined, { fields: ['name'], limit_page_length: 50 }),
         frappeClient.get('Branch', undefined, { fields: ['name'], limit_page_length: 50 }),
-        frappeClient.get('Shift Type', undefined, { fields: ['name'], limit_page_length: 50 }),
+        // custom_is_rotational_internal rows are hidden helper Shift Types the rotational
+        // group feature creates internally — never meant to be picked directly here
+        // (Opus review round 2, item 2; matches apex-employee-form.tsx's own list_shift_options
+        // filtering intent for "never show an internal type").
+        frappeClient.get('Shift Type', undefined, { fields: ['name'], filters: [['custom_is_rotational_internal', '!=', 1]], limit_page_length: 50 }),
         frappeClient.get('Country', undefined, { fields: ['name'], limit_page_length: 300 }),
         // Manager candidates for the "Reports To" picker (Active employees, name + display name).
         // Isolated with .catch so a failure here never breaks the core dropdowns above.
@@ -1699,7 +1703,10 @@ export function EmployeeProfile({ onBack, employeeId }: EmployeeProfileProps) {
       if (form.personal_email) payload.personal_email = form.personal_email
       if (form.company_email) payload.company_email = form.company_email
       if (form.image) payload.image = form.image
-      if (form.default_shift) payload.default_shift = form.default_shift
+      // default_shift intentionally NOT sent here (Opus review round 2, item 2):
+      // Employee.default_shift is written exactly once, on first creation, and frozen
+      // thereafter — base_meena.api.hr_rotational_shifts.set_employee_shift is the
+      // ONLY thing allowed to write it (see the shift-assignment block below).
       if (form.custom_national_id) payload.custom_national_id = form.custom_national_id
       if (form.custom_id_type) payload.custom_id_type = form.custom_id_type
       if (form.custom_id_issue_date) payload.custom_id_issue_date = form.custom_id_issue_date
@@ -2182,16 +2189,17 @@ export function EmployeeProfile({ onBack, employeeId }: EmployeeProfileProps) {
         }
       }
 
-      // Create shift assignment if default shift selected (only for new employees)
+      // Create shift assignment if default shift selected (only for new employees).
+      // Opus review round 2, item 2: routed through the backend's own
+      // set_employee_shift instead of a raw `frappe.client.insert` — that also fixes
+      // this write silently bypassing the backend's own Shift Type scoping, and
+      // Employee.default_shift is now exclusively set_employee_shift's to write (it
+      // is frozen after first creation, never overwritten by this file's own payload).
       if (!employeeId && form.default_shift) {
         try {
-          await frappeClient.call('frappe.client.insert', {
-            doctype: 'Shift Assignment',
+          await frappeClient.call('base_meena.api.hr_rotational_shifts.set_employee_shift', {
             employee: result.name,
-            shift_type: form.default_shift,
-            start_date: form.date_of_joining,
-            status: 'Active',
-            company: form.company
+            value: form.default_shift,
           })
         } catch (shiftError) {
           console.error('Failed to create shift assignment:', shiftError)

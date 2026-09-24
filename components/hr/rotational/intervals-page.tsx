@@ -18,7 +18,7 @@ import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { fmtTime } from '@/lib/hr-format'
 import { validateNormalDay } from '@/components/hr/shift-editor/rules'
-import type { CalendarType, DayWindow } from '@/components/hr/shift-editor/types'
+import { emptyWindow, type CalendarType, type DayWindow } from '@/components/hr/shift-editor/types'
 import { IntervalBlock } from '@/components/hr/rotational/interval-block'
 import { EmployeesSection } from '@/components/hr/rotational/employees-section'
 import { emptyIntervalBlock, type RotationalIntervalBlock } from '@/components/hr/rotational/types'
@@ -52,6 +52,12 @@ function hydrateBlock(b: any): RotationalIntervalBlock {
       day_end_time: '',
     }
   }
+  // Opus review round 2, item 6: slot 0 must NEVER be left `null` — WindowFields
+  // always renders row 1 as enabled regardless (`i === 0`), using `slots[0] ||
+  // emptyWindow(...)` only as a fallback RENDER value; but setSlot(0, patch)'s own
+  // `s ?` guard silently drops the patch when `slots[0]` is actually `null` (e.g. a
+  // rest-only block with zero backend rows), permanently bricking row 1's inputs.
+  if (!slots[0]) slots[0] = emptyWindow('Year', 'Saturday', 1)
   return {
     work_days: b?.work_days === '' || b?.work_days == null ? '' : Number(b.work_days),
     rest_days: b?.rest_days === '' || b?.rest_days == null ? '' : Number(b.rest_days),

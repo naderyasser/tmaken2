@@ -237,7 +237,11 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'employee_name', label: 'اسم الموظف', required: true },
       { field: 'designation', label: 'الوظيفة' },
       { field: 'branch', label: 'فرع' },
-      { field: 'default_shift', label: 'الدوام' },
+      // APEX PARITY (Opus review round 2): show the always-kept-in-sync display
+      // string, falling back to default_shift only when it's empty — default_shift
+      // itself is frozen after first creation and no longer reflects later shift/group
+      // switches (see set_employee_shift's new contract).
+      { field: 'custom_shift_label', label: 'الدوام', fallbackField: 'default_shift' },
       { field: 'attendance_device_id', label: 'رقم البصمة' },
       { field: 'status', label: 'الحالة', statusDot: { on: 'Active' } },
       { field: 'department', label: 'الإدارة', inTable: false, inForm: false },

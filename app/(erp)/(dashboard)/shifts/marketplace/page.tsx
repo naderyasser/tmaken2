@@ -462,7 +462,11 @@ function PublishDialog({ open, onOpenChange, tt, onDone }: {
     setBranch(''); setShiftType(''); setDate(''); setSlots('1'); setDesignation(''); setNotes('')
     Promise.all([
       frappeClient.getList<BranchRow>('Branch', { fields: ['name'], limit_page_length: 200 }),
-      frappeClient.getList<ShiftTypeRow>('Shift Type', { fields: ['name'], limit_page_length: 200 }),
+      // custom_is_rotational_internal rows are hidden helper Shift Types the rotational
+      // group feature creates internally — this is a plain, uncurated Shift Type list
+      // fetched directly (unlike list_shift_options, which already excludes them
+      // server-side), so it must filter them out itself (Opus review round 2, item 2).
+      frappeClient.getList<ShiftTypeRow>('Shift Type', { fields: ['name'], filters: [['custom_is_rotational_internal', '!=', 1]], limit_page_length: 200 }),
     ]).then(([b, st]) => { setBranches(b); setShiftTypes(st) }).catch(() => { /* handled on submit */ })
   }, [open])
 
@@ -562,7 +566,8 @@ function SwapDialog({ open, onOpenChange, tt, onDone }: {
   useEffect(() => {
     if (!open) return
     setQ(''); setResults([]); setToEmp(null); setSwapDate(''); setFromShift(''); setToShift(''); setReason('')
-    frappeClient.getList<ShiftTypeRow>('Shift Type', { fields: ['name'], limit_page_length: 200 })
+    // See the matching filter above — hides internal rotational-group helper Shift Types.
+    frappeClient.getList<ShiftTypeRow>('Shift Type', { fields: ['name'], filters: [['custom_is_rotational_internal', '!=', 1]], limit_page_length: 200 })
       .then(setShiftTypes).catch(() => { /* handled on submit */ })
   }, [open])
 

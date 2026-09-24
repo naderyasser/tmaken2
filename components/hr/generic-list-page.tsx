@@ -175,8 +175,17 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
       // then misreads as a permission error because Frappe's message text
       // happens to contain "not permitted").
       const derivedNames = new Set((config.deriveFields ?? []).map((d) => d.as))
-      const fieldNames = Array.from(new Set([...config.fields.map((f) => f.field), 'name']))
-        .filter((name) => !derivedNames.has(name))
+      // A field's own `fallbackField` (e.g. employees' `custom_shift_label` falling
+      // back to `default_shift`, Opus review round 2 APEX PARITY item) must be
+      // fetched too, or the fallback — and any drawerFilters entry over that same
+      // underlying field — silently has no data to read. Previously this only
+      // "worked" for the one pre-existing fallbackField user (`name`) by
+      // coincidence, since `name` was already hardcoded into this list below.
+      const fieldNames = Array.from(new Set([
+        ...config.fields.map((f) => f.field),
+        ...config.fields.map((f) => f.fallbackField).filter((f): f is string => !!f),
+        'name',
+      ])).filter((name) => !derivedNames.has(name))
       const data = config.method
         ? ((await frappeClient.call<Row[]>(config.method, config.methodArgs)) as any)?.message ?? []
         : await frappeClient.getList<Row>(config.doctype, {

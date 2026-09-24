@@ -97,6 +97,10 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
   const [uploadingImage, setUploadingImage] = useState(false)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const pendingImageFile = useRef<File | null>(null)
+  /** The «الدوام» picker's value as loaded from the server (stays `undefined` for a
+   *  brand-new employee) — save() only calls set_employee_shift when this changed,
+   *  skipping a needless write when the shift/group pick wasn't touched. */
+  const initialShiftValueRef = useRef<string | undefined>(undefined)
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setF((p) => ({ ...p, [k]: e.target.type === 'checkbox' ? ((e.target as HTMLInputElement).checked ? 1 : 0) : e.target.value }))
 
@@ -134,6 +138,7 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
       // default_shift itself (set_employee_shift owns keeping both fields
       // in sync server-side).
       if (data.custom_rotational_group) data.default_shift = `group:${data.custom_rotational_group}`
+      initialShiftValueRef.current = data.default_shift
       setF(data)
     } catch (e: any) {
       toast({ title: 'تعذّر تحميل الموظف', description: e?.message, variant: 'destructive' })
@@ -227,14 +232,6 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
     }
     setSaving(true)
     try {
-      // The combined «الدوام *» dropdown's value is either a plain Shift
-      // Type name or "group:<Shift Schedule name>" (list_shift_options) —
-      // never write the latter into the native Employee.default_shift Link
-      // field directly; resolve it to the option's real parent Shift Type
-      // first. set_employee_shift (below) is what actually assigns the
-      // group membership from the ORIGINAL picked value.
-      const chosen = opts.shiftOptions.find((o) => o.value === f.default_shift)
-      const resolvedDefaultShift = chosen ? chosen.default_shift : f.default_shift
       const payload: F = {
         company: f.company || company || undefined,
         // حقل واحد فقط: كود الموظف = رقم الموظف على جهاز البصمة (طلب العميل).
@@ -243,7 +240,12 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
         employee_number: f.attendance_device_id, status: f.status || 'Active', employee_name: f.employee_name, first_name: f.employee_name,
         middle_name: '', last_name: '',
         custom_employee_name_en: f.custom_employee_name_en || '', designation: f.designation || '', custom_branch_access: f.custom_branch_access,
-        branch: f.branch, default_shift: resolvedDefaultShift, department: f.department || '', custom_employee_group: f.custom_employee_group || '',
+        // default_shift is intentionally NOT sent here (Opus review round 2, item 2):
+        // Employee.default_shift is now written exactly once, on first creation, and
+        // frozen thereafter — set_employee_shift below is the ONLY thing allowed to
+        // write it. The combined «الدوام *» picker's own value (plain shift, or
+        // "group:<name>") is passed to that call instead, never through this payload.
+        branch: f.branch, department: f.department || '', custom_employee_group: f.custom_employee_group || '',
         custom_section: f.custom_section || '', reports_to: f.reports_to || '', custom_project: f.custom_project || '', custom_task: f.custom_task || '',
         custom_attendance_method: f.custom_attendance_method, custom_mobile_app: f.custom_mobile_app || 'لا',
         attendance_device_id: f.attendance_device_id || '',
@@ -278,18 +280,21 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
         toast({ title: 'تم الحفظ' })
       }
 
-      // The employee doc now definitely exists — assign the actual
-      // shift/group membership from the ORIGINAL picked value (never
-      // resolvedDefaultShift, which loses the "group:" prefix). Best-effort:
-      // the employee record itself is already saved, so a failure here is a
-      // warning, not a blocker — it must never hide the toast above or stop
-      // navigation.
-      try {
+      // The employee doc now definitely exists — assign the actual shift/group
+      // membership from the ORIGINAL picked value (plain shift, or "group:<name>",
+      // never written into Employee.default_shift directly — see the payload above).
+      // Opus review round 2, item 2: this is now a REAL blocking step, not
+      // best-effort — set_employee_shift is the ONLY thing allowed to write
+      // Employee.default_shift, so a failure here must be treated exactly like any
+      // other save failure (falls through to the catch below, which already shows
+      // the 'فشل الحفظ' toast and — critically — never reaches router.push).
+      // Skipped when editing an existing employee whose picked value hasn't actually
+      // changed since load() (LOW item); a brand-new employee always calls it, since
+      // initialShiftValueRef starts `undefined` and can never equal a real pick.
+      if (isNew || f.default_shift !== initialShiftValueRef.current) {
         await frappeClient.call('base_meena.api.hr_rotational_shifts.set_employee_shift', {
           employee: isNew ? newName : employeeId, value: f.default_shift,
         })
-      } catch (e: any) {
-        toast({ title: 'تم حفظ الموظف، لكن تعذّر ضبط الدوام/المجموعة', description: e?.message, variant: 'destructive' })
       }
 
       router.push('/employees')
