@@ -13,14 +13,13 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Check, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { fmtTime } from '@/lib/hr-format'
 import { validateNormalDay } from '@/components/hr/shift-editor/rules'
 import { emptyWindow, type CalendarType, type DayWindow } from '@/components/hr/shift-editor/types'
 import { IntervalBlock } from '@/components/hr/rotational/interval-block'
-import { EmployeesSection } from '@/components/hr/rotational/employees-section'
 import { emptyIntervalBlock, type RotationalIntervalBlock } from '@/components/hr/rotational/types'
 
 type Tab = CalendarType // 'Year' | 'Ramadan'
@@ -64,6 +63,13 @@ function hydrateBlock(b: any): RotationalIntervalBlock {
     slots,
   }
 }
+
+/** A block nobody has typed into — the default one the «أيام رمضان» tab
+ *  opens with (Apex shows one ready block). Skipped on save, so an untouched
+ *  Ramadan tab still means "no Ramadan cycle, fall back to the year". */
+const isBlankBlock = (b: RotationalIntervalBlock) =>
+  !Number(b.work_days || 0) && !Number(b.rest_days || 0) &&
+  b.slots.every((s) => !s || !(s.start_in || s.check_in || s.end_in || s.start_out || s.check_out || s.end_out))
 
 const toApiWindows = (windows: DayWindow[]) => windows.map((w) => ({
   window_no: w.window_no,
@@ -118,11 +124,9 @@ export function RotationalIntervalsPage({ parentShift, groupId }: { parentShift:
   const [parentShiftName, setParentShiftName] = useState('')
 
   const [yearBlocks, setYearBlocks] = useState<RotationalIntervalBlock[]>([emptyIntervalBlock()])
-  const [ramadanBlocks, setRamadanBlocks] = useState<RotationalIntervalBlock[]>([])
+  const [ramadanBlocks, setRamadanBlocks] = useState<RotationalIntervalBlock[]>([emptyIntervalBlock()])
   const [yearErrors, setYearErrors] = useState<(string | null)[]>([null])
-  const [ramadanErrors, setRamadanErrors] = useState<(string | null)[]>([])
-
-  const [membersOpen, setMembersOpen] = useState(false)
+  const [ramadanErrors, setRamadanErrors] = useState<(string | null)[]>([null])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -134,10 +138,11 @@ export function RotationalIntervalsPage({ parentShift, groupId }: { parentShift:
       const yb = (data.year_blocks || []).map(hydrateBlock)
       const rb = (data.ramadan_blocks || []).map(hydrateBlock)
       const finalYear = yb.length ? yb : [emptyIntervalBlock()]
+      const finalRamadan = rb.length ? rb : [emptyIntervalBlock()]
       setYearBlocks(finalYear)
-      setRamadanBlocks(rb)
+      setRamadanBlocks(finalRamadan)
       setYearErrors(finalYear.map(() => null))
-      setRamadanErrors(rb.map(() => null))
+      setRamadanErrors(finalRamadan.map(() => null))
     } catch (e: any) {
       toast({ title: 'تعذّر تحميل المجموعة', description: e?.message, variant: 'destructive' })
     } finally {
@@ -161,9 +166,11 @@ export function RotationalIntervalsPage({ parentShift, groupId }: { parentShift:
 
   const save = async () => {
     const yearResult = buildTabPayload(yearBlocks)
-    const ramadanResult = buildTabPayload(ramadanBlocks)
+    // Untouched Ramadan blocks are dropped; an all-blank tab saves as [] (no Ramadan cycle).
+    const ramadanKept = ramadanBlocks.filter((b) => !isBlankBlock(b))
+    const ramadanResult = buildTabPayload(ramadanKept)
     setYearErrors(yearResult.errors)
-    setRamadanErrors(ramadanResult.errors)
+    setRamadanErrors(ramadanBlocks.map((b) => (isBlankBlock(b) ? null : ramadanResult.errors[ramadanKept.indexOf(b)] ?? null)))
     if (!yearResult.payload || !ramadanResult.payload) {
       const currentTabOk = tab === 'Year' ? !!yearResult.payload : !!ramadanResult.payload
       toast({
@@ -216,9 +223,9 @@ export function RotationalIntervalsPage({ parentShift, groupId }: { parentShift:
           type="button"
           onClick={save}
           disabled={saving || loading}
-          className="h-[40px] w-[150px] rounded bg-[var(--apex-green)] text-white text-[14px] flex items-center justify-center gap-1.5 hover:bg-[var(--apex-green-dark)] disabled:opacity-60"
+          className="h-[40px] w-[247px] rounded bg-[var(--apex-green)] text-white text-[14px] flex items-center justify-center gap-1.5 hover:bg-[var(--apex-green-dark)] disabled:opacity-60"
         >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+          {saving && <Loader2 className="h-4 w-4 animate-spin" />}
           حفظ
         </button>
       </div>
@@ -268,7 +275,7 @@ export function RotationalIntervalsPage({ parentShift, groupId }: { parentShift:
               type="button"
               onClick={() => addBlock(tab)}
               disabled={saving}
-              className="h-[38px] px-4 rounded text-white text-[14px] hover:opacity-90 disabled:opacity-60"
+              className="h-[38px] px-4 rounded text-white text-[16px] hover:opacity-90 disabled:opacity-60"
               style={{ backgroundColor: 'rgb(41,96,182)' }}
             >
               إضافة مجموعة مواعيد
@@ -278,27 +285,13 @@ export function RotationalIntervalsPage({ parentShift, groupId }: { parentShift:
                 type="button"
                 onClick={() => removeLastBlock(tab)}
                 disabled={saving}
-                className="h-[38px] px-4 rounded bg-[var(--apex-red)] text-white text-[14px] hover:bg-[var(--apex-red-dark)] disabled:opacity-60"
+                className="h-[38px] px-4 rounded bg-[var(--apex-red)] text-white text-[16px] hover:bg-[var(--apex-red-dark)] disabled:opacity-60"
               >
                 حذف مجموعة مواعيد
               </button>
             )}
           </div>
 
-          {/* Apex has no members section on this page at all — kept only
-              because the owner wants the existing employees-section.tsx code
-              retained, hidden behind a collapsed-by-default disclosure. */}
-          <div className="border-t border-slate-200 pt-4">
-            <button
-              type="button"
-              onClick={() => setMembersOpen((v) => !v)}
-              className="flex items-center gap-1.5 text-[14px] font-bold text-[var(--apex-blue)] mb-3"
-            >
-              {membersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              {membersOpen ? 'الموظفون (إخفاء)' : 'الموظفون (إظهار)'}
-            </button>
-            {membersOpen && <EmployeesSection groupId={groupId} />}
-          </div>
         </>
       )}
     </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 
 export type ApexPaginationProps = {
   page: number
@@ -15,7 +15,7 @@ export type ApexPaginationProps = {
 
 const DEFAULT_SIZES = [5, 10, 25, 50, 100]
 
-/** Reference-style page buttons: right «عدد الصفوف», centered « ‹ 1 2 3 › »,
+/** Reference-style page buttons: right «عدد الصفوف», centered « « ‹ 1 2 3 › » » (first/last like Apex),
  *  left «اذهب إلى صفحة» — square 43×35 buttons, active page navy `--apex-navy`. */
 export function ApexPagination({
   page, pageCount, pageSize, pageSizeOptions = DEFAULT_SIZES, total, onPageChange, onPageSizeChange,
@@ -57,6 +57,16 @@ export function ApexPagination({
       <div className="flex items-center">
         <button
           type="button"
+          onClick={() => onPageChange(1)}
+          disabled={page <= 1}
+          aria-label="الصفحة الأولى"
+          className={`${btnBase} text-slate-500 disabled:opacity-40`}
+          style={{ width: 43, height: 35, borderRadius: 0 }}
+        >
+          <ChevronsRight className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
           onClick={() => onPageChange(Math.max(1, page - 1))}
           disabled={page <= 1}
           aria-label="الصفحة السابقة"
@@ -91,6 +101,16 @@ export function ApexPagination({
           style={{ width: 43, height: 35, borderRadius: 0 }}
         >
           <ChevronLeft className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onPageChange(pageCount)}
+          disabled={page >= pageCount}
+          aria-label="الصفحة الأخيرة"
+          className={`${btnBase} text-slate-500 disabled:opacity-40`}
+          style={{ width: 43, height: 35, borderRadius: 0 }}
+        >
+          <ChevronsLeft className="h-4 w-4" />
         </button>
       </div>
 

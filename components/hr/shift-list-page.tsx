@@ -304,7 +304,7 @@ export function ShiftListPage() {
       <ApexDialog
         open={dialogMode !== null}
         onOpenChange={(o) => { if (!o) setDialogMode(null) }}
-        title={dialogMode === 'add' ? 'إضافة دوام' : 'تعديل دوام'}
+        title={dialogMode === 'add' ? 'إضافة دوام' : 'تعديل الدوام'}
         size="sm"
         primary={{
           label: dialogMode === 'add' ? 'إضافة' : 'تعديل',

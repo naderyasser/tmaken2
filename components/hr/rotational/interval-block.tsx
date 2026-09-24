@@ -9,8 +9,8 @@ import type { RotationalIntervalBlock } from './types'
  *  rgb(0,86,179) and #0056b3/#f2f2f2/rgba(0,0,0,.87) are the same colors,
  *  just written differently; reused as-is per the owner's spec §3. */
 const TH = 'border border-[#0056b3] bg-[#f2f2f2] px-2 py-2 text-center font-bold text-[14px] whitespace-nowrap'
-const TH_STYLE = { color: 'rgba(0,0,0,.87)' }
-const NUM_INPUT = 'h-9 w-24 rounded border border-[var(--apex-border)] bg-white px-2 text-center text-[14px] text-slate-800 outline-none focus:border-[var(--apex-blue)] disabled:bg-slate-100 disabled:text-slate-400'
+const TH_STYLE = { color: 'rgb(33,37,41)' }
+const NUM_INPUT = 'h-[24px] w-[50px] rounded border border-[var(--apex-border)] bg-white px-2 text-center text-[14px] text-slate-800 outline-none focus:border-[var(--apex-blue)] disabled:bg-slate-100 disabled:text-slate-400'
 
 /**
  * One «فترة» block's UI on the intervals page (owner's spec §3) — work/rest
@@ -55,7 +55,7 @@ export function IntervalBlock({
   }
 
   return (
-    <div className="mb-6 rounded border border-slate-200 bg-white p-4">
+    <div className="mb-6">
       {errorMsg && (
         <div
           role="alert"
@@ -66,7 +66,7 @@ export function IntervalBlock({
         </div>
       )}
 
-      <div className="flex items-center justify-between gap-4 mb-3 flex-wrap" dir="rtl">
+      <div className="flex items-center justify-around gap-4 mb-3 flex-wrap px-[15%]" dir="rtl">
         <div className="flex items-center gap-2">
           <span className="text-[13px] font-bold text-slate-700">عدد أيام الدوام</span>
           <input
