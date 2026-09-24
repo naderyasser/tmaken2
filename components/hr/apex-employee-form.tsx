@@ -51,8 +51,14 @@ const FIELD = 'w-full h-[44px] rounded border border-[var(--apex-border)] bg-whi
 
 const STATUS = [['Active', 'نشط'], ['Inactive', 'غير نشط'], ['Suspended', 'موقوف'], ['Left', 'منتهي']]
 
-interface Opts { designations: string[]; branches: string[]; shifts: string[]; departments: string[]; groups: string[]; projects: string[]; employees: { name: string; employee_name: string }[]; countries: string[] }
-const EMPTY: Opts = { designations: [], branches: [], shifts: [], departments: [], groups: [], projects: [], employees: [], countries: [] }
+interface Opts {
+  designations: string[]; branches: string[]; shifts: string[]; departments: string[]; groups: string[]; projects: string[]
+  employees: { name: string; employee_name: string }[]; countries: string[]
+  /** «الدوام *» combined picker — every normal/open shift AND every
+   *  variable rotational group, from base_meena.api.hr_rotational_shifts.list_shift_options. */
+  shiftOptions: { value: string; label: string; kind: string; default_shift: string }[]
+}
+const EMPTY: Opts = { designations: [], branches: [], shifts: [], departments: [], groups: [], projects: [], employees: [], countries: [], shiftOptions: [] }
 
 // Client review of the real running system, 2026-09-20: new-employee save
 // was rejecting on fields that read as "already filled" to the person
@@ -97,15 +103,18 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
   useEffect(() => {
     const list = (dt: string, fields = ['name'], filters?: any) =>
       frappeClient.getList<any>(dt, { fields, filters, order_by: `${fields[fields.length - 1]} asc`, limit_page_length: 0 }).catch(() => [])
+    const shiftOptions = () =>
+      frappeClient.call('base_meena.api.hr_rotational_shifts.list_shift_options', {}).then((r: any) => r?.message ?? []).catch(() => [])
     Promise.all([
       // No is_group filter: an employee already assigned to a group department must still
       // see that value in the select (otherwise it renders blank and gets wiped on save).
       list('Designation'), list('Branch'), list('Shift Type'), list('Department'),
       list('Employee Group'), list('Project'), list('Employee', ['name', 'employee_name'], [['status', '=', 'Active']]), list('Country'),
-    ]).then(([d, b, s, dep, g, p, e, c]) => setOpts({
+      shiftOptions(),
+    ]).then(([d, b, s, dep, g, p, e, c, so]) => setOpts({
       designations: d.map((x: any) => x.name), branches: b.map((x: any) => x.name), shifts: s.map((x: any) => x.name),
       departments: dep.map((x: any) => x.name), groups: g.map((x: any) => x.name), projects: p.map((x: any) => x.name),
-      employees: e, countries: c.map((x: any) => x.name),
+      employees: e, countries: c.map((x: any) => x.name), shiftOptions: so,
     }))
   }, [])
 
@@ -119,6 +128,12 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
       // العميل) — سجلات قديمة قد تحمل employee_number فقط بلا attendance_device_id
       // (استيراد سابق قبل هذا التوحيد)؛ اعرض القيمة الموجودة أيًا كانت.
       if (!data.attendance_device_id && data.employee_number) data.attendance_device_id = data.employee_number
+      // The combined «الدوام *» dropdown pre-selects the group option
+      // (value "group:<name>") whenever the employee is currently on a
+      // rotational group — never the bare parent shift stored in
+      // default_shift itself (set_employee_shift owns keeping both fields
+      // in sync server-side).
+      if (data.custom_rotational_group) data.default_shift = `group:${data.custom_rotational_group}`
       setF(data)
     } catch (e: any) {
       toast({ title: 'تعذّر تحميل الموظف', description: e?.message, variant: 'destructive' })
@@ -212,6 +227,14 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
     }
     setSaving(true)
     try {
+      // The combined «الدوام *» dropdown's value is either a plain Shift
+      // Type name or "group:<Shift Schedule name>" (list_shift_options) —
+      // never write the latter into the native Employee.default_shift Link
+      // field directly; resolve it to the option's real parent Shift Type
+      // first. set_employee_shift (below) is what actually assigns the
+      // group membership from the ORIGINAL picked value.
+      const chosen = opts.shiftOptions.find((o) => o.value === f.default_shift)
+      const resolvedDefaultShift = chosen ? chosen.default_shift : f.default_shift
       const payload: F = {
         company: f.company || company || undefined,
         // حقل واحد فقط: كود الموظف = رقم الموظف على جهاز البصمة (طلب العميل).
@@ -220,7 +243,7 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
         employee_number: f.attendance_device_id, status: f.status || 'Active', employee_name: f.employee_name, first_name: f.employee_name,
         middle_name: '', last_name: '',
         custom_employee_name_en: f.custom_employee_name_en || '', designation: f.designation || '', custom_branch_access: f.custom_branch_access,
-        branch: f.branch, default_shift: f.default_shift, department: f.department || '', custom_employee_group: f.custom_employee_group || '',
+        branch: f.branch, default_shift: resolvedDefaultShift, department: f.department || '', custom_employee_group: f.custom_employee_group || '',
         custom_section: f.custom_section || '', reports_to: f.reports_to || '', custom_project: f.custom_project || '', custom_task: f.custom_task || '',
         custom_attendance_method: f.custom_attendance_method, custom_mobile_app: f.custom_mobile_app || 'لا',
         attendance_device_id: f.attendance_device_id || '',
@@ -231,10 +254,11 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
         custom_ot_after_shift: f.custom_ot_after_shift ? 1 : 0, custom_ot_holidays: f.custom_ot_holidays ? 1 : 0,
         custom_checkout_without_punch: f.custom_checkout_without_punch ? 1 : 0,
       }
+      let newName: string | undefined
       if (isNew) {
         payload.date_of_joining = f.date_of_joining || new Date().toISOString().slice(0, 10)
         const res = await frappeClient.post('Employee', payload)
-        const newName = (res as any)?.data?.name
+        newName = (res as any)?.data?.name
         let imageFailed = false
         if (pendingImageFile.current && newName) {
           try {
@@ -253,6 +277,21 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
         await frappeClient.put('Employee', employeeId!, payload)
         toast({ title: 'تم الحفظ' })
       }
+
+      // The employee doc now definitely exists — assign the actual
+      // shift/group membership from the ORIGINAL picked value (never
+      // resolvedDefaultShift, which loses the "group:" prefix). Best-effort:
+      // the employee record itself is already saved, so a failure here is a
+      // warning, not a blocker — it must never hide the toast above or stop
+      // navigation.
+      try {
+        await frappeClient.call('base_meena.api.hr_rotational_shifts.set_employee_shift', {
+          employee: isNew ? newName : employeeId, value: f.default_shift,
+        })
+      } catch (e: any) {
+        toast({ title: 'تم حفظ الموظف، لكن تعذّر ضبط الدوام/المجموعة', description: e?.message, variant: 'destructive' })
+      }
+
       router.push('/employees')
     } catch (e: any) {
       // e?.message already carries the backend's error text verbatim — including the
@@ -278,6 +317,22 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
         <select name={k} aria-label={label} value={f[k] ?? ''} onChange={set(k)} className={cn(FIELD, 'appearance-none', !f[k] && 'text-slate-400')}>
           <option value="">{label}</option>
           {items.map((o) => Array.isArray(o) ? <option key={o[0]} value={o[0]}>{o[1]}</option> : <option key={o} value={o}>{o}</option>)}
+        </select>
+        <ChevronDown className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+      </div>
+    </div>
+  )
+  /** Same as `Sel`, over `{value,label}` objects instead of plain strings —
+   *  the «الدوام *» combined shift+group picker (opts.shiftOptions), whose
+   *  option label ("<shift> - <group>") differs from its stored value
+   *  ("group:<name>"). */
+  const SelOpts = (k: string, label: string, items: { value: string; label: string }[], req?: boolean) => (
+    <div>
+      {lbl(label, req)}
+      <div className="relative">
+        <select name={k} aria-label={label} value={f[k] ?? ''} onChange={set(k)} className={cn(FIELD, 'appearance-none', !f[k] && 'text-slate-400')}>
+          <option value="">{label}</option>
+          {items.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <ChevronDown className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
       </div>
@@ -442,7 +497,7 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
           {section('info', 'معلومات الموظف', (
             <div className={grid}>
               {Sel('branch', 'الفروع', opts.branches, true)}
-              {Sel('default_shift', 'الدوام', opts.shifts, true)}
+              {SelOpts('default_shift', 'الدوام', opts.shiftOptions, true)}
               {Combo('department', 'الإدارة', f.department ?? '', (v) => setF((p) => ({ ...p, department: v })), opts.departments)}
               {Sel('custom_employee_group', 'المجموعة', opts.groups)}
               {Combo('custom_section', 'القسم', f.custom_section ?? '', (v) => setF((p) => ({ ...p, custom_section: v })), [])}

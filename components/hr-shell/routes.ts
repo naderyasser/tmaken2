@@ -119,13 +119,6 @@ export const RAIL_SECTIONS: RailSection[] = [
         icon: Clock,
       },
       {
-        id: 'rotational-shifts',
-        labelKey: 'nav.rotational_shifts',
-        href: '/rotational-shifts',
-        match: route('/rotational-shifts'),
-        icon: Clock,
-      },
-      {
         id: 'unregistered-employees',
         labelKey: 'nav.unregistered_employees',
         href: '/hr?module=unregistered-employees',

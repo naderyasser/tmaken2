@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { fmtTime } from '@/lib/hr-format'
@@ -62,6 +61,16 @@ export function ShiftEditorPage({ shiftId }: { shiftId: string }) {
     }
   }, [shiftId, toast])
   useEffect(() => { load() }, [load])
+
+  // A Rotational shift has no day-by-day editor of its own anymore — it
+  // lives inside its groups list now (owner's spec §1). Redirect the instant
+  // we know the kind, so clicking a Rotational shift's name in the list
+  // feels like it opens straight into its groups, not a dead-end page.
+  useEffect(() => {
+    if (!loading && shift.kind === 'Rotational') {
+      router.replace(`/shift-management/${encodeURIComponent(shiftId)}/groups`)
+    }
+  }, [loading, shift.kind, shiftId, router])
 
   const toApiWindows = (windows: DayWindow[]) => windows.map((w) => ({
     window_no: w.window_no,
@@ -133,21 +142,8 @@ export function ShiftEditorPage({ shiftId }: { shiftId: string }) {
         <span className="text-slate-800 font-bold">{shift.arabic_name || '…'}</span>
       </div>
 
-      {loading ? (
+      {loading || shift.kind === 'Rotational' ? (
         <div className="py-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-[var(--apex-blue)]" /></div>
-      ) : shift.kind === 'Rotational' ? (
-        <div className="bg-white rounded-[15px] shadow-[0_8px_16px_rgba(0,0,0,.15)] p-10 text-center">
-          <p className="text-[15px] text-slate-700 mb-4">
-            هذا الدوام من نوع «دوام متغير» — يُدار من صفحة الدوام المتغير.
-          </p>
-          <Link
-            href="/rotational-shifts"
-            className="inline-flex items-center gap-1.5 h-[40px] px-4 rounded bg-[var(--apex-blue)] text-white text-[14px] hover:bg-[var(--apex-blue-hover)]"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            الانتقال إلى الدوام المتغير
-          </Link>
-        </div>
       ) : (
         <>
           <div className="flex items-center justify-center border-b border-slate-200 mb-4">

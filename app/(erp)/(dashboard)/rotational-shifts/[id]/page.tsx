@@ -1,10 +1,11 @@
 'use client'
 
-import { use } from 'react'
-import { RotationalShiftEditorPage } from '@/components/hr/rotational-shift-editor-page'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
-/** /rotational-shifts/<id> — the Apex full-page rotational shift group editor, edit mode. */
-export default function Page({ params: paramsPromise }: { params: Promise<{ id: string }> }) {
-  const params = use(paramsPromise)
-  return <RotationalShiftEditorPage groupId={decodeURIComponent(params.id)} />
+/** /rotational-shifts/<id> — retired, see ../page.tsx. */
+export default function Page() {
+  const router = useRouter()
+  useEffect(() => { router.replace('/shift-management') }, [router])
+  return null
 }

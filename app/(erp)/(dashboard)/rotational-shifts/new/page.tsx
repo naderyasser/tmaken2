@@ -1,8 +1,11 @@
 'use client'
 
-import { RotationalShiftEditorPage } from '@/components/hr/rotational-shift-editor-page'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
-/** /rotational-shifts/new — the Apex full-page rotational shift group editor, add mode. */
+/** /rotational-shifts/new — retired, see ../page.tsx. */
 export default function Page() {
-  return <RotationalShiftEditorPage />
+  const router = useRouter()
+  useEffect(() => { router.replace('/shift-management') }, [router])
+  return null
 }
