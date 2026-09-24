@@ -99,7 +99,9 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
   const pendingImageFile = useRef<File | null>(null)
   /** The «الدوام» picker's value as loaded from the server (stays `undefined` for a
    *  brand-new employee) — save() only calls set_employee_shift when this changed,
-   *  skipping a needless write when the shift/group pick wasn't touched. */
+   *  skipping a needless write when the shift/group pick wasn't touched.
+   *  Opus review round 3, item 1: sourced from get_employee_shift_value's
+   *  resolved CURRENT effective shift, not Employee.default_shift — see load(). */
   const initialShiftValueRef = useRef<string | undefined>(undefined)
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setF((p) => ({ ...p, [k]: e.target.type === 'checkbox' ? ((e.target as HTMLInputElement).checked ? 1 : 0) : e.target.value }))
@@ -132,12 +134,24 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
       // العميل) — سجلات قديمة قد تحمل employee_number فقط بلا attendance_device_id
       // (استيراد سابق قبل هذا التوحيد)؛ اعرض القيمة الموجودة أيًا كانت.
       if (!data.attendance_device_id && data.employee_number) data.attendance_device_id = data.employee_number
-      // The combined «الدوام *» dropdown pre-selects the group option
-      // (value "group:<name>") whenever the employee is currently on a
-      // rotational group — never the bare parent shift stored in
-      // default_shift itself (set_employee_shift owns keeping both fields
-      // in sync server-side).
-      if (data.custom_rotational_group) data.default_shift = `group:${data.custom_rotational_group}`
+      // Opus review round 3, item 1: the combined «الدوام *» dropdown must show
+      // the employee's CURRENT effective shift, not Employee.default_shift —
+      // default_shift is now write-once/frozen (round 2) and can silently be
+      // stale, e.g. an employee who switched shifts 3 times since it was first
+      // set still reads their very first shift there. get_employee_shift_value
+      // resolves the real current value server-side (custom_rotational_group,
+      // else today's Shift Assignment, else default_shift, else "") in the same
+      // plain-shift / "group:<name>" shape list_shift_options() already uses —
+      // use THAT as both the picker's initial value and the "did the user
+      // change anything" baseline. A failure here must not block the rest of
+      // the employee load: toast and leave the picker unselected.
+      try {
+        const shiftRes: any = await frappeClient.call('base_meena.api.hr_rotational_shifts.get_employee_shift_value', { employee: employeeId })
+        data.default_shift = shiftRes?.message?.value ?? ''
+      } catch (e: any) {
+        toast({ title: 'تعذّر تحميل الدوام الحالي للموظف', description: e?.message, variant: 'destructive' })
+        data.default_shift = ''
+      }
       initialShiftValueRef.current = data.default_shift
       setF(data)
     } catch (e: any) {
@@ -258,6 +272,15 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
       }
       let newName: string | undefined
       if (isNew) {
+        // Opus review round 3, item 2: validate the shift/group pick BEFORE
+        // ever creating the Employee doc. Read-only, throws the same
+        // Arabic-message-carrying error as every other endpoint here — letting
+        // it bubble to the catch below reuses the existing 'فشل الحفظ' toast
+        // and, critically, never reaches frappeClient.post, so a known-bad
+        // shift pick can never create an orphaned employee in the first place.
+        await frappeClient.call('base_meena.api.hr_rotational_shifts.validate_employee_shift_choice', {
+          value: f.default_shift, company: payload.company,
+        })
         payload.date_of_joining = f.date_of_joining || new Date().toISOString().slice(0, 10)
         const res = await frappeClient.post('Employee', payload)
         newName = (res as any)?.data?.name
@@ -292,9 +315,37 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
       // changed since load() (LOW item); a brand-new employee always calls it, since
       // initialShiftValueRef starts `undefined` and can never equal a real pick.
       if (isNew || f.default_shift !== initialShiftValueRef.current) {
-        await frappeClient.call('base_meena.api.hr_rotational_shifts.set_employee_shift', {
-          employee: isNew ? newName : employeeId, value: f.default_shift,
-        })
+        try {
+          await frappeClient.call('base_meena.api.hr_rotational_shifts.set_employee_shift', {
+            employee: isNew ? newName : employeeId, value: f.default_shift,
+          })
+        } catch (e: any) {
+          if (isNew && newName) {
+            // Opus review round 3, item 2: the Employee doc above was already
+            // created successfully — only the shift/group assignment failed
+            // (validate_employee_shift_choice passed, but a race is still
+            // possible, e.g. someone deleted the group in between; that's
+            // expected per the backend's own docs). Leaving the form sitting
+            // on /employee/new would orphan that employee behind an
+            // apparently-failed save, and a retry would POST a second one.
+            // Surface the error and switch this form into EDIT mode on the
+            // employee that WAS created instead: replace (not push) the URL
+            // so back doesn't return to /new. The page at
+            // app/(erp)/(dashboard)/employee/[id]/page.tsx derives
+            // `employeeId` straight from the route param and passes it down
+            // as this component's own prop, and Next keeps this same
+            // component instance mounted across a same-segment param change —
+            // so the prop update alone flips `isNew` false and reruns load()
+            // (its useCallback depends on `employeeId`), re-fetching the just
+            // -created employee and picking up get_employee_shift_value's ""
+            // for the still-unset shift. The user just re-picks the shift and
+            // hits «حفظ» again, which now PUTs instead of POSTs.
+            toast({ title: 'فشل الحفظ', description: e?.message, variant: 'destructive' })
+            router.replace(`/employee/${encodeURIComponent(newName)}`)
+            return
+          }
+          throw e
+        }
       }
 
       router.push('/employees')
