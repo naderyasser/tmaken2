@@ -252,6 +252,7 @@ export function DevicesPage() {
       setDeleteTarget(null)
       load()
     } catch (err: any) {
+      setDeleteTarget(null)  // same as generic-list-page: don't leave «سيتم حذف…» open over the error
       toast({ title: 'فشل الحذف', description: err?.message, variant: 'destructive' })
     } finally {
       setDeleting(false)

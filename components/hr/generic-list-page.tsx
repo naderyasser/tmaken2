@@ -414,6 +414,9 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
       setDeleteTarget(null)
       await load()
     } catch (e) {
+      // Close the dialog on failure too — left open, its «سيتم حذف السجل…»
+      // text reads like a success message and hides the error toast.
+      setDeleteTarget(null)
       toast({ title: 'فشل الحذف', description: e instanceof Error ? e.message : 'تعذّر الاتصال بالخادم', variant: 'destructive' })
     } finally { setDeleting(false) }
   }
