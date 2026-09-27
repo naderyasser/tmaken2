@@ -41,3 +41,19 @@ export function parseFrappeError(errorData: any, fallback: string): string {
 
     return fallback
 }
+
+/** Frappe's own English messages → Arabic, and never show raw HTML tags
+ *  (client QA 2026-09-27: «Location <strong>x</strong> already exists» reached users). */
+export function arabizeError(raw: string): string {
+  const text = String(raw || '').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
+  const DT = '(?:Location|Employee Group|Holiday List|Leave Type|Country|Task|Role|Department|Designation|Branch|Project|Shift Type|Employee) '
+  let m: RegExpMatchArray | null
+  if ((m = text.match(new RegExp(`^(?:${DT})?(.+?) already exists\\.?$`)))) return `«${m[1].trim()}» موجود بالفعل`
+  if (/Duplicate entry/i.test(text)) return 'هذا الاسم موجود بالفعل'
+  if ((m = text.match(new RegExp(`^(?:${DT})?(.+?) not found\\.?$`)))) return `العنصر «${m[1].trim()}» غير موجود — ربما حُذف أو تغيّر اسمه، أعد تحميل الصفحة`
+  if (/not allowed to be renamed/i.test(text)) return 'لا يمكن تغيير اسم هذا العنصر — يمكنك تعديل الحقول الأخرى فقط'
+  if (/Cannot delete or cancel because .* is linked with/i.test(text)) return 'لا يمكن الحذف لأن هذا العنصر مستخدم في سجلات أخرى'
+  if (/Insufficient Permission|Not permitted/i.test(text)) return 'ليس لديك صلاحية لهذه العملية'
+  if (/Value missing for/i.test(text)) return 'يوجد حقل مطلوب لم يُملأ'
+  return text
+}

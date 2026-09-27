@@ -7,6 +7,18 @@ import { useToast } from '@/hooks/use-toast'
 
 const FIELD = 'w-full h-[42px] rounded border border-[var(--apex-border)] bg-white px-3 text-[14px] text-slate-800 outline-none focus:border-[var(--apex-blue)]'
 
+// «العلامات العشرية» and «الوقت المسموح للجلسة» both write the same System
+// Settings row — the backend retries once on the resulting timestamp
+// collision (hr_settings.save_general_settings), but a raw Frappe
+// TimestampMismatchError could still reach here if the retry itself loses a
+// second race. Never let its raw English through. Found live, 2026-09-21.
+const friendlySaveError = (e: unknown): string => {
+  const raw = e instanceof Error ? e.message : String(e ?? '')
+  return /modified after you have opened it|TimestampMismatchError/i.test(raw)
+    ? 'تم تعديل الإعدادات في نفس اللحظة من مكان آخر — حاول الحفظ مرة أخرى'
+    : raw || 'تعذّر الاتصال بالخادم'
+}
+
 function Accordion({ title, open, onToggle, children }: { title: string; open: boolean; onToggle: () => void; children?: React.ReactNode }) {
   return (
     <div className="bg-white rounded-md shadow-sm border border-slate-200/70 mb-5">
@@ -78,7 +90,7 @@ export function GeneralSettingsPage() {
   const run = async (key: string, fn: () => Promise<any>, ok: string) => {
     startBusy(key)
     try { await fn(); toast({ title: ok }) }
-    catch (e: any) { toast({ title: 'فشل', description: e?.message, variant: 'destructive' }) }
+    catch (e: any) { toast({ title: 'فشل', description: friendlySaveError(e), variant: 'destructive' }) }
     finally { stopBusy(key) }
   }
 
@@ -141,7 +153,7 @@ export function GeneralSettingsPage() {
             <L label="نوع الاتصال الآمن">
               <div className="relative">
                 <select value={em.secure} onChange={(e) => setEm((s) => ({ ...s, secure: e.target.value }))} className={FIELD + ' appearance-none'}>
-                  {['آلى', 'SSL', 'TLS'].map((o) => <option key={o}>{o}</option>)}
+                  {['آلى', 'SSL', 'TLS'].map((o) => <option key={o} value={o}>{o === 'آلى' ? 'تلقائي' : o}</option>)}
                 </select>
                 <ChevronDown className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
               </div>
@@ -158,7 +170,7 @@ export function GeneralSettingsPage() {
           </div>
 
           <div className="pt-4 space-y-4">
-            <h4 className="text-[16px] text-slate-800">تجربه الارسال</h4>
+            <h4 className="text-[16px] text-slate-800">تجربة الإرسال</h4>
             <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-6 items-center max-w-4xl">
               <span className="text-[15px] text-slate-800">البريد الالكتروني</span>
               <input value={testTo} onChange={(e) => setTestTo(e.target.value)} className={FIELD} />

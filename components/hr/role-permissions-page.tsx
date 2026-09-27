@@ -23,7 +23,11 @@ import { frappeClient } from '@/lib/api-client'
  */
 
 const GET_PERMS = 'base_meena.api.hr_permissions.get_permissions'
-const SET_PERM = 'base_meena.api.hr_permissions.set_permission'
+// one call per click / per page load (client QA 2026-09-27: 4 × 7-14 s per click, 11 calls on open)
+const SET_PERMS = 'base_meena.api.hr_permissions.set_permissions'
+const GET_GROUPS = 'base_meena.api.hr_permissions.get_group_permissions'
+type ServerState = Record<'read' | 'create' | 'write' | 'delete' | 'print', boolean>
+const fromServer = (x: ServerState): GroupState => ({ view: !!x.read, add: !!x.create, edit: !!x.write, del: !!x.delete, print: !!x.print, loading: false })
 const ROLE_LABELS = 'base_meena.api.hr_lists.role_labels'
 
 // Module-scope cache: role_labels() returns the same dict for every role, so
@@ -100,16 +104,17 @@ export function RolePermissionsPage({ role }: { role: string }) {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const entries = await Promise.all(
-        PAGE_GROUPS.map(async (g) => [g.key, await loadGroup(g)] as const),
-      )
-      setState(Object.fromEntries(entries))
+      const res = await frappeClient.call<Record<string, ServerState>>(GET_GROUPS, {
+        role, groups: Object.fromEntries(PAGE_GROUPS.map((g) => [g.key, g.doctypes])),
+      })
+      const all = ((res as any)?.message || {}) as Record<string, ServerState>
+      setState(Object.fromEntries(PAGE_GROUPS.map((g) => [g.key, all[g.key] ? fromServer(all[g.key]) : EMPTY_GROUP_STATE])))
     } catch (e) {
       toast({ title: 'تعذّر تحميل الصلاحيات', description: e instanceof Error ? e.message : undefined, variant: 'destructive' })
     } finally {
       setLoading(false)
     }
-  }, [loadGroup, toast])
+  }, [role, toast])
 
   useEffect(() => { load() }, [load])
 
@@ -124,8 +129,8 @@ export function RolePermissionsPage({ role }: { role: string }) {
     setState((prev) => ({ ...prev, [group.key]: { ...(prev[group.key] || EMPTY_GROUP_STATE), [kind]: value } }))
     const ptype = PTYPE_OF[kind]
     try {
-      await Promise.all(group.doctypes.map((dt) => frappeClient.call(SET_PERM, { doctype: dt, role, ptype, value: value ? 1 : 0 })))
-      const next = await loadGroup(group)
+      const res = await frappeClient.call<ServerState>(SET_PERMS, { doctypes: group.doctypes, role, ptype, value: value ? 1 : 0 })
+      const next = fromServer((res as any)?.message || {})
       setState((prev) => ({ ...prev, [group.key]: next }))
       if (next[kind] !== value) toast({ title: 'لم يتم حفظ الصلاحية', description: 'أعد المحاولة', variant: 'destructive' })
       else toast({ title: 'تم تحديث الصلاحية' })

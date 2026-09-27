@@ -129,6 +129,8 @@ export interface ListModuleConfig {
    * base_meena.biometric_management.adms.register_device).
    */
   createMethod?: string
+  /** With editHref: the name link opens that page, the ✏️ button still edits in the dialog. */
+  editInDialog?: boolean
   /** Constant values added to every CREATE payload (fields the form no longer shows). */
   createDefaults?: Record<string, any>
   /** Edit through a whitelisted method (called with { name, ...payload }) instead of rename + PUT. */
@@ -510,6 +512,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     // every row here is created as — and only lists — groups.
     filters: [['is_group', '=', 1]],
     createDefaults: { is_group: 1 },
+    editInDialog: true,
     fields: [
       // client 2026-09-27: name in both languages only («الموقع الأب» removed)
       { field: 'location_name', label: 'اسم المجموعة (عربي)', required: true },
@@ -526,7 +529,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     addLabel: 'إضافة مجموعة الموظفين',
     // Apex's own placeholder text (measured live) drops the ة in «مجوعة» —
     // kept verbatim rather than "corrected" so this matches Apex exactly.
-    searchPlaceholder: 'ابحث باسم مجوعة الموظفين',
+    searchPlaceholder: 'ابحث باسم مجموعة الموظفين',
     actionsMenu: true,
     print: false,
     noIndex: true,
@@ -535,6 +538,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     // link into the members screen (components/hr/employee-group-members-page.tsx),
     // same linkField/editHref pattern as إسم الدوام on shift-management.
     editHref: (name) => `/hr?module=employee-group-members&group=${encodeURIComponent(name)}`,
+    editInDialog: true,
     linkField: 'employee_group_name',
     nameField: 'employee_group_name',
     fields: [
@@ -563,10 +567,12 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { as: '_name_ar', from: (r) => r.custom_name_ar || (COUNTRY_AR[r.country_name] ?? r.country_name) },
     ],
     fields: [
-      { field: '_name_ar', label: 'اسم الجنسية', inForm: false },
+      { field: '_name_ar', label: 'اسم الجنسية (عربي)', inForm: false },
       // client 2026-09-27: Arabic + English name only («الرمز» removed)
       { field: 'custom_name_ar', label: 'اسم الجنسية (عربي)', required: true, inTable: false },
-      { field: 'country_name', label: 'اسم الجنسية (إنجليزي)', required: true },
+      // Country is core Frappe with renaming disabled — the English name (its
+      // document name) can't change after creation
+      { field: 'country_name', label: 'اسم الجنسية (إنجليزي)', required: true, lockedOnEdit: true },
     ],
   },
 
@@ -624,7 +630,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     ],
     // client 2026-09-27: Arabic + English name only (max days / LWP / include holidays removed)
     fields: [
-      { field: '_label', label: 'اسم الاجازة', inForm: false },
+      { field: '_label', label: 'اسم الاجازة (عربي)', inForm: false },
       { field: 'custom_name_ar', label: 'اسم الاجازة (عربي)', required: true, inTable: false },
       { field: 'leave_type_name', label: 'اسم الاجازة (إنجليزي)', required: true },
     ],
@@ -789,10 +795,12 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'permission_date', label: 'التاريخ', type: 'date', required: true },
       { field: 'branch', label: 'الفرع', inForm: false },
       { field: '_order_type', label: 'نوع الاذن', inForm: false },
-      { field: 'from_time', label: 'من الساعة', type: 'time', required: true, inTable: false },
-      { field: 'to_time', label: 'إلى الساعة', type: 'time', required: true, inTable: false },
-      { field: 'reason', label: 'السبب', type: 'textarea', required: true, inTable: false },
-      { field: 'status', label: 'الحالة', type: 'select', options: ['Draft', 'Pending', 'Approved', 'Rejected'], optionLabels: VALUE_AR, statusBadge: true, inTable: true },
+      { field: 'from_time', label: 'من الساعة', type: 'time', required: true },
+      { field: 'to_time', label: 'إلى الساعة', type: 'time', required: true },
+      { field: 'reason', label: 'السبب', type: 'textarea', required: true },
+      // «معتمد / مرفوض» on create really approves / rejects (hr_requests.create_request
+      // submits); after that the ⋮ menu is the only way to change the state
+      { field: 'status', label: 'الحالة', type: 'select', options: ['Draft', 'Pending', 'Approved', 'Rejected'], optionLabels: VALUE_AR, statusBadge: true, inTable: true, lockedOnEdit: true },
       { field: 'docstatus', label: 'docstatus', inTable: false, inForm: false },
       { field: 'department', label: 'الإدارة', inTable: false, inForm: false },
       { field: 'designation', label: 'الوظائف', inTable: false, inForm: false },

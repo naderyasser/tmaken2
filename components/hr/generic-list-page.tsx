@@ -339,8 +339,10 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     setDialogOpen(true)
   }
 
-  const openEdit = (row: Row) => {
-    if (config.editHref) { router.push(config.editHref(row.name)); return }
+  // viaLink: the name link opens the record's own page; with editInDialog the ✏️
+  // still edits in place (groups — client QA 2026-09-27: no way to fix a name)
+  const openEdit = (row: Row, viaLink = false) => {
+    if (config.editHref && (viaLink || !config.editInDialog)) { router.push(config.editHref(row.name)); return }
     const initial: Record<string, any> = {}
     for (const f of fieldsFor(true)) initial[f.field] = toFormValue(f, row[f.field])
     setEditing(row)
@@ -373,7 +375,10 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     setSaving(true)
     try {
       let createResult: any
-      if (editing && config.updateMethod) await frappeClient.call(config.updateMethod, { name: editing.name, ...payload })
+      if (editing && config.updateMethod) {
+        const res = (await frappeClient.call(config.updateMethod, { name: editing.name, ...payload }) as any)?.message
+        if (res?.name && res.name !== editing.name) setEditing({ ...editing, name: res.name })
+      }
       else if (editing) {
         // Changing the doctype's autoname-source field via a plain PUT is a
         // silent no-op in Frappe (200 OK, field unchanged — see nameField's
@@ -382,6 +387,9 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
         const newName = config.nameField ? String(payload[config.nameField] ?? '').trim() : ''
         if (newName && newName !== editing.name) {
           await frappeClient.call('frappe.client.rename_doc', { doctype: config.doctype, old_name: editing.name, new_name: newName })
+          // renamed already: a retry after any later failure must use the new name
+          // (client QA 2026-09-27: a second save 404'd «… not found»)
+          setEditing({ ...editing, name: newName })
           const rest = { ...payload }
           delete rest[config.nameField as string]
           if (Object.keys(rest).length) await frappeClient.put(config.doctype, newName, rest)
@@ -602,7 +610,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
                           {tableFields.map((f) => (
                             <td key={f.field}>
                               {config.linkField === f.field && config.editHref ? (
-                                <button type="button" onClick={() => openEdit(row)} className="apex-link hover:underline">{row[f.field] ?? '—'}</button>
+                                <button type="button" onClick={() => openEdit(row, true)} className="apex-link hover:underline">{row[f.field] ?? '—'}</button>
                               ) : cellValue(f, row)}
                             </td>
                           ))}

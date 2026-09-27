@@ -7,7 +7,7 @@
  */
 
 // Shared with lib/api.ts so both request layers decode Frappe errors identically.
-import { stripExceptionClass } from './frappe-error'
+import { arabizeError, stripExceptionClass } from './frappe-error'
 
 // Helper function to make requests to Frappe backend.
 // In development (NEXT_PUBLIC_FRAPPE_URL is set in .env.local), route through
@@ -480,7 +480,7 @@ constructor(_baseUrl?: string) { }
                 errorMsg = stripExceptionClass(errorData.message)
             }
         } catch { /* response body wasn't JSON, keep default message */ }
-        return errorMsg
+        return arabizeError(errorMsg)
     }
 
     // ==================== Core Methods ====================
