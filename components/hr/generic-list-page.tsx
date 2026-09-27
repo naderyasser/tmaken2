@@ -313,7 +313,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     let ok = 0, failed = 0
     for (const name of selected) {
       try {
-        if (config.deleteMethod) await frappeClient.call(config.deleteMethod, { [config.deleteArgField || 'name']: name })
+        if (config.deleteMethod) await frappeClient.call(config.deleteMethod, { ...config.deleteArgs, [config.deleteArgField || 'name']: name })
         else await frappeClient.delete(config.doctype, name)
         ok++
       } catch { failed++ }
@@ -344,7 +344,8 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
   const openEdit = (row: Row, viaLink = false) => {
     if (config.editHref && (viaLink || !config.editInDialog)) { router.push(config.editHref(row.name)); return }
     const initial: Record<string, any> = {}
-    for (const f of fieldsFor(true)) initial[f.field] = toFormValue(f, row[f.field])
+    // an empty field shows its display fallback (e.g. a country's built-in Arabic name)
+    for (const f of fieldsFor(true)) initial[f.field] = toFormValue(f, row[f.field] || (f.fallbackField ? row[f.fallbackField] : row[f.field]))
     setEditing(row)
     setForm(initial)
     setFieldErrors({})
@@ -425,7 +426,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     setDeleting(true)
     try {
       if (config.deleteMethod) {
-        await frappeClient.call(config.deleteMethod, { [config.deleteArgField || 'name']: deleteTarget.name })
+        await frappeClient.call(config.deleteMethod, { ...config.deleteArgs, [config.deleteArgField || 'name']: deleteTarget.name })
       } else {
         await frappeClient.delete(config.doctype, deleteTarget.name)
       }

@@ -20,7 +20,8 @@ const FIELD = 'h-[40px] w-full rounded border border-[var(--apex-border)] bg-whi
 
 /** The 4 platform HR roles hr_lists.roles() always includes alongside any
  *  custom ones — never deletable, matching Apex's own built-in-role guard. */
-const CORE_ROLES = new Set(['HR Manager', 'HR User', 'System Manager', 'Employee'])
+// platform roles the system relies on — never deletable / renamable here (backend: hr_permissions.PROTECTED_ROLES)
+const CORE_ROLES = new Set(['HR Manager', 'HR User', 'System Manager', 'Employee', 'Employee Self Service', 'Company Admin'])
 
 /**
  * «الصلاحيات» (5.17) — Apex: no checkbox column. Columns: اسم الصلاحية ·

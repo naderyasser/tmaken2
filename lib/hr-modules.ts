@@ -138,6 +138,8 @@ export interface ListModuleConfig {
   /** Same idea for delete: called with { [deleteArgField || 'name']: row.name }. */
   deleteMethod?: string
   deleteArgField?: string
+  /** Constant args added to every deleteMethod call (e.g. the doctype). */
+  deleteArgs?: Record<string, any>
   /** Always-visible info banner above the table (e.g. device network-setup steps). */
   noteBanner?: string
   /**
@@ -569,7 +571,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     fields: [
       { field: '_name_ar', label: 'اسم الجنسية (عربي)', inForm: false },
       // client 2026-09-27: Arabic + English name only («الرمز» removed)
-      { field: 'custom_name_ar', label: 'اسم الجنسية (عربي)', required: true, inTable: false },
+      { field: 'custom_name_ar', label: 'اسم الجنسية (عربي)', required: true, inTable: false, fallbackField: '_name_ar' },
       // Country is core Frappe with renaming disabled — the English name (its
       // document name) can't change after creation
       { field: 'country_name', label: 'اسم الجنسية (إنجليزي)', required: true, lockedOnEdit: true },
@@ -656,6 +658,9 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     // Inserting the Leave Application row directly skips the Leave Allocation
     // balance check/creation the real request flow needs.
     createMethod: 'base_meena.api.hr_requests.create_leave_application',
+    // drafts and cancelled leaves can be removed from the list (approved: cancel first)
+    deleteMethod: 'base_meena.api.hr_requests.delete_request',
+    deleteArgs: { doctype: 'Leave Application' },
     noIndex: true,
     drawerFilters: [
       { field: 'branch', label: 'الفروع', source: 'branches' },
@@ -768,6 +773,8 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     // wrapped endpoint so HRMS validation errors come back translated to Arabic.
     createMethod: 'base_meena.api.hr_requests.create_request',
     mapCreatePayload: (p) => ({ doctype: 'Permission Request', values: p }),
+    deleteMethod: 'base_meena.api.hr_requests.delete_request',
+    deleteArgs: { doctype: 'Permission Request' },
     // «نوع الاذن» is a constant here (Apex `GetOrderTypes.arabicName` for this
     // list is always «طلب اذن» — Permission Request has no per-row type field
     // of its own; see base_meena.api.hr_requests.get_order_types).
