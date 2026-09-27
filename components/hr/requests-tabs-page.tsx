@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { useCompanySafe } from '@/hooks/use-company'
 import { fmtDate } from '@/lib/hr-format'
+import { leaveTypeAr } from '@/lib/enums'
 import { getModuleConfig, type FieldDef, type ListModuleConfig } from '@/lib/hr-modules'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
@@ -137,7 +138,7 @@ export function RequestsTabsPage() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [employees, setEmployees] = useState<EmployeeOpt[]>([])
-  const [leaveTypes, setLeaveTypes] = useState<{ name: string; leave_type_name: string }[]>([])
+  const [leaveTypes, setLeaveTypes] = useState<{ name: string; leave_type_name: string; custom_name_ar?: string }[]>([])
   // «طباعة» prints the current page only, «طباعة متقدمة» prints every row
   // matching the active search/filter (same distinction as generic-list-page
   // and devices-page's طباعة الصفحة/طباعة الكل — item B7, 2026-09-21: this
@@ -164,8 +165,8 @@ export function RequestsTabsPage() {
       fields: ['name', 'employee_name', 'employee_number'], filters: [['status', '=', 'Active']],
       order_by: 'employee_name asc', limit_page_length: 0,
     }).then(setEmployees).catch(() => setEmployees([]))
-    frappeClient.getList<{ name: string; leave_type_name: string }>('Leave Type', {
-      fields: ['name', 'leave_type_name'], order_by: 'leave_type_name asc', limit_page_length: 0,
+    frappeClient.getList<{ name: string; leave_type_name: string; custom_name_ar?: string }>('Leave Type', {
+      fields: ['name', 'leave_type_name', 'custom_name_ar'], order_by: 'leave_type_name asc', limit_page_length: 0,
     }).then(setLeaveTypes).catch(() => setLeaveTypes([]))
   }, [])
 
@@ -430,7 +431,7 @@ export function RequestsTabsPage() {
             <label className="block text-[13px] text-slate-700 mb-1">نوع الاجازة <span className="text-red-500">*</span></label>
             <select value={leaveForm.leave_type} onChange={(e) => setLeaveForm((f) => ({ ...f, leave_type: e.target.value }))} className={EMP_FIELD}>
               <option value="">اختر…</option>
-              {leaveTypes.map((lt) => <option key={lt.name} value={lt.name}>{lt.leave_type_name || lt.name}</option>)}
+              {leaveTypes.map((lt) => <option key={lt.name} value={lt.name}>{lt.custom_name_ar || leaveTypeAr(lt.name)}</option>)}
             </select>
           </div>
           <div>

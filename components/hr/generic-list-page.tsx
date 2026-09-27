@@ -372,7 +372,8 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     setSaving(true)
     try {
       let createResult: any
-      if (editing) {
+      if (editing && config.updateMethod) await frappeClient.call(config.updateMethod, { name: editing.name, ...payload })
+      else if (editing) {
         // Changing the doctype's autoname-source field via a plain PUT is a
         // silent no-op in Frappe (200 OK, field unchanged — see nameField's
         // doc comment). Rename first, then PUT whatever else changed under

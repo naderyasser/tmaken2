@@ -12,7 +12,7 @@ import { ApexTableCard } from '@/components/hr/apex/table-card'
 import { ApexPagination } from '@/components/hr/apex/pagination'
 import { ApexDialog } from '@/components/hr/apex/dialog'
 
-interface RoleRow { name: string; role_name: string; perms: string; users: number }
+interface RoleRow { name: string; role_name: string; name_en?: string; notes?: string; perms: string; users: number }
 
 const PAGE_SIZES = [5, 10, 20, 50]
 const TH = { padding: '12px 32px' } as const
@@ -40,10 +40,15 @@ export function PermissionsListPage() {
 
   const [addOpen, setAddOpen] = useState(false)
   const [addName, setAddName] = useState('')
+  // client 2026-09-27: Arabic name (the Role itself) + English name + notes
+  const [addEn, setAddEn] = useState('')
+  const [addNotes, setAddNotes] = useState('')
   const [saving, setSaving] = useState(false)
 
   const [editing, setEditing] = useState<RoleRow | null>(null)
   const [editName, setEditName] = useState('')
+  const [editEn, setEditEn] = useState('')
+  const [editNotes, setEditNotes] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<RoleRow | null>(null)
   const [deleting, setDeleting] = useState(false)
 
@@ -65,7 +70,7 @@ export function PermissionsListPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return rows
-    return rows.filter((r) => r.role_name?.toLowerCase().includes(q) || r.name?.toLowerCase().includes(q))
+    return rows.filter((r) => r.role_name?.toLowerCase().includes(q) || r.name?.toLowerCase().includes(q) || r.name_en?.toLowerCase().includes(q))
   }, [rows, search])
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const currentPage = Math.min(page, totalPages)
@@ -91,9 +96,9 @@ export function PermissionsListPage() {
       // hr_lists.roles() only returns is_custom=1 roles (plus the 4 platform
       // HR roles) — without is_custom:1 here Frappe defaults new roles to
       // is_custom=0 and they never show up in this list even though they exist.
-      await frappeClient.post('Role', { role_name: name, is_custom: 1, desk_access: 1 })
+      await frappeClient.post('Role', { role_name: name, custom_name_en: addEn.trim(), custom_notes: addNotes.trim(), is_custom: 1, desk_access: 1 })
       toast({ title: 'تم إضافة الصلاحية' })
-      setAddOpen(false); setAddName('')
+      setAddOpen(false); setAddName(''); setAddEn(''); setAddNotes('')
       load()
     } catch (e: any) {
       // Frappe's DuplicateEntryError comes back as raw English ("Role X already
@@ -109,10 +114,13 @@ export function PermissionsListPage() {
   const submitRename = async () => {
     if (!editing) return
     const name = editName.trim()
-    if (!name || name === editing.name) { setEditing(null); return }
+    const renamed = !!name && name !== editing.name && !CORE_ROLES.has(editing.name)
+    const extrasChanged = editEn.trim() !== (editing.name_en || '') || editNotes.trim() !== (editing.notes || '')
+    if (!renamed && !extrasChanged) { setEditing(null); return }
     setSaving(true)
     try {
-      await frappeClient.call('frappe.client.rename_doc', { doctype: 'Role', old_name: editing.name, new_name: name })
+      if (renamed) await frappeClient.call('frappe.client.rename_doc', { doctype: 'Role', old_name: editing.name, new_name: name })
+      if (extrasChanged) await frappeClient.put('Role', renamed ? name : editing.name, { custom_name_en: editEn.trim(), custom_notes: editNotes.trim() })
       toast({ title: 'تم الحفظ' })
       setEditing(null)
       load()
@@ -168,6 +176,7 @@ export function PermissionsListPage() {
           <thead>
             <tr>
               <th style={TH}>اسم الصلاحية</th>
+              <th style={TH}>الاسم بالإنجليزية</th>
               <th style={TH}>الصلاحيات</th>
               <th style={TH}>المستخدمين</th>
               <th style={TH} className="text-center">اجراءات</th>
@@ -175,14 +184,15 @@ export function PermissionsListPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={4} className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-[var(--apex-blue)]" /></td></tr>
+              <tr><td colSpan={5} className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-[var(--apex-blue)]" /></td></tr>
             ) : pageRows.length === 0 ? (
-              <tr><td colSpan={4} className="py-10 text-center text-slate-500">لا يوجد نتائج للبحث ابحث مرة اخري</td></tr>
+              <tr><td colSpan={5} className="py-10 text-center text-slate-500">لا يوجد نتائج للبحث ابحث مرة اخري</td></tr>
             ) : pageRows.map((row) => {
               const disableDelete = row.users > 0 || CORE_ROLES.has(row.name)
               return (
                 <tr key={row.name}>
                   <td>{row.role_name}</td>
+                  <td dir="ltr" className="text-right">{row.name_en || ''}</td>
                   <td>
                     <button type="button" onClick={() => router.push(`/hr/role-permissions/${encodeURIComponent(row.name)}`)} className="text-[var(--apex-link)] hover:underline">{row.perms}</button>
                   </td>
@@ -191,7 +201,7 @@ export function PermissionsListPage() {
                   </td>
                   <td>
                     <div className="flex items-center justify-center gap-2">
-                      <button type="button" onClick={() => { setEditing(row); setEditName(row.role_name) }} title="تعديل" className="text-[var(--apex-link)] hover:opacity-80 px-1"><Pencil className="h-[17px] w-[17px]" /></button>
+                      <button type="button" onClick={() => { setEditing(row); setEditName(row.role_name); setEditEn(row.name_en || ''); setEditNotes(row.notes || '') }} title="تعديل" className="text-[var(--apex-link)] hover:opacity-80 px-1"><Pencil className="h-[17px] w-[17px]" /></button>
                       <button
                         type="button"
                         disabled={disableDelete}
@@ -217,14 +227,22 @@ export function PermissionsListPage() {
 
       <ApexDialog
         open={addOpen}
-        onOpenChange={(o) => { setAddOpen(o); if (!o) setAddName('') }}
+        onOpenChange={(o) => { setAddOpen(o); if (!o) { setAddName(''); setAddEn(''); setAddNotes('') } }}
         title="اضافة صلاحية"
         size="sm"
         primary={{ label: 'اضافة', onClick: submitAdd, loading: saving }}
       >
         <div className="col-span-2">
-          <label className="block text-[13px] text-slate-700 mb-1">اسم الصلاحية <span className="text-red-500">*</span></label>
+          <label className="block text-[13px] text-slate-700 mb-1">الاسم باللغة العربية <span className="text-red-500">*</span></label>
           <input value={addName} onChange={(e) => setAddName(e.target.value)} className={FIELD} />
+        </div>
+        <div className="col-span-2">
+          <label className="block text-[13px] text-slate-700 mb-1">الاسم باللغة الإنجليزية</label>
+          <input value={addEn} onChange={(e) => setAddEn(e.target.value)} dir="ltr" className={FIELD} />
+        </div>
+        <div className="col-span-2">
+          <label className="block text-[13px] text-slate-700 mb-1">ملاحظات</label>
+          <textarea value={addNotes} onChange={(e) => setAddNotes(e.target.value)} rows={3} className={cn(FIELD, 'h-auto py-2')} />
         </div>
       </ApexDialog>
 
@@ -233,16 +251,24 @@ export function PermissionsListPage() {
         onOpenChange={(o) => { if (!o) setEditing(null) }}
         title="تعديل صلاحية"
         size="sm"
-        primary={{ label: 'حفظ', onClick: submitRename, loading: saving, disabled: editing ? CORE_ROLES.has(editing.name) : false }}
+        primary={{ label: 'حفظ', onClick: submitRename, loading: saving }}
       >
         <div className="col-span-2">
-          <label className="block text-[13px] text-slate-700 mb-1">اسم الصلاحية</label>
+          <label className="block text-[13px] text-slate-700 mb-1">الاسم باللغة العربية</label>
           <input
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
             disabled={editing ? CORE_ROLES.has(editing.name) : false}
             className={cn(FIELD, editing && CORE_ROLES.has(editing.name) && 'bg-slate-50 text-slate-500')}
           />
+        </div>
+        <div className="col-span-2">
+          <label className="block text-[13px] text-slate-700 mb-1">الاسم باللغة الإنجليزية</label>
+          <input value={editEn} onChange={(e) => setEditEn(e.target.value)} dir="ltr" className={FIELD} />
+        </div>
+        <div className="col-span-2">
+          <label className="block text-[13px] text-slate-700 mb-1">ملاحظات</label>
+          <textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} rows={3} className={cn(FIELD, 'h-auto py-2')} />
         </div>
       </ApexDialog>
 

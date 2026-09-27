@@ -129,6 +129,8 @@ export interface ListModuleConfig {
    * base_meena.biometric_management.adms.register_device).
    */
   createMethod?: string
+  /** Edit through a whitelisted method (called with { name, ...payload }) instead of rename + PUT. */
+  updateMethod?: string
   /** Same idea for delete: called with { [deleteArgField || 'name']: row.name }. */
   deleteMethod?: string
   deleteArgField?: string
@@ -184,13 +186,6 @@ export interface SettingsModuleConfig {
 }
 
 export type ModuleConfig = ListModuleConfig | SettingsModuleConfig
-
-/** «العطلة الأسبوعية» select shows Arabic weekday names; create_holiday_list
- *  wants the English Frappe weekday value. */
-const WEEKDAY_AR_TO_EN: Record<string, string> = {
-  'الأحد': 'Sunday', 'الاثنين': 'Monday', 'الثلاثاء': 'Tuesday', 'الأربعاء': 'Wednesday',
-  'الخميس': 'Thursday', 'الجمعة': 'Friday', 'السبت': 'Saturday',
-}
 
 /** «الصلاحية» select on the new-user dialog shows Arabic module names;
  *  company_create_user wants the module id it maps to concrete roles itself. */
@@ -487,10 +482,9 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     rowMenu: 'master',
     fields: [
       { field: 'name', label: 'الكود', inForm: false },
-      { field: 'subject', label: 'الموضوع', required: true },
-      { field: 'status', label: 'الحالة', type: 'select', options: ['Open', 'Working', 'Pending Review', 'Completed', 'Cancelled'], optionLabels: VALUE_AR },
-      { field: 'priority', label: 'الأولوية', type: 'select', options: ['Low', 'Medium', 'High', 'Urgent'], optionLabels: VALUE_AR },
-      { field: 'exp_end_date', label: 'تاريخ الاستحقاق', type: 'date' },
+      // client 2026-09-27: name in both languages only (status/priority/due date removed)
+      { field: 'subject', label: 'اسم المهمة (عربي)', required: true },
+      { field: 'custom_subject_en', label: 'اسم المهمة (إنجليزي)' },
     ],
   },
 
@@ -510,15 +504,9 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     linkField: 'location_name',
     nameField: 'location_name',
     fields: [
-      { field: 'location_name', label: 'اسم المجموعة', required: true },
-      // Was a plain text input: any typed value (real or not) got submitted
-      // as-is to this Link field, and an unresolvable parent crashes
-      // ERPNext's own NestedSet.on_update with a raw 500 (unpacking a None
-      // tree-node) instead of a clean validation error — found by the
-      // exhaustive data audit, 2026-09-20. A real link picker can only ever
-      // submit an existing Location, which sidesteps the whole class of bug.
-      { field: 'parent_location', label: 'الموقع الأب', type: 'link', link: { doctype: 'Location', titleField: 'location_name' } },
-      { field: 'is_group', label: 'مجموعة', type: 'checkbox' },
+      // client 2026-09-27: name in both languages only («الموقع الأب» removed)
+      { field: 'location_name', label: 'اسم المجموعة (عربي)', required: true },
+      { field: 'custom_name_en', label: 'اسم المجموعة (إنجليزي)' },
     ],
   },
 
@@ -542,7 +530,10 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     editHref: (name) => `/hr?module=employee-group-members&group=${encodeURIComponent(name)}`,
     linkField: 'employee_group_name',
     nameField: 'employee_group_name',
-    fields: [{ field: 'employee_group_name', label: 'اسم المجموعة', required: true }],
+    fields: [
+      { field: 'employee_group_name', label: 'اسم المجموعة (عربي)', required: true },
+      { field: 'custom_name_en', label: 'اسم المجموعة (إنجليزي)' },
+    ],
   },
 
   nationality: {
@@ -562,15 +553,13 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     // English name — COUNTRY_AR (lib/country-names-ar.ts) is display-only and
     // never sent back to the server; unmapped countries fall back to English.
     deriveFields: [
-      { as: '_name_ar', from: (r) => COUNTRY_AR[r.country_name] ?? r.country_name },
+      { as: '_name_ar', from: (r) => r.custom_name_ar || (COUNTRY_AR[r.country_name] ?? r.country_name) },
     ],
     fields: [
       { field: '_name_ar', label: 'اسم الجنسية', inForm: false },
-      {
-        field: 'country_name', label: 'اسم الجنسية', required: true, inTable: false,
-        hint: 'يُحفظ الاسم بالإنجليزية ويُعرض بالعربية تلقائياً',
-      },
-      { field: 'code', label: 'الرمز', inTable: false },
+      // client 2026-09-27: Arabic + English name only («الرمز» removed)
+      { field: 'custom_name_ar', label: 'اسم الجنسية (عربي)', required: true, inTable: false },
+      { field: 'country_name', label: 'اسم الجنسية (إنجليزي)', required: true },
     ],
   },
 
@@ -587,26 +576,23 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     noIndex: true,
     needsCompany: true,
     drawerFilters: [
-      { field: 'weekly_off', label: 'العطلة الأسبوعية', options: Object.keys(WEEKDAY_AR_TO_EN) },
       { field: 'from_date', label: 'التاريخ', date: true },
     ],
-    // Inserting the Holiday List row directly never generates its actual
-    // `holidays` child rows — the list of dates HRMS attendance/leave logic
-    // reads. Go through the endpoint that builds them from from/to + weekly_off.
-    createMethod: 'base_meena.api.hr_requests.create_holiday_list',
-    mapCreatePayload: (p) => ({
-      holiday_list_name: p.holiday_list_name,
-      from_date: p.from_date,
-      to_date: p.to_date,
-      weekly_off: WEEKDAY_AR_TO_EN[p.weekly_off] || p.weekly_off,
-      company: p.company,
-    }),
+    // client 2026-09-27: Eids / occasions only — no weekly off here (weekly
+    // offs belong to the shift / the employee's holiday list). Each entry is
+    // one Holiday List flagged custom_is_official_holiday; the endpoints also
+    // copy its dates into every holiday list the company's employees use, so
+    // attendance and every report see the holiday (base_meena.api.official_holidays).
+    filters: [['custom_is_official_holiday', '=', 1]],
+    createMethod: 'base_meena.api.official_holidays.create_official_holiday',
+    updateMethod: 'base_meena.api.official_holidays.update_official_holiday',
+    deleteMethod: 'base_meena.api.official_holidays.delete_official_holiday',
     nameField: 'holiday_list_name',
     fields: [
-      { field: 'holiday_list_name', label: 'اسم العطلة', required: true },
+      { field: 'holiday_list_name', label: 'اسم العطلة (عربي)', required: true },
+      { field: 'custom_name_en', label: 'اسم العطلة (إنجليزي)' },
       { field: 'from_date', label: 'من تاريخ', type: 'date', required: true },
       { field: 'to_date', label: 'إلى تاريخ', type: 'date', required: true },
-      { field: 'weekly_off', label: 'العطلة الأسبوعية', type: 'select', required: true, options: Object.keys(WEEKDAY_AR_TO_EN) },
     ],
   },
 
@@ -627,15 +613,13 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     // hr_reports.PERMISSION_TYPES, leave_api.py all key on the raw name) —
     // `_label` is display-only, computed from lib/enums.ts's LEAVE_TYPE map.
     deriveFields: [
-      { as: '_label', from: (r) => leaveTypeAr(r.leave_type_name) },
+      { as: '_label', from: (r) => r.custom_name_ar || leaveTypeAr(r.leave_type_name) },
     ],
+    // client 2026-09-27: Arabic + English name only (max days / LWP / include holidays removed)
     fields: [
       { field: '_label', label: 'اسم الاجازة', inForm: false },
-      { field: 'leave_type_name', label: 'اسم الاجازة', required: true, inTable: false },
-      { field: 'max_leaves_allowed', label: 'أقصى عدد أيام', type: 'number', inTable: false },
-      { field: 'is_carry_forward', label: 'يُرحّل', type: 'checkbox', inTable: false },
-      { field: 'is_lwp', label: 'بدون راتب', type: 'checkbox', inTable: false },
-      { field: 'include_holiday', label: 'يشمل العطلات', type: 'checkbox', inTable: false },
+      { field: 'custom_name_ar', label: 'اسم الاجازة (عربي)', required: true, inTable: false },
+      { field: 'leave_type_name', label: 'اسم الاجازة (إنجليزي)', required: true },
     ],
   },
 
@@ -687,7 +671,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'branch', label: 'الفرع', inForm: false },
       // Stored value stays the raw English Leave Type name — labelMap only
       // changes what the picker itself displays.
-      { field: 'leave_type', label: 'نوع الاجازة', type: 'link', link: { doctype: 'Leave Type', labelMap: leaveTypeAr }, required: true, inTable: false },
+      { field: 'leave_type', label: 'نوع الاجازة', type: 'link', link: { doctype: 'Leave Type', titleField: 'custom_name_ar', labelMap: leaveTypeAr }, required: true, inTable: false },
       { field: '_leave_type_ar', label: 'نوع الاجازة', inForm: false },
       { field: 'from_date', label: 'من', type: 'date', required: true },
       { field: 'to_date', label: 'إلى', type: 'date', required: true },
@@ -700,7 +684,6 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       // docstatus, not the raw value) so the request's state is visible.
       { field: 'status', label: 'الحالة', inForm: false, inTable: true, statusBadge: true },
       { field: 'docstatus', label: 'docstatus', inTable: false, inForm: false },
-      { field: 'half_day', label: 'نصف يوم', type: 'checkbox', inTable: false },
       { field: 'department', label: 'الإدارة', inTable: false, inForm: false },
       { field: 'designation', label: 'الوظائف', inTable: false, inForm: false },
       { field: 'default_shift', label: 'الدوام', inTable: false, inForm: false },

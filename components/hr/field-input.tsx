@@ -27,7 +27,7 @@ function LinkSelect({ field, value, onChange }: { field: FieldDef; value: any; o
     }).then((rows) => {
       linkCache[key] = rows.map((r) => ({
         value: r.name,
-        label: labelMap ? labelMap(r.name) : title && r[title] ? `${r[title]}${r[title] !== r.name ? ` (${r.name})` : ''}` : r.name,
+        label: labelMap ? (title && r[title]) || labelMap(r.name) : title && r[title] ? `${r[title]}${r[title] !== r.name ? ` (${r.name})` : ''}` : r.name,
       }))
       setOpts(linkCache[key])
     }).catch(() => setOpts([]))
