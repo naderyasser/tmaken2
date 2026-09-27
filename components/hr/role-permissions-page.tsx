@@ -1,5 +1,6 @@
 'use client'
 
+import { cn } from '@/lib/utils'
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Loader2, X, ShieldCheck } from 'lucide-react'
@@ -112,20 +113,28 @@ export function RolePermissionsPage({ role }: { role: string }) {
 
   useEffect(() => { load() }, [load])
 
+  // client 2026-09-27: the whole row used to lock + fade (disabled:opacity-50)
+  // and the box only changed after the server round trip, so a click looked
+  // like the checkbox vanished. Now the box flips at once, only that cell
+  // waits (its own pending mark, full opacity), then the row is re-read.
+  const [pending, setPending] = useState<Record<string, boolean>>({})
   const toggle = async (group: PageGroup, kind: PermKind, value: boolean) => {
-    setState((prev) => ({ ...prev, [group.key]: { ...prev[group.key], loading: true } }))
+    const cell = `${group.key}:${kind}`
+    setPending((p) => ({ ...p, [cell]: true }))
+    setState((prev) => ({ ...prev, [group.key]: { ...(prev[group.key] || EMPTY_GROUP_STATE), [kind]: value } }))
     const ptype = PTYPE_OF[kind]
     try {
-      for (const dt of group.doctypes) {
-        await frappeClient.call(SET_PERM, { doctype: dt, role, ptype, value: value ? 1 : 0 })
-      }
+      await Promise.all(group.doctypes.map((dt) => frappeClient.call(SET_PERM, { doctype: dt, role, ptype, value: value ? 1 : 0 })))
       const next = await loadGroup(group)
       setState((prev) => ({ ...prev, [group.key]: next }))
-      toast({ title: 'تم تحديث الصلاحية' })
+      if (next[kind] !== value) toast({ title: 'لم يتم حفظ الصلاحية', description: 'أعد المحاولة', variant: 'destructive' })
+      else toast({ title: 'تم تحديث الصلاحية' })
     } catch (e) {
       toast({ title: 'فشل تحديث الصلاحية', description: e instanceof Error ? e.message : 'تعذّر الاتصال بالخادم', variant: 'destructive' })
       const reverted = await loadGroup(group)
       setState((prev) => ({ ...prev, [group.key]: reverted }))
+    } finally {
+      setPending((p) => { const n = { ...p }; delete n[cell]; return n })
     }
   }
 
@@ -175,9 +184,9 @@ export function RolePermissionsPage({ role }: { role: string }) {
                     <td className="py-3 px-3 text-slate-700">{g.label}</td>
                     {(['view', 'add', 'edit', 'del', 'print'] as const).map((kind) => (
                       <td key={kind} className="py-3 px-3 text-center">
-                        <input type="checkbox" checked={s[kind]} disabled={s.loading}
-                          onChange={(e) => toggle(g, kind, e.target.checked)}
-                          className="h-4 w-4 accent-[#2e71c8] cursor-pointer disabled:opacity-50" />
+                        <input type="checkbox" checked={s[kind]} aria-busy={!!pending[`${g.key}:${kind}`]}
+                          onChange={(e) => { if (!pending[`${g.key}:${kind}`]) toggle(g, kind, e.target.checked) }}
+                          className={cn('h-4 w-4 accent-[#2e71c8] cursor-pointer', pending[`${g.key}:${kind}`] && 'animate-pulse')} />
                       </td>
                     ))}
                   </tr>

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ChevronDown, Loader2, Search } from 'lucide-react'
 import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
-import { fmtDateTime } from '@/lib/hr-format'
+import { fmtDate, fmtTime } from '@/lib/hr-format'
 import { ApexTableCard } from '@/components/hr/apex/table-card'
 import { ApexDatePicker } from '@/components/hr/apex/date-picker'
 import { ReportIllustration } from '@/components/hr/report-page'
@@ -151,19 +151,22 @@ export function UserHistoryPage() {
                 <th>البريد</th>
                 <th>العملية</th>
                 <th>الحالة</th>
+                {/* client 2026-09-27: date and time in their own columns (screen + print) */}
+                <th>التاريخ</th>
                 <th>الوقت</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan={5} className="py-10 text-center text-slate-500">لا يوجد نتائج للبحث ابحث مرة اخري</td></tr>
+                <tr><td colSpan={6} className="py-10 text-center text-slate-500">لا يوجد نتائج للبحث ابحث مرة اخري</td></tr>
               ) : rows.map((r) => (
                 <tr key={r.name}>
                   <td>{r.full_name || r.user}</td>
                   <td>{r.user}</td>
                   <td>{ar(OPERATION_AR, r.operation)}</td>
                   <td>{ar(STATUS_AR, r.status)}</td>
-                  <td>{fmtDateTime(r.creation)}</td>
+                  <td>{fmtDate(r.creation)}</td>
+                  <td dir="ltr" className="text-right">{fmtTime(r.creation)}</td>
                 </tr>
               ))}
             </tbody>

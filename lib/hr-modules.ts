@@ -129,6 +129,8 @@ export interface ListModuleConfig {
    * base_meena.biometric_management.adms.register_device).
    */
   createMethod?: string
+  /** Constant values added to every CREATE payload (fields the form no longer shows). */
+  createDefaults?: Record<string, any>
   /** Edit through a whitelisted method (called with { name, ...payload }) instead of rename + PUT. */
   updateMethod?: string
   /** Same idea for delete: called with { [deleteArgField || 'name']: row.name }. */
@@ -503,6 +505,11 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     editHref: (name) => `/location-groups/${encodeURIComponent(name)}`,
     linkField: 'location_name',
     nameField: 'location_name',
+    // a group is a Location with is_group=1 (hr_location_groups refuses anything
+    // else); plain locations live on «المواقع». The checkbox left the form, so
+    // every row here is created as — and only lists — groups.
+    filters: [['is_group', '=', 1]],
+    createDefaults: { is_group: 1 },
     fields: [
       // client 2026-09-27: name in both languages only («الموقع الأب» removed)
       { field: 'location_name', label: 'اسم المجموعة (عربي)', required: true },

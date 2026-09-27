@@ -368,6 +368,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     const payloadFields = activeFields.filter((f) => !(isEdit && f.lockedOnEdit))
     let payload = toPayload(payloadFields, form)
     if (!isEdit && config.needsCompany && !payload.company) payload.company = company || undefined
+    if (!isEdit && config.createDefaults) Object.assign(payload, config.createDefaults)
     if (!isEdit && config.mapCreatePayload) payload = config.mapCreatePayload(payload)
     setSaving(true)
     try {
