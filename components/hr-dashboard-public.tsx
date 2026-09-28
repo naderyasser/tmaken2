@@ -41,7 +41,7 @@ interface ListRow { code: string | number; name: string; shift?: string; branch?
 interface Overview {
   date: string; day_name: string; is_today: boolean
   totals: Totals; by_branch: BranchRow[]; movements: Movement[]
-  last_days: { date: string; count: number }[]
+  last_days: ({ date: string; count: number } & Partial<Totals>)[]
   lists?: Record<string, ListRow[]>
 }
 
@@ -171,6 +171,12 @@ export function PublicHrDashboard() {
     weekly: b.weekly_off + b.official_holiday,
   }))
   const branchMax = Math.max(4, ...branches.map((b) => b.present + b.absent + b.leave + b.waiting + b.weekly))
+  // Apex «حركات اخر 10 ايام» — official holidays share the weekly-off bar,
+  // same as the branch chart above (Apex has no separate series for them).
+  const lastDays = (data?.last_days ?? []).map((d) => ({
+    date: d.date, present: d.present ?? 0, absent: d.absent ?? 0, leave: d.on_leave ?? 0,
+    waiting: d.waiting ?? 0, weekly: (d.weekly_off ?? 0) + (d.official_holiday ?? 0),
+  }))
   const movements = data?.movements ?? []
   // 5.1: Apex's exact title format is weekday + a HYPHENATED date (dd-mm-yyyy),
   // unlike every other date in the app (dd/mm/yyyy, lib/hr-format.ts) — kept
@@ -367,8 +373,37 @@ export function PublicHrDashboard() {
         </div>
       </div>
 
-      {/* 5.1 (X — removed): Apex has no 10-day movements chart, the page ends
-          after the two bottom blocks above. */}
+      {/* Apex «حركات اخر 10 ايام» (ejs-chart #Schartcontainer): grouped
+          columns per day, one per category, legend below. */}
+      <div className="bg-white pt-5 pb-3 px-4 rounded border border-slate-100 shadow-sm flex flex-col">
+        <h2 className="mb-6 text-[24px] font-medium text-slate-800 text-center">حركات اخر 10 ايام</h2>
+        <div className="h-[320px] mb-2">
+          {loading ? (
+            <Skeleton className="h-full w-full" />
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart role="img" aria-label="حركات اخر 10 ايام" title="حركات اخر 10 ايام" data={lastDays} barGap={1} barCategoryGap="20%" margin={{ right: 12, left: -18, bottom: 0 }}>
+                <CartesianGrid vertical={false} stroke={APEX.chartGrid} />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: APEX.chartTick }} tickFormatter={(v: string) => fmtDate(v)} axisLine={{ stroke: APEX.chartAxisLine }} tickLine={false} minTickGap={4} height={30} />
+                <YAxis tick={{ fontSize: 11, fill: APEX.chartTick }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip cursor={{ fill: 'rgba(148,163,184,0.1)' }} labelFormatter={(v: string) => fmtDate(v)} contentStyle={{ direction: 'rtl', borderRadius: 4, fontSize: 12 }} />
+                <Bar dataKey="present" name="حضور" fill={COLORS.present} isAnimationActive={false} />
+                <Bar dataKey="absent" name="الغياب" fill={COLORS.absent} isAnimationActive={false} />
+                <Bar dataKey="leave" name="الاجازات" fill={COLORS.leave} isAnimationActive={false} />
+                <Bar dataKey="waiting" name="في الانتظار" fill={COLORS.waiting} isAnimationActive={false} />
+                <Bar dataKey="weekly" name="عطله إسبوعية" fill={COLORS.weekly} isAnimationActive={false} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] font-bold text-slate-600 mt-auto">
+          <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS.present }} /><span>حضور</span></div>
+          <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS.absent }} /><span>الغياب</span></div>
+          <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS.leave }} /><span>الاجازات</span></div>
+          <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS.waiting }} /><span>في الانتظار</span></div>
+          <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS.weekly }} /><span>عطله إسبوعية</span></div>
+        </div>
+      </div>
 
       {/* Category drill-down — Apex `AttendingLeaveDetalies`: clicking a summary
           card opens the underlying list (code · name · shift · branch). The
