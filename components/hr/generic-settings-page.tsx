@@ -22,6 +22,7 @@ export function GenericSettingsPage({
   breadcrumbOverride,
   extra,
   fullWidthFields,
+  splitAt,
 }: {
   config: SettingsModuleConfig
   recordName?: string
@@ -31,6 +32,8 @@ export function GenericSettingsPage({
   extra?: ReactNode
   /** Field names that should span both grid columns (5.25: email + both addresses are full-width rows). */
   fullWidthFields?: string[]
+  /** First field of the second section («بيانات الاتصال»); default: ~55% split. */
+  splitAt?: string
 }) {
   const { toast } = useToast()
   const autoCrumbs = useBreadcrumbs()
@@ -86,7 +89,8 @@ export function GenericSettingsPage({
 
   // Split the fields into two titled sections, like the reference form.
   const [top, bottom] = useMemo(() => {
-    const cut = Math.max(1, Math.ceil(config.fields.length * 0.55))
+    const at = splitAt ? config.fields.findIndex((f) => f.field === splitAt) : -1
+    const cut = at > 0 ? at : Math.max(1, Math.ceil(config.fields.length * 0.55))
     return [config.fields.slice(0, cut), config.fields.slice(cut)]
   }, [config.fields])
 
@@ -120,15 +124,15 @@ export function GenericSettingsPage({
         </nav>
 
         <div className="flex items-center gap-2 shrink-0">
-          <Button onClick={save} disabled={saving || loading}
-            className="bg-[var(--apex-green)] hover:bg-[var(--apex-green-dark)] text-white rounded px-5 h-9 font-bold text-[13px]">
-            {saving ? <Loader2 className="h-4 w-4 ml-1.5 animate-spin" /> : <Check className="h-4 w-4 ml-1.5" strokeWidth={3} />}
-            حفظ
-          </Button>
           <Button onClick={load} disabled={saving || loading}
             className="bg-[var(--apex-red)] hover:bg-[var(--apex-red-dark)] text-white rounded px-5 h-9 font-bold text-[13px]">
             <X className="h-4 w-4 ml-1.5" strokeWidth={3} />
             اغلاق
+          </Button>
+          <Button onClick={save} disabled={saving || loading}
+            className="bg-[var(--apex-green)] hover:bg-[var(--apex-green-dark)] text-white rounded px-5 h-9 font-bold text-[13px]">
+            {saving ? <Loader2 className="h-4 w-4 ml-1.5 animate-spin" /> : <Check className="h-4 w-4 ml-1.5" strokeWidth={3} />}
+            حفظ
           </Button>
         </div>
       </div>

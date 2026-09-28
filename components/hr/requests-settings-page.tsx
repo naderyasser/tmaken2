@@ -9,6 +9,7 @@ import { ApexToolbar } from '@/components/hr/apex/toolbar'
 import { ApexTableCard } from '@/components/hr/apex/table-card'
 import { ApexPagination } from '@/components/hr/apex/pagination'
 import { ApexDialog } from '@/components/hr/apex/dialog'
+import { RequestTypeApprovals } from '@/components/hr/request-type-approvals'
 
 /** base_meena.api.hr_requests.get_order_types() (B3) returns a fixed 3-entry
  *  catalogue keyed by doctype (id/arabicName/latinName/doctype/…), not by the
@@ -107,11 +108,10 @@ export function RequestsSettingsPage() {
     }
   }, [toast])
 
-  const openSteps = async (type: OrderType) => {
-    setActiveType(type)
-    setStepsOpen(true)
-    await load(type)
-  }
+  // Apex: «الصلاحيات» opens the request type's own page (معلومات نوع الطلب +
+  // صلاحيات الاعتماد والمرفقات) — components/hr/request-type-approvals.tsx
+  const [detail, setDetail] = useState<OrderType | null>(null)
+  const openSteps = (type: OrderType) => setDetail(type)
   const openRename = async (type: OrderType) => {
     setActiveType(type)
     setRenameOpen(true)
@@ -152,6 +152,8 @@ export function RequestsSettingsPage() {
   const totalPages = Math.max(1, Math.ceil(filteredTypes.length / pageSize))
   const currentPage = Math.min(page, totalPages)
   const pageRows = filteredTypes.slice((currentPage - 1) * pageSize, currentPage * pageSize)
+
+  if (detail) return <RequestTypeApprovals type={detail} onBack={() => setDetail(null)} />
 
   return (
     <div dir="rtl" className="p-4 font-[family-name:var(--font-arabic)]">

@@ -2,18 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { Loader2 } from 'lucide-react'
 import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
+import { arabizeError } from '@/lib/frappe-error'
+import { ApexDialog } from '@/components/hr/apex/dialog'
 import {
   DEFAULT_LAT, DEFAULT_LNG, DEFAULT_RADIUS_M,
   type LocationGroupOption, type LocationRow,
@@ -21,176 +13,116 @@ import {
 
 const GeofenceMapPicker = dynamic(() => import('@/components/branch/geofence-map-picker'), {
   ssr: false,
-  loading: () => <div className="h-[280px] rounded-lg border border-[var(--apex-border)] bg-slate-50 animate-pulse" />,
+  loading: () => <div className="h-[300px] rounded border border-[var(--apex-border)] bg-slate-50 animate-pulse" />,
 })
 
+const FIELD = 'h-[42px] w-full rounded border border-[var(--apex-border)] bg-white px-3 text-[14px] text-slate-800 outline-none focus:border-[var(--apex-blue)]'
+
 /**
- * «اضافة موقع» / «تعديل موقع» — Apex M5's add/edit dialog: name, an optional
- * مجموعة المواقع (a `Location` marked `is_group=1`), a draggable map pin +
- * radius circle, and the active/inactive status.
+ * Apex «اضافة المواقع» (app-add-modal, agm-map): اسم بالعربيه* · اسم بالانجليزية ·
+ * المسافة* · الحالة (نشط / غير نشط), then the map with a marker. On «اضافة» the
+ * browser's own location is requested straight away (Apex does the same) so
+ * the pin starts where the user stands; the map click/drag still moves it.
+ * A location's group (مجموعات المواقع) is managed on that screen and kept as is.
  */
 export function LocationFormDialog({
-  open, onOpenChange, editing, groups, onSaved,
+  open, onOpenChange, editing, onSaved,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
   editing: LocationRow | null
-  groups: LocationGroupOption[]
+  groups?: LocationGroupOption[]
   onSaved: () => void
 }) {
   const { toast } = useToast()
-  const [locationName, setLocationName] = useState('')
-  const [parentLocation, setParentLocation] = useState('')
+  const [nameAr, setNameAr] = useState('')
+  const [nameEn, setNameEn] = useState('')
   const [lat, setLat] = useState(DEFAULT_LAT)
   const [lng, setLng] = useState(DEFAULT_LNG)
-  const [radius, setRadius] = useState(DEFAULT_RADIUS_M)
+  const [radius, setRadius] = useState(String(DEFAULT_RADIUS_M))
   const [status, setStatus] = useState<'Active' | 'Inactive'>('Active')
   const [saving, setSaving] = useState(false)
-  const [nameError, setNameError] = useState('')
 
   useEffect(() => {
     if (!open) return
-    setLocationName(editing?.location_name || '')
-    setParentLocation(editing?.parent_location || '')
+    setNameAr(editing?.location_name || '')
+    setNameEn(editing?.custom_name_en || '')
     setLat(editing?.latitude ?? DEFAULT_LAT)
     setLng(editing?.longitude ?? DEFAULT_LNG)
-    setRadius(editing?.custom_radius_m ?? DEFAULT_RADIUS_M)
+    setRadius(String(editing?.custom_radius_m ?? DEFAULT_RADIUS_M))
     setStatus((editing?.custom_status as 'Active' | 'Inactive') || 'Active')
-    setNameError('')
+    // new location → ask the browser where we are (the permission prompt Apex shows)
+    if (!editing && typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => { setLat(Number(pos.coords.latitude.toFixed(6))); setLng(Number(pos.coords.longitude.toFixed(6))) },
+        () => { /* denied / unavailable — keep the default centre */ },
+        { enableHighAccuracy: true, timeout: 10000 },
+      )
+    }
   }, [open, editing])
 
   const save = async () => {
-    const name = locationName.trim()
-    if (!name) {
-      setNameError('اسم الموقع مطلوب')
-      return
-    }
+    const name = nameAr.trim()
+    if (!name) { toast({ title: 'اسم بالعربيه مطلوب', variant: 'destructive' }); return }
+    if (!/^\d+$/.test(radius) || Number(radius) <= 0) { toast({ title: 'المسافة مطلوبة', description: 'أدخل رقماً موجباً بالمتر', variant: 'destructive' }); return }
     setSaving(true)
     try {
       await frappeClient.call('base_meena.api.hr_locations.save_location', {
         name: editing?.name,
         location_name: name,
-        parent_location: parentLocation || undefined,
+        custom_name_en: nameEn.trim(),
+        parent_location: editing?.parent_location || undefined,
         latitude: lat,
         longitude: lng,
-        custom_radius_m: radius,
+        custom_radius_m: Number(radius),
         custom_status: status,
       })
-      toast({ title: 'تم الحفظ' })
+      toast({ title: editing ? 'تم التعديل' : 'تمت الإضافة' })
       onOpenChange(false)
       onSaved()
     } catch (e: any) {
-      toast({ title: 'فشل الحفظ', description: e?.message, variant: 'destructive' })
+      toast({ title: 'فشل الحفظ', description: arabizeError(e?.message), variant: 'destructive' })
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !saving && onOpenChange(o)}>
-      <DialogContent dir="rtl" className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>{editing ? 'تعديل موقع' : 'اضافة موقع'}</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-3 py-1 max-h-[70vh] overflow-y-auto">
-          <div className="space-y-1.5">
-            <Label className="text-[13px] text-slate-600">
-              اسم الموقع<span className="text-red-500"> *</span>
-            </Label>
-            <Input
-              value={locationName}
-              onChange={(e) => { setLocationName(e.target.value); if (nameError) setNameError('') }}
-              aria-invalid={!!nameError || undefined}
-              className="rounded-sm border-slate-300 text-right"
-            />
-            {nameError && <p className="text-[12px] text-red-500">{nameError}</p>}
-          </div>
-
-          {groups.length > 0 && (
-            <div className="space-y-1.5">
-              <Label className="text-[13px] text-slate-600">مجموعة المواقع</Label>
-              <select
-                value={parentLocation}
-                onChange={(e) => setParentLocation(e.target.value)}
-                className="w-full h-10 rounded-sm border border-slate-300 bg-white px-3 text-[14px] text-right"
-              >
-                <option value="">بدون مجموعة</option>
-                {groups.map((g) => (
-                  <option key={g.name} value={g.name}>{g.location_name || g.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div className="space-y-1.5">
-            <Label className="text-[13px] text-slate-600">الموقع على الخريطة</Label>
-            <GeofenceMapPicker
-              latitude={lat}
-              longitude={lng}
-              radiusM={radius}
-              onMove={(la, ln) => { setLat(la); setLng(ln) }}
-              height="260px"
-            />
-            <p className="text-[12px] text-slate-500">اسحب الدبوس أو اضغط على الخريطة لتحديد الموقع.</p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-[13px] text-slate-600">خط العرض</Label>
-              <Input
-                value={lat}
-                onChange={(e) => setLat(Number(e.target.value) || 0)}
-                inputMode="decimal"
-                dir="ltr"
-                className="rounded-sm border-slate-300 text-right tabular-nums"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[13px] text-slate-600">خط الطول</Label>
-              <Input
-                value={lng}
-                onChange={(e) => setLng(Number(e.target.value) || 0)}
-                inputMode="decimal"
-                dir="ltr"
-                className="rounded-sm border-slate-300 text-right tabular-nums"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-[13px] text-slate-600">نطاق الموقع بالمتر</Label>
-              <Input
-                type="number"
-                min={0}
-                value={radius}
-                onChange={(e) => setRadius(Math.max(0, Number(e.target.value) || 0))}
-                dir="ltr"
-                className="rounded-sm border-slate-300 text-right tabular-nums"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-[13px] text-slate-600">الحالة</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as 'Active' | 'Inactive')}>
-                <SelectTrigger className="rounded-sm border-slate-300 text-right"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Active">نشط</SelectItem>
-                  <SelectItem value="Inactive">غير نشط</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+    <ApexDialog open={open} onOpenChange={(o) => !saving && onOpenChange(o)}
+      title={editing ? 'تعديل المواقع' : 'اضافة المواقع'} size="lg"
+      primary={{ label: editing ? 'تعديل' : 'اضافة', onClick: save, loading: saving }}>
+      <div>
+        <label className="block text-[13px] text-slate-700 mb-1">اسم بالعربيه <span className="text-red-500">*</span></label>
+        <input value={nameAr} onChange={(e) => setNameAr(e.target.value)} className={FIELD} />
+      </div>
+      <div>
+        <label className="block text-[13px] text-slate-700 mb-1">اسم بالانجليزية</label>
+        <input value={nameEn} onChange={(e) => setNameEn(e.target.value)} dir="ltr" className={`${FIELD} text-right`} />
+      </div>
+      <div>
+        <label className="block text-[13px] text-slate-700 mb-1">المسافة <span className="text-red-500">*</span></label>
+        <input value={radius} inputMode="numeric" onChange={(e) => setRadius(e.target.value.replace(/[^\d]/g, ''))} dir="ltr" className={`${FIELD} text-right tabular-nums`} />
+      </div>
+      <div>
+        <span className="block text-[13px] text-slate-700 mb-2">الحالة</span>
+        <div className="flex items-center gap-6 h-[42px]" role="radiogroup" aria-label="الحالة">
+          {([['Active', 'نشط'], ['Inactive', 'غير نشط']] as const).map(([v, label]) => (
+            <label key={v} className="flex items-center gap-2 text-[14px] cursor-pointer">
+              <input type="radio" name="location-status" checked={status === v} onChange={() => setStatus(v)} className="h-4 w-4 accent-[var(--apex-pink,#e91e63)]" />
+              {label}
+            </label>
+          ))}
         </div>
-
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>إلغاء</Button>
-          <Button onClick={save} disabled={saving} className="bg-[var(--apex-green)] hover:bg-[var(--apex-green-dark)] text-white">
-            {saving && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
-            حفظ
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+      <div className="col-span-2">
+        <GeofenceMapPicker
+          latitude={lat}
+          longitude={lng}
+          radiusM={Number(radius) || 0}
+          onMove={(la, ln) => { setLat(la); setLng(ln) }}
+          height="300px"
+        />
+      </div>
+    </ApexDialog>
   )
 }

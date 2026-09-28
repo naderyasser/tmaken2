@@ -45,6 +45,8 @@ export interface FieldDef {
   component?: ComponentType<{ form: Record<string, any>; set: (values: Record<string, any>) => void }>
   payloadKeys?: string[]
   validate?: (form: Record<string, any>) => string | null
+  /** Render the cell as a coloured pill: value → tailwind classes (Apex statusColor). */
+  pill?: Record<string, string>
   /** Show as a table column. Default true. */
   inTable?: boolean
   /** Column header when it differs from the form label (Apex «اسم المشروع» vs «اسم المشروع بالعربية»). */
@@ -916,32 +918,32 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     addLabel: 'اضافة',
     searchPlaceholder: 'بحث بالاسم',
     noIndex: true,
+    rowMenu: 'master',
     emptyText: 'لم يتم اضافة اى دوام لرمضان من قبل',
     emptyAction: 'تفعيل اول دوام رمضان',
-    // Apex columns: الاسم · تاريخ البداية · تاريخ النهاية · الحالة (نشط when
-    // today falls within [ramadan_start, ramadan_end], else غير نشط — there's
-    // no status field on the doctype, so it's derived client-side).
+    // Apex «اضافة مواعيد رمضان»: Arabic + English name and the period. The
+    // reduced daily hours keep their current value (default 6 on create).
+    createDefaults: { reduced_daily_hours: 6 },
+    // Apex الحالة: لم تبدأ بعد (yellow) · جارية · انتهت — from today vs the period.
     deriveFields: [
       { as: '_status_label', from: (r) => {
         const today = new Date().toISOString().slice(0, 10)
         const start = String(r.ramadan_start || '').slice(0, 10)
         const end = String(r.ramadan_end || '').slice(0, 10)
-        return start && end && today >= start && today <= end ? 'نشط' : 'غير نشط'
+        if (!start || !end) return ''
+        return today < start ? 'لم تبدأ بعد' : today > end ? 'انتهت' : 'جارية'
       } },
+      { as: '_name', from: (r) => r.custom_name_ar || r.company || '' },
     ],
     fields: [
-      { field: 'name', label: 'الرقم', inForm: false, inTable: false },
-      // `needsCompany` only auto-injects when the field is EMPTY at submit
-      // (generic-list-page.tsx:354) — exposing this as a free-text input let
-      // a typed value reach the backend as a raw Company link, throwing a
-      // raw LinkValidationError for anything not an exact existing company
-      // name (found by the exhaustive data audit, 2026-09-20). Hidden from
-      // the form so the auto-inject actually runs; still shown as a column.
-      { field: 'company', label: 'الاسم', inForm: false },
-      { field: 'ramadan_start', label: 'تاريخ البداية', type: 'date', required: true },
-      { field: 'ramadan_end', label: 'تاريخ النهاية', type: 'date', required: true },
-      { field: '_status_label', label: 'الحالة', inForm: false, statusDot: { on: 'نشط', onLabel: 'نشط', offLabel: 'غير نشط' } },
-      { field: 'reduced_daily_hours', label: 'ساعات العمل المخفّضة', type: 'number', inTable: false, required: true },
+      { field: '_name', label: 'الاسم', inForm: false },
+      { field: 'custom_name_ar', label: 'الاسم العربي', required: true, inTable: false, fallbackField: 'company' },
+      { field: 'custom_name_en', label: 'الاسم الانجليزى', inTable: false },
+      { field: 'ramadan_start', label: 'من تاريخ', tableLabel: 'تاريخ البداية', type: 'date', required: true },
+      { field: 'ramadan_end', label: 'إلى تاريخ', tableLabel: 'تاريخ النهاية', type: 'date', required: true },
+      { field: '_status_label', label: 'الحالة', inForm: false,
+        pill: { 'لم تبدأ بعد': 'bg-amber-100 text-amber-700', 'جارية': 'bg-emerald-100 text-emerald-700', 'انتهت': 'bg-slate-200 text-slate-600' } },
+      { field: 'company', label: 'الشركة', inTable: false, inForm: false },
     ],
   },
 

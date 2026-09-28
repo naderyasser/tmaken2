@@ -11,16 +11,14 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { MapPin, Pencil, Plus, Printer, Search, Trash2 } from 'lucide-react'
+import { MapPin, MoreVertical, Pencil, Trash2 } from 'lucide-react'
 import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { fmtNumber } from '@/lib/hr-format'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { ApexToolbar } from '@/components/hr/apex/toolbar'
+import { AdvancedSearchDrawer } from '@/components/hr/advanced-search-drawer'
 import { ApexEmptyState } from '@/components/hr/apex-empty-state'
 import { EmptyState } from '@/components/hr/ui/empty-state'
 import { TableSkeleton } from '@/components/hr/ui/table-skeleton'
@@ -39,6 +37,7 @@ export function LocationsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('')
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [actionsOpen, setActionsOpen] = useState(false)
   const [working, setWorking] = useState(false)
@@ -144,193 +143,105 @@ export function LocationsPage() {
 
   const colSpan = 6
 
+  const setRowStatus = async (row: LocationRow, status: 'Active' | 'Inactive') => {
+    try {
+      await frappeClient.call('base_meena.api.hr_locations.set_location_status', { names: [row.name], status })
+      toast({ title: status === 'Active' ? 'تم التنشيط' : 'تم إلغاء التنشيط' })
+      load()
+    } catch (e: any) {
+      toast({ title: 'تعذّر تغيير الحالة', description: e?.message, variant: 'destructive' })
+    }
+  }
+
+  // Apex (app-locations): search «ابحث بالاسم» · filter (drawer: الحالة) · «حذف» ·
+  // «اضافة موقع», then ☐ · م · اسم الموقع · الموقع (map) · المسافة - القطر ·
+  // الحالة · ✎ 🗑 ⋮ (عرض · تنشيط · إلغاء التنشيط).
   return (
-    <div className="p-4" dir="rtl">
-      <div className="mb-3">
-        <h1 className="text-lg font-bold text-slate-800">المواقع</h1>
-        <p className="text-[13px] text-slate-500">مواقع تسجيل الحضور من الجوال</p>
-      </div>
+    <div className="p-4 space-y-2" dir="rtl">
+      <ApexToolbar
+        search={{ value: search, onChange: setSearch, placeholder: 'ابحث بالاسم' }}
+        onFilter={() => setDrawerOpen(true)}
+        deleteButton={{ onClick: () => setBulkDeleteOpen(true), disabled: selected.size === 0 }}
+        add={{ label: 'اضافة موقع', onClick: () => { setEditing(null); setFormOpen(true) } }}
+      />
+      <AdvancedSearchDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        filters={[{ field: 'status', label: 'الحالة', options: ['نشط', 'غير نشط'] }]}
+        values={{ status: statusFilter === 'Active' ? 'نشط' : statusFilter === 'Inactive' ? 'غير نشط' : '' }}
+        onApply={(v) => { setStatusFilter(v.status === 'نشط' ? 'Active' : v.status === 'غير نشط' ? 'Inactive' : ''); setDrawerOpen(false) }}
+      />
 
-      <div className="bg-white rounded shadow-sm border border-slate-200/60 overflow-hidden print:hidden">
-        {/* ── Toolbar ── */}
-        <div className="flex items-center gap-2 p-3 border-b border-slate-100 flex-wrap">
-          <Button
-            onClick={() => { setEditing(null); setFormOpen(true) }}
-            className="bg-[var(--apex-green)] hover:bg-[var(--apex-green-dark)] text-white rounded px-4 h-9 font-bold text-[13px] shrink-0"
-          >
-            <Plus className="h-4 w-4 ml-1" strokeWidth={3} />
-            اضافة
-          </Button>
-
-          <div className="relative shrink-0">
-            <Button
-              variant="outline"
-              disabled={selected.size === 0}
-              onClick={() => setActionsOpen((v) => !v)}
-              className="rounded px-4 h-9 font-bold text-[13px] border-[var(--apex-slate)] text-[var(--apex-slate)] disabled:opacity-50 min-w-[120px] justify-between"
-            >
-              الاجراءات
-            </Button>
-            {actionsOpen && selected.size > 0 && (
-              <div className="absolute z-20 mt-1 w-40 rounded border border-slate-200 bg-white shadow-lg py-1 text-[13px]">
-                <button type="button" className="block w-full text-right px-3 py-1.5 hover:bg-slate-50" onClick={() => bulkSetStatus('Active')}>تنشيط</button>
-                <button type="button" className="block w-full text-right px-3 py-1.5 hover:bg-slate-50" onClick={() => bulkSetStatus('Inactive')}>إلغاء التنشيط</button>
-                <button type="button" className="block w-full text-right px-3 py-1.5 hover:bg-slate-50 text-red-600" onClick={() => { setActionsOpen(false); setBulkDeleteOpen(true) }}>حذف</button>
-              </div>
-            )}
-          </div>
-
-          <Button
-            variant="outline"
-            onClick={() => window.print()}
-            className="rounded px-4 h-9 font-bold text-[13px] border-[var(--apex-slate)] text-[var(--apex-slate)] shrink-0"
-          >
-            <Printer className="h-4 w-4 ml-1" />
-            الطباعة
-          </Button>
-
-          <Select value={statusFilter || 'all'} onValueChange={(v) => setStatusFilter(v === 'all' ? '' : v as StatusFilter)}>
-            <SelectTrigger aria-label="تصفية بالحالة" className="w-[130px] h-9 rounded border-slate-300 shrink-0">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">كل الحالات</SelectItem>
-              <SelectItem value="Active">نشط</SelectItem>
-              <SelectItem value="Inactive">غير نشط</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <div className="relative flex-1 min-w-[180px]">
-            <Input
-              placeholder="إبحث بإسم الموقع"
-              aria-label="إبحث بإسم الموقع"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="h-9 rounded border-slate-300 text-right pr-9 placeholder:text-slate-400"
-            />
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
-          </div>
-        </div>
-
-        {/* ── Table ── */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-[13px] text-right">
-            <thead>
-              <tr className="bg-[var(--apex-thead)] text-[var(--apex-text)] border-y border-slate-300 h-11">
-                <th className="px-3 w-10 text-center">
-                  <input
-                    type="checkbox"
-                    checked={allChecked}
-                    onChange={toggleAll}
-                    className="h-4 w-4 accent-[var(--apex-blue-light)] cursor-pointer align-middle"
-                    aria-label="تحديد الكل"
-                  />
-                </th>
-                <th className="px-3 w-10 text-center font-bold">الكود</th>
-                <th className="px-3 font-bold whitespace-nowrap">اسم الموقع</th>
-                <th className="px-3 font-bold whitespace-nowrap">الموقع</th>
-                <th className="px-3 font-bold whitespace-nowrap">نطاق الموقع (متر)</th>
-                <th className="px-3 font-bold whitespace-nowrap">الحالة</th>
-                <th className="px-3 font-bold w-24 text-center whitespace-nowrap print:hidden">الاجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={colSpan + 1} className="p-0"><TableSkeleton rows={6} cols={colSpan + 1} /></td></tr>
-              ) : filteredRows.length === 0 ? (
-                <tr><td colSpan={colSpan + 1} className="py-10">
-                  {hasActiveFilter ? (
-                    <ApexEmptyState />
-                  ) : (
-                    <EmptyState
-                      title="لا توجد مواقع بعد"
-                      description="لم تتم إضافة أي موقع حتى الآن."
-                      action={(
-                        <button
-                          type="button"
-                          onClick={() => { setEditing(null); setFormOpen(true) }}
-                          className="h-9 px-4 rounded bg-[var(--apex-green)] text-white text-[13px] font-bold flex items-center gap-1.5 hover:bg-[var(--apex-green-dark)]"
-                        >
-                          <Plus className="h-4 w-4" strokeWidth={3} />اضافة
-                        </button>
-                      )}
-                    />
-                  )}
-                </td></tr>
-              ) : (
-                filteredRows.map((row, i) => (
-                  <tr key={row.name} className="border-b border-slate-100 hover:bg-slate-50/70 h-[52px]">
-                    <td className="px-3 text-center">
-                      <input
-                        type="checkbox"
-                        checked={selected.has(row.name)}
-                        onChange={() => toggleOne(row.name)}
-                        className="h-4 w-4 accent-[var(--apex-blue-light)] cursor-pointer align-middle"
-                        aria-label={`تحديد ${row.location_name}`}
-                      />
-                    </td>
-                    <td className="px-3 text-center text-slate-500">{i + 1}</td>
-                    <td className="px-3 text-slate-700">{row.location_name}</td>
-                    <td className="px-3 text-slate-700">
-                      <button
-                        type="button"
-                        onClick={() => setMapRow(row)}
-                        className="inline-flex items-center gap-1 text-[var(--apex-blue)] hover:underline"
-                      >
-                        <MapPin className="h-3.5 w-3.5" />عرض
-                      </button>
-                    </td>
-                    <td className="px-3 text-slate-700 tabular-nums">{fmtNumber(row.custom_radius_m || 0)}</td>
-                    <td className="px-3 text-slate-700">
-                      <span className="inline-flex items-center gap-1.5">
-                        <span className={`h-2 w-2 rounded-full ${(row.custom_status || 'Active') === 'Active' ? 'bg-[var(--apex-green)]' : 'bg-slate-400'}`} />
-                        {LOCATION_STATUS_AR[row.custom_status || 'Active']}
-                      </span>
-                    </td>
-                    <td className="px-3 print:hidden">
-                      <div className="flex items-center justify-center gap-1">
-                        <button onClick={() => { setEditing(row); setFormOpen(true) }} title="تعديل" aria-label={`تعديل ${row.location_name}`} className="text-[var(--apex-green)] hover:text-[var(--apex-green-text)] px-1">
-                          <Pencil className="h-[17px] w-[17px]" />
-                        </button>
-                        <button onClick={() => setDeleteTarget(row)} title="حذف" aria-label={`حذف ${row.location_name}`} className="text-slate-400 hover:text-red-600 px-1">
-                          <Trash2 className="h-[17px] w-[17px]" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* ── Print-only view ── */}
-      {filteredRows.length > 0 && (
-        <div className="hidden print:block">
-          <h1 className="text-lg font-bold mb-1">المواقع</h1>
-          <table className="w-full text-xs border-collapse mt-4">
-            <thead>
-              <tr>
-                <th className="border border-slate-300 px-2 py-1 text-center">م</th>
-                <th className="border border-slate-300 px-2 py-1 text-right">اسم الموقع</th>
-                <th className="border border-slate-300 px-2 py-1 text-right">نطاق الموقع (متر)</th>
-                <th className="border border-slate-300 px-2 py-1 text-right">الحالة</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredRows.map((row, i) => (
+      <div className="bg-white rounded shadow-sm overflow-x-auto">
+        <table className="apex-table w-full text-[14px] text-right">
+          <thead>
+            <tr>
+              <th className="w-10 text-center">
+                <input type="checkbox" checked={allChecked} onChange={toggleAll} aria-label="تحديد الكل"
+                  className="h-4 w-4 accent-[var(--apex-blue-light)] cursor-pointer align-middle" />
+              </th>
+              <th className="w-12">م</th>
+              <th>اسم الموقع</th>
+              <th>الموقع</th>
+              <th className="text-center">المسافة - القطر</th>
+              <th>الحالة</th>
+              <th className="text-center print:hidden">اجراءات</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={7} className="p-0"><TableSkeleton rows={6} cols={7} /></td></tr>
+            ) : filteredRows.length === 0 ? (
+              <tr><td colSpan={7} className="py-10">
+                {hasActiveFilter ? <ApexEmptyState /> : (
+                  <EmptyState title="لا توجد مواقع بعد" description="لم تتم إضافة أي موقع حتى الآن." />
+                )}
+              </td></tr>
+            ) : filteredRows.map((row, i) => {
+              const active = (row.custom_status || 'Active') === 'Active'
+              return (
                 <tr key={row.name}>
-                  <td className="border border-slate-300 px-2 py-1 text-center">{i + 1}</td>
-                  <td className="border border-slate-300 px-2 py-1">{row.location_name}</td>
-                  <td className="border border-slate-300 px-2 py-1">{fmtNumber(row.custom_radius_m || 0)}</td>
-                  <td className="border border-slate-300 px-2 py-1">{LOCATION_STATUS_AR[row.custom_status || 'Active']}</td>
+                  <td className="text-center">
+                    <input type="checkbox" checked={selected.has(row.name)} onChange={() => toggleOne(row.name)}
+                      aria-label={`تحديد ${row.location_name}`} className="h-4 w-4 accent-[var(--apex-blue-light)] cursor-pointer align-middle" />
+                  </td>
+                  <td>{i + 1}</td>
+                  <td>{row.location_name}</td>
+                  <td>
+                    <button type="button" onClick={() => setMapRow(row)} title="عرض على الخريطة" aria-label={`خريطة ${row.location_name}`}
+                      className="h-[50px] w-[50px] rounded border border-slate-200 bg-[linear-gradient(135deg,#e8f0e3_0%,#dfe8f5_100%)] flex items-center justify-center hover:shadow">
+                      <MapPin className="h-6 w-6 text-red-500" fill="currentColor" strokeWidth={1.5} />
+                    </button>
+                  </td>
+                  <td className="text-center tabular-nums">{fmtNumber(row.custom_radius_m || 0)}</td>
+                  <td>
+                    <span className="inline-flex items-center gap-1.5">
+                      {LOCATION_STATUS_AR[row.custom_status || 'Active']}
+                      <span className={`h-2 w-2 rounded-full ${active ? 'bg-[var(--apex-green)]' : 'bg-slate-400'}`} />
+                    </span>
+                  </td>
+                  <td className="print:hidden">
+                    <div className="flex items-center justify-center gap-1">
+                      <button onClick={() => { setEditing(row); setFormOpen(true) }} title="تعديل" className="apex-icon-edit px-1 hover:opacity-75"><Pencil className="h-[17px] w-[17px]" /></button>
+                      <button onClick={() => setDeleteTarget(row)} title="حذف" className="apex-icon-delete px-1 hover:opacity-75"><Trash2 className="h-[17px] w-[17px]" /></button>
+                      <DropdownMenu dir="rtl">
+                        <DropdownMenuTrigger asChild>
+                          <button type="button" title="خيارات" aria-label="خيارات" className="apex-icon-more px-1 rounded"><MoreVertical className="h-[18px] w-[18px]" /></button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="min-w-[150px] text-[13px]">
+                          <DropdownMenuItem onClick={() => setMapRow(row)}>عرض</DropdownMenuItem>
+                          <DropdownMenuItem disabled={active} onClick={() => setRowStatus(row, 'Active')}>تنشيط</DropdownMenuItem>
+                          <DropdownMenuItem disabled={!active} onClick={() => setRowStatus(row, 'Inactive')}>إلغاء التنشيط</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
 
       <LocationFormDialog
         open={formOpen}

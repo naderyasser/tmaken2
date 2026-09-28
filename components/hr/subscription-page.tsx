@@ -28,6 +28,9 @@ interface SubscriptionInfo {
   days_left: number | null
   employees_used: number | null
   employees_cap: number | null
+  started_on?: string | null
+  period?: string | null
+  extra_employees?: number | null
   support_whatsapp: string | null
   support_email: string | null
 }
@@ -150,100 +153,96 @@ export function SubscriptionPage() {
     </a>
   )
 
+  const UNLIMITED = 'لا نهائي'
+  const cap = sub?.employees_cap ?? null
+  const Cell = ({ k, v, wide }: { k: string; v: React.ReactNode; wide?: boolean }) => (
+    <div className={wide ? 'md:col-span-3' : 'md:col-span-2'}>
+      <h3 className="text-[16px] font-bold text-slate-800 mb-1">{k}</h3>
+      <p className="text-[15px] text-slate-600">{v}</p>
+    </div>
+  )
+  const Usage = ({ label, used, max }: { label: string; used?: number; max?: number | null }) => {
+    const limited = max != null && max > 0
+    const pct = limited ? Math.min(100, ((used ?? 0) / (max as number)) * 100) : 100
+    return (
+      <>
+        <div className="md:col-span-2"><h3 className="text-[16px] font-bold text-slate-800">{label}</h3></div>
+        <div className="md:col-span-10 mt-2">
+          <div className="h-1 rounded bg-[var(--apex-blue)]/20 overflow-hidden"><div className="h-full bg-[var(--apex-blue)]" style={{ width: `${pct}%` }} /></div>
+          <p className="text-left text-[14px] text-slate-600 mt-1" dir="ltr">{limited ? `${used ?? 0}/${max}` : UNLIMITED}</p>
+        </div>
+      </>
+    )
+  }
+
+  // Apex (app-subscription-information): both accordions open — «معلومات الاشتراك»
+  // (الباقة · الفترة · تاريخ التفعيل · تاريخ الانتهاء · عدد الأيام المتبقية, الباقة
+  // الأساسية, الباقات الإضافية) and «إستهلاك الباقة» (a bar per limit), then
+  // «تجديد الإشتراك» · «ترقية الإشتراك». Values come from the site's
+  // subscription_* config; anything not capped shows «لا نهائي» like Apex.
   return (
     <div className="p-4 pt-6" dir="rtl">
-      <Accordion title="معلومات الاشتراك" open={!!open.info} onToggle={() => toggle('info')}>
-        <Row k="الشركة" v={company || NA} />
-        <Row k="الباقة" v={sub?.plan || NA} />
-        <Row k="حالة الاشتراك" v={
-          <span className="inline-flex items-center gap-2">
-            <span className={sub?.status ? 'text-emerald-600' : ''}>{sub?.status || NA}</span>
-            {lowDays && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold px-2 py-0.5">
-                <AlertTriangle className="h-3 w-3" />ينتهي خلال {sub!.days_left} يوم
-              </span>
-            )}
-          </span>
-        } />
-        <Row k="تاريخ الانتهاء" v={fmtDate(sub?.expires_on) || NA} />
-      </Accordion>
-      <Accordion title="إستهلاك الباقة" open={!!open.usage} onToggle={() => toggle('usage')}>
-        <Bar label="الموظفين" used={sub?.employees_used ?? usage.employees} max={sub?.employees_cap ?? null} />
-        <Bar label="المستخدمين" used={usage.users} max={null} />
-        <Bar label="الاجهزة" used={usage.devices} max={null} />
-        <Bar label="الفروع" used={usage.branches} max={null} />
-      </Accordion>
-
-      {/* M8: package comparison grid — current plan highlighted. Only rendered
-          once list_packages has answered (single fallback card when no
-          catalogue is configured, so this never claims pricing that doesn't exist). */}
-      {packages.length > 0 && (
-        <div className="mb-6">
-          <p className="text-[16px] font-bold text-slate-800 mb-3 px-1">الباقات المتاحة</p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {packages.map((pkg) => {
-              const isActive = pkg.key === activeKey
-              return (
-                <div
-                  key={pkg.key}
-                  className={`rounded-md border p-5 bg-white flex flex-col ${isActive ? 'border-[var(--apex-blue)] ring-1 ring-[var(--apex-blue)]' : 'border-slate-200/70'}`}
-                >
-                  {isActive && (
-                    <span className="self-start mb-2 inline-flex items-center gap-1 rounded-full bg-[var(--apex-blue)]/10 text-[var(--apex-blue)] text-[11px] font-bold px-2 py-0.5">
-                      <Check className="h-3 w-3" />الباقة الحالية
-                    </span>
-                  )}
-                  <p className="text-[17px] font-bold text-slate-800">{pkg.label}</p>
-                  <p className="text-[20px] font-extrabold text-slate-800 mt-1">
-                    {pkg.price != null ? fmtNumber(pkg.price) + ' ر.س' : NA}
-                  </p>
-                  <div className="mt-3 space-y-1.5 flex-1">
-                    {Object.entries(pkg.limits || {}).map(([k, v]) => (
-                      <div key={k} className="flex items-center justify-between text-[13px] text-slate-600">
-                        <span>{LIMIT_LABEL[k] || k}</span>
-                        <span className="font-semibold text-slate-800">{v != null ? fmtNumber(v) : NA}</span>
-                      </div>
-                    ))}
-                    {Object.keys(pkg.limits || {}).length === 0 && (
-                      <p className="text-[13px] text-slate-400">{NA}</p>
-                    )}
-                  </div>
-                  <div className="mt-4">
-                    {configured ? (
-                      <ActionButton pkg={pkg} kind={isActive ? 'renew' : 'upgrade'} label={isActive ? 'تجديد' : 'طلب الترقية'} />
-                    ) : contactHref ? (
-                      <ContactLink label={isActive ? 'تجديد' : 'طلب الترقية'} />
-                    ) : null}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+      <Accordion title="معلومات الاشتراك" open={open.info !== false} onToggle={() => setOpen((o) => ({ ...o, info: o.info === false }))}>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 text-right">
+          <Cell k="الباقة" v={sub?.plan || NA} />
+          <Cell k="الفترة" v={sub?.period || NA} />
+          <Cell k="تاريخ التفعيل" v={sub?.started_on || NA} />
+          <Cell k="تاريخ الانتهاء" v={sub?.expires_on || NA} wide />
+          <Cell k="عدد الأيام المتبقية" v={
+            <span className="inline-flex items-center gap-2">
+              {sub?.days_left ?? NA}
+              {lowDays && <AlertTriangle className="h-4 w-4 text-amber-600" aria-label="قارب على الانتهاء" />}
+            </span>
+          } wide />
         </div>
-      )}
+        <hr className="my-5 border-slate-200" />
+        <h2 className="text-[20px] font-bold text-slate-800 mb-4 text-right">الباقة الأساسية</h2>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 text-right">
+          <Cell k="عدد الفروع" v={UNLIMITED} />
+          <Cell k="عدد المستخدمين" v={UNLIMITED} />
+          <Cell k="عدد الموظفين" v={cap != null ? Math.max(0, cap - (sub?.extra_employees ?? 0)) : UNLIMITED} />
+          <Cell k="عدد المخازن" v={UNLIMITED} wide />
+          <Cell k="عدد نقاط البيع" v={UNLIMITED} wide />
+          <Cell k="عدد العملاء" v={UNLIMITED} />
+          <Cell k="عدد الفواتير" v={UNLIMITED} />
+          <Cell k="عدد الموردين" v={UNLIMITED} />
+          <Cell k="عدد الاصناف" v={UNLIMITED} wide />
+        </div>
+        <hr className="my-5 border-slate-200" />
+        <h2 className="text-[20px] font-bold text-slate-800 mb-4 text-right">الباقات الإضافية</h2>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 text-right">
+          {sub?.extra_employees ? <Cell k="عدد الموظفين" v={sub.extra_employees} wide /> : <p className="md:col-span-12 text-slate-500 text-[14px]">لا توجد باقات إضافية</p>}
+        </div>
+      </Accordion>
 
-      {/* 5.26: Apex shows both «تجديد الإشتراك» and «ترقية الإشتراك», centered
-          under the accordions — quick actions on top of the grid above.
-          Configured catalogue: go straight through request_change with a
-          confirmation toast. No catalogue configured: fall back to the
-          support WhatsApp/email contact link, exactly as before. */}
-      {configured && packages.length > 0 ? (
-        <div className="flex items-center justify-center gap-3 mt-2">
-          {activeKey && (
+      <Accordion title="إستهلاك الباقة" open={open.usage !== false} onToggle={() => setOpen((o) => ({ ...o, usage: o.usage === false }))}>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-x-4 gap-y-2 items-start text-right">
+          <Usage label="عدد الفروع" used={usage.branches} />
+          <Usage label="عدد العملاء" />
+          <Usage label="عدد المستخدمين" used={usage.users} />
+          <Usage label="عدد الموظفين" used={sub?.employees_used ?? usage.employees} max={cap} />
+          <Usage label="عدد المخازن" />
+          <Usage label="عدد نقاط البيع" />
+          <Usage label="عدد الفواتير" />
+          <Usage label="عدد الموردين" />
+          <Usage label="عدد الاصناف" />
+        </div>
+      </Accordion>
+
+      <div className="flex items-center justify-around mt-3">
+        <div className="flex items-center gap-2">
+          {configured && activeKey ? (
             <ActionButton pkg={packages.find((p) => p.key === activeKey)!} kind="renew" label="تجديد الإشتراك" />
+          ) : contactHref ? <ContactLink label="تجديد الإشتراك" /> : (
+            <button type="button" disabled className="h-[40px] px-5 rounded bg-[var(--apex-bootstrap-blue)] text-white text-[15px] opacity-60">تجديد الإشتراك</button>
           )}
-          {upgradeTarget ? (
+          {configured && upgradeTarget ? (
             <ActionButton pkg={upgradeTarget} kind="upgrade" label="ترقية الإشتراك" />
-          ) : contactHref ? (
-            <ContactLink label="ترقية الإشتراك" />
-          ) : null}
+          ) : contactHref ? <ContactLink label="ترقية الإشتراك" /> : (
+            <button type="button" disabled className="h-[40px] px-5 rounded bg-[var(--apex-bootstrap-blue)] text-white text-[15px] opacity-60">ترقية الإشتراك</button>
+          )}
         </div>
-      ) : contactHref && (
-        <div className="flex items-center justify-center gap-3 mt-2">
-          <ContactLink label="تجديد الإشتراك" />
-          <ContactLink label="ترقية الإشتراك" />
-        </div>
-      )}
+      </div>
     </div>
   )
 }

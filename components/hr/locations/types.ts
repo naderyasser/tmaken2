@@ -11,6 +11,7 @@ export interface LocationRow {
   longitude?: number | null
   custom_radius_m?: number | null
   custom_status?: 'Active' | 'Inactive' | null
+  custom_name_en?: string | null
 }
 
 export interface LocationGroupOption {

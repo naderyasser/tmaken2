@@ -95,6 +95,10 @@ function cellText(f: FieldDef, row: Row): string {
 /** Rendered cell — `cellText` plus the coloured status-dot markup. */
 function cellValue(f: FieldDef, row: Row): ReactNode {
   if (f.statusBadge) return <DocBadge row={row} />
+  if (f.pill) {
+    const v = String(row[f.field] ?? '')
+    return v ? <span className={`inline-block rounded px-2 py-0.5 text-[12px] font-bold ${f.pill[v] || 'bg-slate-100 text-slate-600'}`}>{v}</span> : '—'
+  }
   if (f.statusDot) {
     const on = row[f.field] === f.statusDot.on
     return (

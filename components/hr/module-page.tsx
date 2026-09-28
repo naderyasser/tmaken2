@@ -62,6 +62,7 @@ export function ModulePage({ moduleId }: { moduleId: string }) {
         // 5.25: action bar sits above the logo placeholder, not the reverse.
         extra={isCompanyData ? <CompanyLogoPanel company={recordName} /> : undefined}
         fullWidthFields={isCompanyData ? ['email', 'custom_address_ar', 'custom_address_en'] : undefined}
+        splitAt={isCompanyData ? 'phone_no' : undefined}
       />
     )
   }
