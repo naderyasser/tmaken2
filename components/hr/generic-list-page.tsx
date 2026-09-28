@@ -456,7 +456,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
   }
 
   const exportCsv = () => {
-    const head = tableFields.map((f) => f.label)
+    const head = tableFields.map((f) => f.tableLabel ?? f.label)
     const lines = [head.join(',')]
     for (const row of filtered) {
       lines.push(tableFields.map((f) => `"${cellText(f, row).replace(/"/g, '""')}"`).join(','))
@@ -493,7 +493,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
               <tr>
                 {!config.noIndex && <th className="border border-slate-300 px-2 py-1 text-center">م</th>}
                 {tableFields.map((f) => (
-                  <th key={f.field} className="border border-slate-300 px-2 py-1 text-right">{f.label}</th>
+                  <th key={f.field} className="border border-slate-300 px-2 py-1 text-right">{f.tableLabel ?? f.label}</th>
                 ))}
               </tr>
             </thead>
@@ -581,7 +581,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
                       </th>
                     )}
                     {!config.noIndex && <th className="w-10 text-center">م</th>}
-                    {tableFields.map((f) => <th key={f.field}>{f.label}</th>)}
+                    {tableFields.map((f) => <th key={f.field}>{f.tableLabel ?? f.label}</th>)}
                     <th className="apex-col-actions w-32">الاجراءات</th>
                   </tr>
                 </thead>
@@ -762,6 +762,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
           open={!!historyRow}
           onOpenChange={(o) => { if (!o) setHistoryRow(null) }}
           doctype={config.doctype}
+          labels={Object.fromEntries(config.fields.map((f) => [f.field, f.label]))}
           name={historyRow?.name ?? null}
         />
       )}

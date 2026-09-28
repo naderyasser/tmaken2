@@ -40,6 +40,8 @@ export interface FieldDef {
   required?: boolean
   /** Show as a table column. Default true. */
   inTable?: boolean
+  /** Column header when it differs from the form label (Apex «اسم المشروع» vs «اسم المشروع بالعربية»). */
+  tableLabel?: string
   /** Show in the create/edit form. Default true. */
   inForm?: boolean
   /** Shown when the field is empty (رقم → employee_number, else the record name). */
@@ -473,11 +475,11 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     print: false,
     noIndex: true,
     rowMenu: 'master',
+    // Apex «اضافة المشروع»: Arabic name (required) + English name only; the
+    // table shows just «اسم المشروع».
     fields: [
-      { field: 'name', label: 'الكود', inForm: false },
-      { field: 'project_name', label: 'اسم المشروع', required: true },
-      { field: 'status', label: 'الحالة', type: 'select', options: ['Open', 'Completed', 'Cancelled'], optionLabels: VALUE_AR },
-      { field: 'expected_end_date', label: 'تاريخ الانتهاء', type: 'date' },
+      { field: 'project_name', label: 'اسم المشروع بالعربية', tableLabel: 'اسم المشروع', required: true },
+      { field: 'custom_name_en', label: 'اسم المشروع بالانجليزيه', inTable: false },
     ],
   },
 

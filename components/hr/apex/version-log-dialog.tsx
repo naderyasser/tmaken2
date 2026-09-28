@@ -12,12 +12,14 @@ export type VersionLogDialogProps = {
   doctype: string
   /** `null` while no row is selected — the dialog only fetches once both are set. */
   name: string | null
+  /** fieldname → Arabic label (the list's own form labels); raw fieldname otherwise. */
+  labels?: Record<string, string>
 }
 
 type VersionRow = { owner: string; creation: string; changed: [string, unknown, unknown][] }
 
 /** Apex «سجل الحركات» — Frappe `Version` rows for the doc (who / when / changed fields). */
-export function VersionLogDialog({ open, onOpenChange, doctype, name }: VersionLogDialogProps) {
+export function VersionLogDialog({ open, onOpenChange, doctype, name, labels }: VersionLogDialogProps) {
   const [rows, setRows] = useState<VersionRow[]>([])
   const [loading, setLoading] = useState(false)
 
@@ -50,7 +52,7 @@ export function VersionLogDialog({ open, onOpenChange, doctype, name }: VersionL
                   <ul className="space-y-1">
                     {v.changed.map(([field, oldV, newV], j) => (
                       <li key={j} className="text-[13px] text-slate-700">
-                        <span className="font-bold">{field}</span>
+                        <span className="font-bold">{labels?.[field] ?? field}</span>
                         {': '}
                         <span className="text-slate-500">{String(oldV ?? '—')}</span>
                         {' ← '}
