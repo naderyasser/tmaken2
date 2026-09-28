@@ -2,6 +2,8 @@ import type { FrappeFilter } from '@/lib/api-client'
 import type { DrawerFilter } from '@/components/hr/advanced-search-drawer'
 import { VALUE_AR, leaveTypeAr } from '@/lib/enums'
 import { COUNTRY_AR } from '@/lib/country-names-ar'
+import type { ComponentType } from 'react'
+import { PermissionTypeField, validatePermission } from '@/components/hr/permission-type-field'
 
 /**
  * Registry for the HR "proposed version" master-data / settings screens.
@@ -16,7 +18,7 @@ import { COUNTRY_AR } from '@/lib/country-names-ar'
  *   - 'settings' → GenericSettingsPage (single record form, saved with PUT)
  */
 
-export type FieldType = 'text' | 'number' | 'date' | 'textarea' | 'checkbox' | 'select' | 'link' | 'time'
+export type FieldType = 'text' | 'number' | 'date' | 'textarea' | 'checkbox' | 'select' | 'link' | 'time' | 'custom'
 
 export interface FieldDef {
   field: string
@@ -38,6 +40,11 @@ export interface FieldDef {
     labelMap?: (name: string) => string
   }
   required?: boolean
+  /** type 'custom': a full-width block that edits several form keys itself
+   *  (`payloadKeys` are sent with the form); `validate` returns an error text. */
+  component?: ComponentType<{ form: Record<string, any>; set: (values: Record<string, any>) => void }>
+  payloadKeys?: string[]
+  validate?: (form: Record<string, any>) => string | null
   /** Show as a table column. Default true. */
   inTable?: boolean
   /** Column header when it differs from the form label (Apex «اسم المشروع» vs «اسم المشروع بالعربية»). */
@@ -94,6 +101,8 @@ export interface ListModuleConfig {
    */
   actionsMenu?: boolean
   active?: { field: string; on: string; off: string }
+  /** Client-side row filter applied after load (e.g. hide cancelled requests). */
+  rowFilter?: (row: Record<string, any>) => boolean
   /** Hide the running «م» index column (Apex lists that have their own code column). */
   noIndex?: boolean
   /** Show the print dropdown (only some Apex lists have it). Default true. */
@@ -137,6 +146,8 @@ export interface ListModuleConfig {
   createDefaults?: Record<string, any>
   /** Edit through a whitelisted method (called with { name, ...payload }) instead of rename + PUT. */
   updateMethod?: string
+  /** Static kwargs sent with `updateMethod` (like `deleteArgs`). */
+  updateArgs?: Record<string, any>
   /** Same idea for delete: called with { [deleteArgField || 'name']: row.name }. */
   deleteMethod?: string
   deleteArgField?: string
@@ -667,15 +678,19 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     methodArgs: { doctype: 'Leave Application' },
     addLabel: 'اضافة اجازة',
     searchPlaceholder: 'ابحث بالكود او اسم الموظف',
+    // Apex: bulk «الاجراءات» offers only حذف, row ⋮ = عرض · سجل الحركات; a
+    // leave HR adds here is effective at once (no approval step), ✎ amends it.
     actionsMenu: true,
-    active: { field: 'status', on: 'Approved', off: 'Rejected' },
-    requestActions: true,
+    rowMenu: 'master',
     // Inserting the Leave Application row directly skips the Leave Allocation
     // balance check/creation the real request flow needs.
     createMethod: 'base_meena.api.hr_requests.create_leave_application',
+    createDefaults: { approve: 1 },
+    updateMethod: 'base_meena.api.hr_requests.update_request',
+    updateArgs: { doctype: 'Leave Application' },
     // drafts and cancelled leaves can be removed from the list (approved: cancel first)
     deleteMethod: 'base_meena.api.hr_requests.delete_request',
-    deleteArgs: { doctype: 'Leave Application' },
+    deleteArgs: { doctype: 'Leave Application', cancel_first: 1 },
     noIndex: true,
     drawerFilters: [
       { field: 'branch', label: 'الفروع', source: 'branches' },
@@ -696,9 +711,13 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     // 2026-09-20, item 4).
     deriveFields: [
       { as: '_leave_type_ar', from: (r) => leaveTypeAr(r.leave_type) },
+      // Apex «رقم»: the record's serial (HR-LAP-2026-00012 → 12)
+      { as: '_no', from: (r) => String(parseInt(String(r.name).split('-').pop() || '', 10) || r.name) },
     ],
+    // only live leaves — a cancelled one (e.g. superseded by an edit) isn't listed in Apex
+    rowFilter: (r) => r.docstatus !== 2,
     fields: [
-      { field: 'name', label: 'الكود', inForm: false },
+      { field: '_no', label: 'رقم', inForm: false },
       { field: 'employee', label: 'الموظف', type: 'link', link: { doctype: 'Employee', titleField: 'employee_name', filters: [['status', '=', 'Active']] }, required: true, inTable: false },
       { field: 'employee_name', label: 'اسم الموظف', inForm: false },
       { field: 'branch', label: 'الفرع', inForm: false },
@@ -706,8 +725,8 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       // changes what the picker itself displays.
       { field: 'leave_type', label: 'نوع الاجازة', type: 'link', link: { doctype: 'Leave Type', titleField: 'custom_name_ar', labelMap: leaveTypeAr }, required: true, inTable: false },
       { field: '_leave_type_ar', label: 'نوع الاجازة', inForm: false },
-      { field: 'from_date', label: 'من', type: 'date', required: true },
-      { field: 'to_date', label: 'إلى', type: 'date', required: true },
+      { field: 'from_date', label: 'من تاريخ', tableLabel: 'من', type: 'date', required: true },
+      { field: 'to_date', label: 'إلى تاريخ', tableLabel: 'إلى', type: 'date', required: true },
       { field: 'total_leave_days', label: 'المدة', type: 'number', inForm: false },
       { field: 'description', label: 'ملاحظات', type: 'textarea' },
       // Approval happens through the ⋮ menu / bulk «تنشيط» (approve_request /
@@ -715,7 +734,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       // and create_leave_application doesn't take a `status` kwarg anyway.
       // Now shown as the last table column too (statusBadge derives from
       // docstatus, not the raw value) so the request's state is visible.
-      { field: 'status', label: 'الحالة', inForm: false, inTable: true, statusBadge: true },
+      { field: 'status', label: 'الحالة', inForm: false, inTable: false },
       { field: 'docstatus', label: 'docstatus', inTable: false, inForm: false },
       { field: 'department', label: 'الإدارة', inTable: false, inForm: false },
       { field: 'designation', label: 'الوظائف', inTable: false, inForm: false },
@@ -730,7 +749,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     doctype: 'Attendance Request',
     needsCompany: true,
     orderBy: 'from_date desc',
-    addLabel: 'اضافة طلب بصمة',
+    addLabel: 'اضافة تسجيل بصمة',
     searchPlaceholder: 'ابحث بالكود او اسم الموظف',
     actionsMenu: true,
     requestActions: true,
@@ -739,7 +758,9 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     // overlap-validation error (D2, round-1). Route through the wrapped
     // endpoint so HRMS errors come back translated to Arabic.
     createMethod: 'base_meena.api.hr_requests.create_request',
-    mapCreatePayload: (p) => ({ doctype: 'Attendance Request', values: p }),
+    // Apex «اضافة تسجيل بصمة» = one missing punch; approving it creates the
+    // Employee Checkin (hr_management/attendance_request_override.py)
+    mapCreatePayload: (p) => ({ doctype: 'Attendance Request', values: { ...p, to_date: p.from_date, reason: 'On Duty' } }),
     // Attendance Request carries no `status` field (only docstatus) — derive a
     // matching label so the drawer can still filter by lifecycle state.
     deriveFields: [
@@ -759,10 +780,10 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     fields: [
       { field: 'employee', label: 'الموظف', type: 'link', link: { doctype: 'Employee', titleField: 'employee_name', filters: [['status', '=', 'Active']] }, required: true, inTable: false },
       { field: 'employee_name', label: 'اسم الموظف', inForm: false },
-      { field: 'from_date', label: 'من تاريخ', type: 'date', required: true },
-      { field: 'to_date', label: 'إلى تاريخ', type: 'date', required: true },
-      { field: 'reason', label: 'السبب', type: 'select', options: ['Work From Home', 'On Duty'], optionLabels: VALUE_AR, required: true },
-      { field: 'explanation', label: 'التفاصيل', type: 'textarea', inTable: false },
+      { field: 'from_date', label: 'التاريخ', type: 'date', required: true },
+      { field: 'custom_log_type', label: 'نوع البصمة', type: 'select', options: ['IN', 'OUT'], optionLabels: { IN: 'حضور', OUT: 'انصراف' }, required: true },
+      { field: 'custom_punch_time', label: 'الوقت', type: 'time', required: true },
+      { field: 'explanation', label: 'ملاحظات', type: 'textarea', inTable: false },
       { field: 'department', label: 'الإدارة', inTable: false, inForm: false },
       { field: 'docstatus', label: 'docstatus', inTable: false, inForm: false },
     ],
@@ -780,21 +801,29 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     methodArgs: { doctype: 'Permission Request' },
     addLabel: 'اضافة اذن',
     searchPlaceholder: 'ابحث بالكود او اسم الموظف',
+    // Apex bulk «الاجراءات»: تنشيط / إلغاء التنشيط / حذف; row ⋮ = عرض · سجل الحركات
     actionsMenu: true,
     active: { field: 'status', on: 'Approved', off: 'Rejected' },
-    requestActions: true,
+    rowMenu: 'master',
     noIndex: true,
     // Same fix as fingerprint-requests (D2, round-1): route creation through the
     // wrapped endpoint so HRMS validation errors come back translated to Arabic.
     createMethod: 'base_meena.api.hr_requests.create_request',
+    // added by HR here = approved at once (create_request submits on status
+    // Approved); createDefaults is list-only, «الطلبات» keeps its approval flow
+    createDefaults: { status: 'Approved' },
     mapCreatePayload: (p) => ({ doctype: 'Permission Request', values: p }),
+    updateMethod: 'base_meena.api.hr_requests.update_request',
+    updateArgs: { doctype: 'Permission Request' },
     deleteMethod: 'base_meena.api.hr_requests.delete_request',
-    deleteArgs: { doctype: 'Permission Request' },
+    deleteArgs: { doctype: 'Permission Request', cancel_first: 1 },
+    rowFilter: (r) => r.docstatus !== 2,
     // «نوع الاذن» is a constant here (Apex `GetOrderTypes.arabicName` for this
     // list is always «طلب اذن» — Permission Request has no per-row type field
     // of its own; see base_meena.api.hr_requests.get_order_types).
     deriveFields: [
-      { as: '_order_type', from: () => 'طلب اذن' },
+      { as: '_order_type', from: (r) => r.custom_permission_type || 'مؤقت' },
+      { as: '_no', from: (r) => String(parseInt(String(r.name).split('-').pop() || '', 10) || r.name) },
     ],
     drawerFilters: [
       { field: 'branch', label: 'الفروع', source: 'branches' },
@@ -805,24 +834,29 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       { field: 'department', label: 'الاقسام', source: 'departments' },
       { field: 'designation', label: 'الوظائف', source: 'designations' },
       { field: 'default_shift', label: 'الدوام', source: 'shifts' },
-      { field: '_order_type', label: 'نوع الاذن', options: ['طلب اذن'] },
+      { field: '_order_type', label: 'نوع الاذن', options: ['يوم كامل', 'مؤقت'] },
       { field: 'permission_date', label: 'التاريخ', date: true },
     ],
     // Apex columns: الكود · اسم الموظف · التاريخ · الفرع · نوع الاذن · الحالة
     // (status column + state-aware ⋮ menu — QA fix 2026-09-20, item 4).
     fields: [
-      { field: 'name', label: 'الكود', inForm: false },
+      { field: '_no', label: 'رقم', inForm: false },
       { field: 'employee', label: 'الموظف', type: 'link', link: { doctype: 'Employee', titleField: 'employee_name', filters: [['status', '=', 'Active']] }, required: true, inTable: false },
       { field: 'employee_name', label: 'اسم الموظف', inForm: false },
       { field: 'permission_date', label: 'التاريخ', type: 'date', required: true },
       { field: 'branch', label: 'الفرع', inForm: false },
       { field: '_order_type', label: 'نوع الاذن', inForm: false },
-      { field: 'from_time', label: 'من الساعة', type: 'time', required: true },
-      { field: 'to_time', label: 'إلى الساعة', type: 'time', required: true },
-      { field: 'reason', label: 'السبب', type: 'textarea', required: true },
+      // Apex: after employee + date, «نوع الاذن» مؤقت/يوم كامل + per-shift times
+      { field: '_permission', label: 'نوع الاذن', type: 'custom', inTable: false, component: PermissionTypeField,
+        payloadKeys: ['custom_permission_type', 'custom_shift_times', 'from_time', 'to_time'], validate: validatePermission },
+      { field: 'reason', label: 'ملاحظات', type: 'textarea' },
+      { field: 'custom_permission_type', label: 'نوع الاذن', inTable: false, inForm: false },
+      { field: 'custom_shift_times', label: 'الأوقات', inTable: false, inForm: false },
+      { field: 'from_time', label: 'من', inTable: false, inForm: false },
+      { field: 'to_time', label: 'إلى', inTable: false, inForm: false },
       // «معتمد / مرفوض» on create really approves / rejects (hr_requests.create_request
       // submits); after that the ⋮ menu is the only way to change the state
-      { field: 'status', label: 'الحالة', type: 'select', options: ['Draft', 'Pending', 'Approved', 'Rejected'], optionLabels: VALUE_AR, statusBadge: true, inTable: true, lockedOnEdit: true },
+      { field: 'status', label: 'الحالة', inForm: false, statusBadge: true },
       { field: 'docstatus', label: 'docstatus', inTable: false, inForm: false },
       { field: 'department', label: 'الإدارة', inTable: false, inForm: false },
       { field: 'designation', label: 'الوظائف', inTable: false, inForm: false },

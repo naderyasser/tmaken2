@@ -255,13 +255,13 @@ export function RequestsTabsPage() {
   const [empQuery, setEmpQuery] = useState('')
   const [leaveForm, setLeaveForm] = useState({ employee: '', leave_type: '', from_date: '', to_date: '', description: '' })
   const [permForm, setPermForm] = useState({ employee: '', permission_date: '', from_time: '', to_time: '', reason: '' })
-  const [fpForm, setFpForm] = useState({ employee: '', from_date: '', to_date: '', reason: 'Work From Home', explanation: '' })
+  const [fpForm, setFpForm] = useState({ employee: '', from_date: '', custom_log_type: '', custom_punch_time: '', explanation: '' })
 
   const resetAddForms = () => {
     setEmpQuery('')
     setLeaveForm({ employee: '', leave_type: '', from_date: '', to_date: '', description: '' })
     setPermForm({ employee: '', permission_date: '', from_time: '', to_time: '', reason: '' })
-    setFpForm({ employee: '', from_date: '', to_date: '', reason: 'Work From Home', explanation: '' })
+    setFpForm({ employee: '', from_date: '', custom_log_type: '', custom_punch_time: '', explanation: '' })
   }
   const openAdd = () => { resetAddForms(); setAddOpen(true) }
 
@@ -286,7 +286,7 @@ export function RequestsTabsPage() {
         const values = cfg.mapCreatePayload ? cfg.mapCreatePayload(withCompany(permForm)) : permForm
         await frappeClient.call(cfg.createMethod, values)
       } else {
-        if (!fpForm.employee || !fpForm.from_date || !fpForm.to_date || !fpForm.reason) {
+        if (!fpForm.employee || !fpForm.from_date || !fpForm.custom_log_type || !fpForm.custom_punch_time) {
           toast({ title: 'أكمل الحقول المطلوبة', variant: 'destructive' }); setSaving(false); return
         }
         const values = cfg.mapCreatePayload ? cfg.mapCreatePayload(withCompany(fpForm)) : fpForm
@@ -497,22 +497,23 @@ export function RequestsTabsPage() {
             />
           </div>
           <div>
-            <label className="block text-[13px] text-slate-700 mb-1">السبب <span className="text-red-500">*</span></label>
-            <select value={fpForm.reason} onChange={(e) => setFpForm((f) => ({ ...f, reason: e.target.value }))} className={EMP_FIELD}>
-              <option value="Work From Home">عمل من المنزل</option>
-              <option value="On Duty">مهمة عمل</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-[13px] text-slate-700 mb-1">من تاريخ <span className="text-red-500">*</span></label>
+            <label className="block text-[13px] text-slate-700 mb-1">التاريخ <span className="text-red-500">*</span></label>
             <ApexDatePicker value={fpForm.from_date} onChange={(v) => setFpForm((f) => ({ ...f, from_date: v }))} />
           </div>
           <div>
-            <label className="block text-[13px] text-slate-700 mb-1">إلى تاريخ <span className="text-red-500">*</span></label>
-            <ApexDatePicker value={fpForm.to_date} onChange={(v) => setFpForm((f) => ({ ...f, to_date: v }))} />
+            <label className="block text-[13px] text-slate-700 mb-1">نوع البصمة <span className="text-red-500">*</span></label>
+            <select value={fpForm.custom_log_type} onChange={(e) => setFpForm((f) => ({ ...f, custom_log_type: e.target.value }))} className={EMP_FIELD}>
+              <option value="">اختر…</option>
+              <option value="IN">حضور</option>
+              <option value="OUT">انصراف</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[13px] text-slate-700 mb-1">الوقت <span className="text-red-500">*</span></label>
+            <ApexTimePicker value={fpForm.custom_punch_time} onChange={(v) => setFpForm((f) => ({ ...f, custom_punch_time: v }))} />
           </div>
           <div className="col-span-2">
-            <label className="block text-[13px] text-slate-700 mb-1">التفاصيل</label>
+            <label className="block text-[13px] text-slate-700 mb-1">ملاحظات</label>
             <textarea value={fpForm.explanation} onChange={(e) => setFpForm((f) => ({ ...f, explanation: e.target.value }))} rows={3}
               className="w-full rounded border border-[var(--apex-border)] bg-white px-2.5 py-2 text-[13px] text-slate-800 outline-none focus:border-[var(--apex-blue)]" />
           </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createElement, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { Pencil, Trash2, MoreVertical, AlertCircle } from 'lucide-react'
 import { frappeClient, isAuthError } from '@/lib/api-client'
@@ -194,7 +194,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
           order_by: config.orderBy,
           limit_page_length: 0,
         })
-      const list: Row[] = Array.isArray(data) ? data : []
+      const list: Row[] = (Array.isArray(data) ? data : []).filter((r: Row) => !config.rowFilter || config.rowFilter(r))
       if (config.deriveFields) {
         for (const row of list) for (const d of config.deriveFields) row[d.as] = d.from(row)
       }
@@ -349,6 +349,8 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     const initial: Record<string, any> = {}
     // an empty field shows its display fallback (e.g. a country's built-in Arabic name)
     for (const f of fieldsFor(true)) initial[f.field] = toFormValue(f, row[f.field] || (f.fallbackField ? row[f.fallbackField] : row[f.field]))
+    // a custom block's keys (Frappe Time values come back as HH:mm:ss)
+    for (const f of fieldsFor(true)) for (const k of f.payloadKeys ?? []) initial[k] = /^\d{1,2}:\d{2}:\d{2}/.test(String(row[k] ?? '')) ? String(row[k]).slice(0, 5) : row[k] ?? ''
     setEditing(row)
     setForm(initial)
     setFieldErrors({})
@@ -362,6 +364,10 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     for (const f of activeFields) {
       if (f.required && !String(form[f.field] ?? '').trim()) errors[f.field] = 'هذا الحقل مطلوب'
     }
+    for (const f of activeFields) {
+      const msg = f.validate?.(form)
+      if (msg) { toast({ title: f.label, description: msg, variant: 'destructive' }); return }
+    }
     if (Object.keys(errors).length) {
       setFieldErrors(errors)
       const firstLabel = activeFields.find((f) => errors[f.field])?.label
@@ -372,7 +378,8 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     // `lockedOnEdit` fields (e.g. email) are shown disabled for context but
     // never sent back on PUT — the value on screen is already the row's own.
     const payloadFields = activeFields.filter((f) => !(isEdit && f.lockedOnEdit))
-    let payload = toPayload(payloadFields, form)
+    let payload = toPayload(payloadFields.filter((f) => f.type !== 'custom'), form)
+    for (const f of payloadFields) for (const k of f.payloadKeys ?? []) if (form[k] !== undefined) payload[k] = form[k]
     if (!isEdit && config.needsCompany && !payload.company) payload.company = company || undefined
     if (!isEdit && config.createDefaults) Object.assign(payload, config.createDefaults)
     if (!isEdit && config.mapCreatePayload) payload = config.mapCreatePayload(payload)
@@ -380,7 +387,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     try {
       let createResult: any
       if (editing && config.updateMethod) {
-        const res = (await frappeClient.call(config.updateMethod, { name: editing.name, ...payload }) as any)?.message
+        const res = (await frappeClient.call(config.updateMethod, { ...config.updateArgs, name: editing.name, ...payload }) as any)?.message
         if (res?.name && res.name !== editing.name) setEditing({ ...editing, name: res.name })
       }
       else if (editing) {
@@ -716,7 +723,13 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
         size="lg"
         primary={{ label: editing ? 'تعديل' : 'اضافة', onClick: save, disabled: saving, loading: saving }}
       >
-        {fieldsFor(!!editing).map((f) => (
+        {fieldsFor(!!editing).map((f) => f.type === 'custom' ? (
+          f.component ? (
+            <div key={f.field} className="col-span-2">
+              {createElement(f.component, { form, set: (values: Record<string, any>) => setForm((prev) => ({ ...prev, ...values })) })}
+            </div>
+          ) : null
+        ) : (
           <div key={f.field} className={f.type === 'textarea' ? 'col-span-2' : undefined}>
             {f.type !== 'checkbox' && (
               <Label className="text-[13px] text-slate-600 block mb-1.5">

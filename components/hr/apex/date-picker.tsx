@@ -61,7 +61,7 @@ export function ApexDatePicker({ value, onChange, label, required, placeholder, 
           {label}{required && <span className="text-red-500"> *</span>}
         </span>
       )}
-      <div className="flex items-center gap-2">
+      <div className="relative">
         <input
           type="text"
           inputMode="numeric"
@@ -72,7 +72,7 @@ export function ApexDatePicker({ value, onChange, label, required, placeholder, 
           onChange={(e) => setText(e.target.value)}
           onBlur={(e) => commit(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') commit((e.target as HTMLInputElement).value) }}
-          className="h-[42px] flex-1 rounded border border-[var(--apex-border)] bg-white px-3 text-left text-[14px] text-slate-800 outline-none focus:border-[var(--apex-blue)] disabled:bg-slate-50 disabled:text-slate-400"
+          className="h-[42px] w-full rounded border border-[var(--apex-border)] bg-white ps-10 pe-3 text-left text-[14px] text-slate-800 outline-none focus:border-[var(--apex-blue)] disabled:bg-slate-50 disabled:text-slate-400"
         />
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
@@ -80,9 +80,9 @@ export function ApexDatePicker({ value, onChange, label, required, placeholder, 
               type="button"
               disabled={disabled}
               aria-label="اختر تاريخ"
-              className="flex h-[35px] w-[35px] shrink-0 items-center justify-center rounded-full border border-[var(--apex-border)] bg-white text-[var(--apex-blue)] disabled:opacity-50"
+              className="absolute left-1 top-1/2 flex h-[34px] w-[34px] -translate-y-1/2 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 hover:text-[var(--apex-blue)] disabled:opacity-50"
             >
-              <CalendarIcon className="h-4 w-4" />
+              <CalendarIcon className="h-[18px] w-[18px]" />
             </button>
           </PopoverTrigger>
           <PopoverContent align="end" className="theme-hr w-auto p-0">
@@ -138,7 +138,7 @@ export function ApexTimePicker({ value, onChange, label, required, placeholder, 
           {label}{required && <span className="text-red-500"> *</span>}
         </span>
       )}
-      <div className="flex items-center gap-2">
+      <div className="relative">
         <input
           type="text"
           inputMode="numeric"
@@ -149,11 +149,11 @@ export function ApexTimePicker({ value, onChange, label, required, placeholder, 
           onChange={(e) => setText(e.target.value)}
           onBlur={(e) => commit(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') commit((e.target as HTMLInputElement).value) }}
-          className="h-[42px] flex-1 rounded border border-[var(--apex-border)] bg-white px-3 text-left text-[14px] text-slate-800 outline-none focus:border-[var(--apex-blue)] disabled:bg-slate-50 disabled:text-slate-400"
+          className="h-[42px] w-full rounded border border-[var(--apex-border)] bg-white ps-10 pe-3 text-left text-[14px] text-slate-800 outline-none focus:border-[var(--apex-blue)] disabled:bg-slate-50 disabled:text-slate-400"
         />
-        <div className="relative h-[35px] w-[35px] shrink-0">
-          <div className="pointer-events-none flex h-[35px] w-[35px] items-center justify-center rounded-full border border-[var(--apex-border)] bg-white text-[var(--apex-blue)]">
-            <Clock className="h-4 w-4" />
+        <div className="absolute left-1 top-1/2 h-[34px] w-[34px] -translate-y-1/2">
+          <div className="pointer-events-none flex h-[34px] w-[34px] items-center justify-center rounded-full text-slate-500">
+            <Clock className="h-[18px] w-[18px]" />
           </div>
           <input
             type="time"

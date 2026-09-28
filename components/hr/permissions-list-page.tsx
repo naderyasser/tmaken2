@@ -177,7 +177,6 @@ export function PermissionsListPage() {
           <thead>
             <tr>
               <th style={TH}>اسم الصلاحية</th>
-              <th style={TH}>الاسم بالإنجليزية</th>
               <th style={TH}>الصلاحيات</th>
               <th style={TH}>المستخدمين</th>
               <th style={TH} className="text-center">اجراءات</th>
@@ -185,20 +184,19 @@ export function PermissionsListPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5} className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-[var(--apex-blue)]" /></td></tr>
+              <tr><td colSpan={4} className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-[var(--apex-blue)]" /></td></tr>
             ) : pageRows.length === 0 ? (
-              <tr><td colSpan={5} className="py-10 text-center text-slate-500">لا يوجد نتائج للبحث ابحث مرة اخري</td></tr>
+              <tr><td colSpan={4} className="py-10 text-center text-slate-500">لا يوجد نتائج للبحث ابحث مرة اخري</td></tr>
             ) : pageRows.map((row) => {
               const disableDelete = row.users > 0 || CORE_ROLES.has(row.name)
               return (
                 <tr key={row.name}>
                   <td>{row.role_name}</td>
-                  <td dir="ltr" className="text-right">{row.name_en || ''}</td>
                   <td>
                     <button type="button" onClick={() => router.push(`/hr/role-permissions/${encodeURIComponent(row.name)}`)} className="text-[var(--apex-link)] hover:underline">{row.perms}</button>
                   </td>
                   <td>
-                    <button type="button" onClick={() => router.push(`/team?role=${encodeURIComponent(row.name)}`)} className="text-[var(--apex-link)] hover:underline">المستخدمين ({row.users})</button>
+                    <button type="button" onClick={() => router.push(`/hr/role-users/${encodeURIComponent(row.name)}`)} className="text-[var(--apex-link)] hover:underline">المستخدمين ({row.users})</button>
                   </td>
                   <td>
                     <div className="flex items-center justify-center gap-2">
@@ -230,15 +228,15 @@ export function PermissionsListPage() {
         open={addOpen}
         onOpenChange={(o) => { setAddOpen(o); if (!o) { setAddName(''); setAddEn(''); setAddNotes('') } }}
         title="اضافة صلاحية"
-        size="sm"
+        size="lg"
         primary={{ label: 'اضافة', onClick: submitAdd, loading: saving }}
       >
-        <div className="col-span-2">
+        <div>
           <label className="block text-[13px] text-slate-700 mb-1">الاسم باللغة العربية <span className="text-red-500">*</span></label>
           <input value={addName} onChange={(e) => setAddName(e.target.value)} className={FIELD} />
         </div>
-        <div className="col-span-2">
-          <label className="block text-[13px] text-slate-700 mb-1">الاسم باللغة الإنجليزية</label>
+        <div>
+          <label className="block text-[13px] text-slate-700 mb-1">الاسم باللغة الانجليزية</label>
           <input value={addEn} onChange={(e) => setAddEn(e.target.value)} dir="ltr" className={FIELD} />
         </div>
         <div className="col-span-2">
@@ -251,11 +249,11 @@ export function PermissionsListPage() {
         open={!!editing}
         onOpenChange={(o) => { if (!o) setEditing(null) }}
         title="تعديل صلاحية"
-        size="sm"
-        primary={{ label: 'حفظ', onClick: submitRename, loading: saving }}
+        size="lg"
+        primary={{ label: 'تعديل', onClick: submitRename, loading: saving }}
       >
-        <div className="col-span-2">
-          <label className="block text-[13px] text-slate-700 mb-1">الاسم باللغة العربية</label>
+        <div>
+          <label className="block text-[13px] text-slate-700 mb-1">الاسم باللغة العربية <span className="text-red-500">*</span></label>
           <input
             value={editName}
             onChange={(e) => setEditName(e.target.value)}
@@ -263,8 +261,8 @@ export function PermissionsListPage() {
             className={cn(FIELD, editing && CORE_ROLES.has(editing.name) && 'bg-slate-50 text-slate-500')}
           />
         </div>
-        <div className="col-span-2">
-          <label className="block text-[13px] text-slate-700 mb-1">الاسم باللغة الإنجليزية</label>
+        <div>
+          <label className="block text-[13px] text-slate-700 mb-1">الاسم باللغة الانجليزية</label>
           <input value={editEn} onChange={(e) => setEditEn(e.target.value)} dir="ltr" className={FIELD} />
         </div>
         <div className="col-span-2">

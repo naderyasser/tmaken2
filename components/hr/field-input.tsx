@@ -11,13 +11,19 @@ import { useEffect, useState } from 'react'
 import { frappeClient } from '@/lib/api-client'
 import type { FieldDef } from '@/lib/hr-modules'
 import { ApexDatePicker, ApexTimePicker } from '@/components/hr/apex/date-picker'
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
+import { ChevronDown } from 'lucide-react'
 
 const linkCache: Record<string, { value: string; label: string }[]> = {}
 
-/** Apex-style select over another doctype's records (Employee, Leave Type …). */
+/** Apex-style autocomplete over another doctype's records (Employee, Leave
+ *  Type …): type to filter by name or code, pick from the list (Apex
+ *  mat-autocomplete). Only a picked record is ever committed. */
 function LinkSelect({ field, value, onChange }: { field: FieldDef; value: any; onChange: (v: any) => void }) {
   const key = `${field.link!.doctype}|${field.link!.titleField ?? ''}`
   const [opts, setOpts] = useState(linkCache[key] ?? [])
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
   useEffect(() => {
     if (linkCache[key]) { setOpts(linkCache[key]); return }
     const title = field.link!.titleField
@@ -32,15 +38,54 @@ function LinkSelect({ field, value, onChange }: { field: FieldDef; value: any; o
       setOpts(linkCache[key])
     }).catch(() => setOpts([]))
   }, [key, field.link])
+  const selected = opts.find((o) => o.value === value)
+  const q = query.trim().toLowerCase()
+  const shown = (q ? opts.filter((o) => o.label.toLowerCase().includes(q) || String(o.value).toLowerCase().includes(q)) : opts).slice(0, 100)
   return (
-    <select
-      value={value ?? ''}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full h-10 rounded-sm border border-slate-300 bg-white px-3 text-[14px] text-right"
-    >
-      <option value="">اختر…</option>
-      {opts.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-    </select>
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverAnchor asChild>
+        <div className="relative">
+          <input
+            type="text"
+            role="combobox"
+            aria-expanded={open}
+            aria-label={field.label}
+            value={open ? query : selected?.label ?? ''}
+            placeholder={selected ? selected.label : 'اكتب للبحث…'}
+            onFocus={() => { setQuery(''); setOpen(true) }}
+            onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && shown[0]) { e.preventDefault(); onChange(shown[0].value); setOpen(false) }
+              if (e.key === 'Escape') setOpen(false)
+            }}
+            className="w-full h-10 rounded-sm border border-slate-300 bg-white ps-3 pe-8 text-[14px] text-right outline-none focus:border-[var(--apex-blue)]"
+          />
+          <ChevronDown className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
+        </div>
+      </PopoverAnchor>
+      <PopoverContent
+        align="start"
+        className="theme-hr w-[var(--radix-popover-trigger-width)] p-1"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onInteractOutside={(e) => { if ((e.target as HTMLElement)?.getAttribute?.('role') === 'combobox') e.preventDefault() }}
+      >
+        <ul role="listbox" dir="rtl" className="max-h-60 overflow-y-auto text-[14px]">
+          {shown.length === 0 && <li className="px-3 py-2 text-slate-400">لا توجد نتائج</li>}
+          {shown.map((o) => (
+            <li
+              key={o.value}
+              role="option"
+              aria-selected={o.value === value}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => { onChange(o.value); setOpen(false) }}
+              className={`cursor-pointer rounded px-3 py-2 hover:bg-slate-100 ${o.value === value ? 'bg-slate-100 font-bold' : ''}`}
+            >
+              {o.label}
+            </li>
+          ))}
+        </ul>
+      </PopoverContent>
+    </Popover>
   )
 }
 
