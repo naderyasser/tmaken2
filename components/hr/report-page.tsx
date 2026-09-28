@@ -11,6 +11,7 @@ import type { ReportConfig } from '@/lib/hr-reports'
 import { PrintDialog } from '@/components/hr/apex/print-dialog'
 import { ExportMenu, SERVER_PRINTABLE_REPORTS } from '@/components/hr/apex/export-menu'
 import { ApexDatePicker } from '@/components/hr/apex/date-picker'
+import { apexExport, apexPrint } from '@/lib/apex-print'
 
 interface Column { key: string; label: string; children?: Column[] }
 interface Group { title: string; rows: Record<string, any>[] }
@@ -35,7 +36,7 @@ function today() {
  * filter grid, an illustration until the first search, then the grouped table.
  * Read-only: running a report never writes anything.
  */
-export function ReportPage({ config, breadcrumb = ['الحضور و الانصراف', 'التقارير'], addSlot, defaultFrom = 'today', reloadKey = 0 }: {
+export function ReportPage({ config, breadcrumb = ['الحضور و الانصراف', 'التقارير'], addSlot, defaultFrom = 'today', reloadKey = 0, renderBody }: {
   config: ReportConfig
   breadcrumb?: string[]
   /** optional leading toolbar button (e.g. «اضافة» on the movements page) */
@@ -44,6 +45,9 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
   defaultFrom?: 'today' | 'month'
   /** bump to re-run the current search (after an add/edit) */
   reloadKey?: number
+  /** replaces the grouped report table with the page's own body (Apex flat
+   *  lists with row actions, e.g. the movements page); gets every row. */
+  renderBody?: (rows: Record<string, any>[]) => React.ReactNode
 }) {
   const { toast } = useToast()
   const [opts, setOpts] = useState<Options>(optionsCache ?? EMPTY_OPTIONS)
@@ -111,6 +115,20 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
     return out
   }, [data])
   const hasChildren = !!data?.columns.some((c) => c.children?.length)
+
+  // Apex-style printed document (lib/apex-print.ts): one band per report group
+  const printSpec = (lang: 'ar' | 'en' = 'ar') => ({
+    title: config.title, lang,
+    subtitle: config.dates && f.from_date && f.to_date ? `من ${fmtDate(f.from_date)} إلى ${fmtDate(f.to_date)}` : fmtDate(new Date()),
+    columns: leafCols.map((c) => ({ key: c.key, label: c.label })),
+    groups: (data?.groups ?? []).map((g) => ({
+      title: g.title,
+      rows: g.rows.map((r) => Object.fromEntries(leafCols.map((c) => {
+        const v = r[c.key]
+        return [c.key, typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? fmtDate(v) : v]
+      }))),
+    })),
+  })
 
   const exportCsv = () => {
     if (!data) return
@@ -185,8 +203,8 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
         onOpenChange={setPrintOpen}
         templates={[{ key: 'default', label: config.title, isDefault: true }]}
         storageKey={`report:${config.slug}`}
-        onPrint={() => { setPrintOpen(false); window.print() }}
-        onExport={(o) => { setPrintOpen(false); if (o.format === 'excel') exportCsv(); else window.print() }}
+        onPrint={(o) => { setPrintOpen(false); if (data) apexPrint(printSpec(o.lang)) }}
+        onExport={(o) => { setPrintOpen(false); if (data) apexExport(printSpec(o.lang), o.format) }}
       />
 
       {/* filter grid */}
@@ -236,7 +254,8 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
       {loading && !data && (
         <div className="flex justify-center py-16 text-slate-500"><Loader2 className="h-8 w-8 animate-spin" /></div>
       )}
-      {data && (
+      {data && renderBody && renderBody(data.groups.flatMap((g) => g.rows))}
+      {data && !renderBody && (
         <div className="overflow-x-auto rounded-sm">
           <table className="w-full text-[14px] border-collapse">
             <thead>

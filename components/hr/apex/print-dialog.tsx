@@ -11,7 +11,7 @@ export type PrintDialogProps = {
   onOpenChange: (open: boolean) => void
   templates: PrintTemplate[]
   onPrint: (o: { template: string; lang: 'ar' | 'en'; saveDefault: boolean }) => void
-  onExport: (o: { template: string; lang: 'ar' | 'en'; saveDefault: boolean; format: 'excel' | 'pdf' }) => void
+  onExport: (o: { template: string; lang: 'ar' | 'en'; saveDefault: boolean; format: 'excel' | 'pdf' | 'image' | 'word' }) => void
   /** localStorage namespace for persisting the chosen default template/lang per page. */
   storageKey?: string
 }
@@ -24,7 +24,7 @@ export function PrintDialog({ open, onOpenChange, templates, onPrint, onExport, 
   const fallback = templates.find((t) => t.isDefault)?.key || templates[0]?.key || ''
   const [template, setTemplate] = useState(fallback)
   const [lang, setLang] = useState<'ar' | 'en'>('ar')
-  const [saveDefault, setSaveDefault] = useState(false)
+  const saveDefault = true // Apex remembers the last template/language
   const [exportOpen, setExportOpen] = useState(false)
 
   useEffect(() => {
@@ -46,7 +46,7 @@ export function PrintDialog({ open, onOpenChange, templates, onPrint, onExport, 
   }, [open])
 
   const persist = () => {
-    if (!saveDefault || !storageKey || typeof window === 'undefined') return
+    if (!storageKey || typeof window === 'undefined') return
     try { window.localStorage.setItem(`apex-print:${storageKey}`, JSON.stringify({ template, lang })) } catch { /* ignore quota errors */ }
   }
 
@@ -71,8 +71,10 @@ export function PrintDialog({ open, onOpenChange, templates, onPrint, onExport, 
             <>
               <div className="fixed inset-0 z-10" onClick={() => setExportOpen(false)} />
               <div className="absolute bottom-full z-20 mb-1 w-32 rounded border border-slate-200 bg-white py-1 text-[14px] shadow-lg">
-                <button type="button" className="block w-full px-3 py-1.5 text-right hover:bg-slate-50" onClick={() => { setExportOpen(false); persist(); onExport({ template, lang, saveDefault, format: 'excel' }) }}>Excel</button>
-                <button type="button" className="block w-full px-3 py-1.5 text-right hover:bg-slate-50" onClick={() => { setExportOpen(false); persist(); onExport({ template, lang, saveDefault, format: 'pdf' }) }}>PDF</button>
+                {([['pdf', 'PDF'], ['image', 'Image'], ['excel', 'Excel'], ['word', 'Word']] as const).map(([format, label]) => (
+                  <button key={format} type="button" className="block w-full px-3 py-1.5 text-right hover:bg-slate-50"
+                    onClick={() => { setExportOpen(false); persist(); onExport({ template, lang, saveDefault, format }) }}>{label}</button>
+                ))}
               </div>
             </>
           )}
@@ -85,7 +87,7 @@ export function PrintDialog({ open, onOpenChange, templates, onPrint, onExport, 
           {templates.map((t) => (
             <label key={t.key} className="flex items-center gap-1.5 text-[14px] text-slate-700">
               <input type="radio" name="apex-print-template" checked={template === t.key} onChange={() => setTemplate(t.key)} className="h-4 w-4 accent-[var(--apex-blue)]" />
-              {t.label}{t.isDefault ? ' (الافتراضي)' : ''}
+              {t.label}{t.isDefault && <span className="text-slate-400"> - (الافتراضى)</span>}
             </label>
           ))}
         </div>
@@ -105,10 +107,6 @@ export function PrintDialog({ open, onOpenChange, templates, onPrint, onExport, 
         </div>
       </div>
 
-      <label className="flex items-center gap-2 text-[14px] text-slate-700">
-        <input type="checkbox" checked={saveDefault} onChange={(e) => setSaveDefault(e.target.checked)} className="h-4 w-4 accent-[var(--apex-green)]" />
-        حفظ هذه التغيرات لتكون الافتراضية
-      </label>
     </ApexDialog>
   )
 }

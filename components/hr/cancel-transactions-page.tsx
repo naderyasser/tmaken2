@@ -10,6 +10,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/hr/ui/empty-state'
 import { ApexDatePicker } from '@/components/hr/apex/date-picker'
 import { cn } from '@/lib/utils'
+import { EmployeePickerDialog } from '@/components/hr/apex/employee-picker-dialog'
 
 interface Emp { name: string; employee_name: string; employee_number?: string; branch?: string }
 interface AttendanceRow { name: string; employee: string; employee_name?: string; attendance_date: string; status?: string }
@@ -153,33 +154,13 @@ export function CancelTransactionsPage() {
         </div>
       )}
 
-      {/* employee picker */}
-      <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
-        <DialogContent dir="rtl" className="max-w-lg">
-          <DialogHeader><DialogTitle>تحديد الموظفين</DialogTitle></DialogHeader>
-          <div className="relative">
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ابحث بالكود او اسم الموظف" className={cn(FIELD, 'w-full pr-9')} />
-            <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-          </div>
-          <div className="flex items-center justify-between text-[13px] text-slate-600 px-1">
-            <button type="button" className="text-[var(--apex-blue)]" onClick={() => setSelected(new Set(filteredEmps.map((e) => e.name)))}>تحديد الكل</button>
-            <button type="button" className="text-red-600 flex items-center gap-1" onClick={() => setSelected(new Set())}><X className="h-3.5 w-3.5" />إلغاء التحديد</button>
-          </div>
-          <div className="max-h-80 overflow-y-auto border rounded">
-            {filteredEmps.map((e) => (
-              <label key={e.name} className="flex items-center gap-3 px-3 py-2 border-b last:border-0 hover:bg-slate-50 cursor-pointer text-[14px]">
-                <input type="checkbox" checked={selected.has(e.name)} onChange={() => toggle(e.name)} className="h-4 w-4" />
-                <span className="text-slate-500 w-28 shrink-0">{e.employee_number || e.name}</span>
-                <span className="flex-1">{e.employee_name}</span>
-                <span className="text-slate-400 text-[12px]">{e.branch}</span>
-              </label>
-            ))}
-          </div>
-          <DialogFooter className="sm:justify-start">
-            <Button onClick={() => setPickerOpen(false)} className="bg-[var(--apex-blue)] hover:bg-[var(--apex-blue-hover)]">تم ({selected.size})</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Apex «تحديد الموظف» search dialog */}
+      <EmployeePickerDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        initial={selected}
+        onAdd={(picked) => setSelected(new Set(picked.map((e) => e.name)))}
+      />
 
       <ConfirmDialog
         open={confirm}

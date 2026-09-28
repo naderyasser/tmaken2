@@ -1,203 +1,208 @@
 'use client'
 
-import { cn } from '@/lib/utils'
-import { useCallback, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Loader2, X, ShieldCheck } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { ChevronDown, ChevronUp, Loader2, Plus } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
-import { useBreadcrumbs } from '@/lib/breadcrumbs'
 import { frappeClient } from '@/lib/api-client'
+import { cn } from '@/lib/utils'
 
 /**
- * Apex «تعديل الصلاحيات»: one row per HR sidebar section, five toggles each
- * (عرض / اضافة / تعديل / حذف / طباعة). Every checkbox here is a real
- * read/create/write/delete/print DocPerm on the underlying doctypes, not a
- * cosmetic flag — enforced by Frappe's own ORM and REST layer the moment
- * it's set, not just gating this UI — but it goes through
- * base_meena.api.hr_permissions (not Frappe's own permission_manager, which
- * is System-Manager-only) because the HR walkthrough account is HR Manager
- * without System Manager. A page's checkbox reflects/controls ALL of that
- * page's doctypes at once, mirroring how Apex shows one row per page rather
- * than per table.
+ * Apex «تعديل الصلاحيات» (app-update-permissions): one row per sidebar section
+ * that expands to its pages; columns عرض · اضافة · تعديل · حذف · طباعة, each
+ * with a select-all box in the header, plus a per-row select-all. Changes are
+ * staged and written together by «تعديل الصلاحيات» (disabled until something
+ * changed). Every box is a real read/create/write/delete/print DocPerm on the
+ * page's doctypes (base_meena.api.hr_permissions — HR Manager can use it, the
+ * Frappe permission manager is System-Manager-only).
  */
 
-const GET_PERMS = 'base_meena.api.hr_permissions.get_permissions'
-// one call per click / per page load (client QA 2026-09-27: 4 × 7-14 s per click, 11 calls on open)
 const SET_PERMS = 'base_meena.api.hr_permissions.set_permissions'
 const GET_GROUPS = 'base_meena.api.hr_permissions.get_group_permissions'
-type ServerState = Record<'read' | 'create' | 'write' | 'delete' | 'print', boolean>
-const fromServer = (x: ServerState): GroupState => ({ view: !!x.read, add: !!x.create, edit: !!x.write, del: !!x.delete, print: !!x.print, loading: false })
-const ROLE_LABELS = 'base_meena.api.hr_lists.role_labels'
 
-// Module-scope cache: role_labels() returns the same dict for every role, so
-// fetch it once per page load instead of once per RolePermissionsPage mount.
-// The label is DISPLAY ONLY — get_permissions/set_permission always keep
-// using the raw `role` prop, never this map.
-let roleLabelsCache: Record<string, string> | null = null
-let roleLabelsPromise: Promise<Record<string, string>> | null = null
-function fetchRoleLabels(): Promise<Record<string, string>> {
-  if (roleLabelsCache) return Promise.resolve(roleLabelsCache)
-  if (!roleLabelsPromise) {
-    roleLabelsPromise = frappeClient.call<Record<string, string>>(ROLE_LABELS)
-      .then((r: any) => { roleLabelsCache = (r?.message ?? {}) as Record<string, string>; return roleLabelsCache })
-      .catch(() => ({}) as Record<string, string>)
-  }
-  return roleLabelsPromise
-}
-
-interface PermRow { permlevel: number; read?: number; create?: number; write?: number; delete?: number; print?: number }
-
-interface PageGroup {
-  key: string
-  label: string
-  doctypes: string[]
-}
-
-// Doctype sets are the primary, permission-bearing doctypes for each Apex
-// sidebar section (see components/hr-shell/routes.ts for the full item list
-// per section) — not exhaustive, but each one is a real gate a role needs to
-// pass to use that section at all.
-const PAGE_GROUPS: PageGroup[] = [
-  { key: 'basic-data', label: 'البيانات الاساسية', doctypes: ['Employee', 'Branch', 'Designation', 'Department'] },
-  { key: 'attendance', label: 'الحضور و الانصراف', doctypes: ['Employee Checkin', 'Leave Application', 'Attendance Request', 'Biometric Device'] },
-  { key: 'users', label: 'المستخدمين', doctypes: ['User', 'Role'] },
-  { key: 'settings', label: 'الاعدادات', doctypes: ['Company'] },
+type Kind = 'read' | 'create' | 'write' | 'delete' | 'print'
+const KINDS: { kind: Kind; label: string }[] = [
+  { kind: 'read', label: 'عرض' }, { kind: 'create', label: 'اضافة' }, { kind: 'write', label: 'تعديل' },
+  { kind: 'delete', label: 'حذف' }, { kind: 'print', label: 'طباعة' },
 ]
+type Perms = Record<Kind, boolean>
+const NONE: Perms = { read: false, create: false, write: false, delete: false, print: false }
 
-type PermKind = 'view' | 'add' | 'edit' | 'del' | 'print'
-const PTYPE_OF: Record<PermKind, keyof PermRow> = { view: 'read', add: 'create', edit: 'write', del: 'delete', print: 'print' }
-type GroupState = { view: boolean; add: boolean; edit: boolean; del: boolean; print: boolean; loading: boolean }
-const EMPTY_GROUP_STATE: GroupState = { view: false, add: false, edit: false, del: false, print: false, loading: false }
+interface PageDef { key: string; label: string; doctypes: string[] }
+interface GroupDef { key: string; label: string; pages: PageDef[] }
+
+// Pages per sidebar section (components/hr-shell/routes.ts) → the doctypes
+// each one reads/writes.
+const GROUPS: GroupDef[] = [
+  { key: 'basic', label: 'البيانات الاساسية', pages: [
+    { key: 'employees', label: 'الموظفين', doctypes: ['Employee'] },
+    { key: 'jobs', label: 'الوظائف', doctypes: ['Designation'] },
+    { key: 'branches', label: 'الفروع', doctypes: ['Branch'] },
+    { key: 'shifts', label: 'أوقات العمل', doctypes: ['Shift Type'] },
+    { key: 'projects', label: 'المشاريع', doctypes: ['Project'] },
+    { key: 'tasks', label: 'المهام', doctypes: ['Task'] },
+    { key: 'location-groups', label: 'مجموعات المواقع', doctypes: ['Location'] },
+    { key: 'employee-groups', label: 'مجموعات الموظفين', doctypes: ['Employee Group'] },
+    { key: 'nationality', label: 'الجنسية', doctypes: ['Country'] },
+    { key: 'holidays', label: 'العطلات الرسمية', doctypes: ['Holiday List'] },
+    { key: 'leave-types', label: 'انواع الاجازات', doctypes: ['Leave Type'] },
+  ] },
+  { key: 'attendance', label: 'الحضور و الانصراف', pages: [
+    { key: 'add-leave', label: 'اضافة اجازة', doctypes: ['Leave Application'] },
+    { key: 'add-permission', label: 'اضافة اذن', doctypes: ['Permission Request'] },
+    { key: 'movements', label: 'اضافة و تعديل حركات', doctypes: ['Employee Checkin'] },
+    { key: 'cancel-posting', label: 'إلغاء ترحيل الحركات', doctypes: ['Attendance'] },
+    { key: 'requests', label: 'الطلبات', doctypes: ['Attendance Request'] },
+  ] },
+  { key: 'users', label: 'المستخدمين', pages: [
+    { key: 'users', label: 'المستخدمين', doctypes: ['User'] },
+    { key: 'roles', label: 'الصلاحيات', doctypes: ['Role'] },
+  ] },
+  { key: 'settings', label: 'الاعدادات', pages: [
+    { key: 'ramadan', label: 'تفعيل دوام رمضان', doctypes: ['Ramadan Settings'] },
+    { key: 'devices', label: 'الاجهزة', doctypes: ['Biometric Device'] },
+    { key: 'company', label: 'بيانات الشركة', doctypes: ['Company'] },
+  ] },
+]
+const ALL_PAGES = GROUPS.flatMap((g) => g.pages)
+
+function Box({ checked, indeterminate, onChange, label }: { checked: boolean; indeterminate?: boolean; onChange: (v: boolean) => void; label: string }) {
+  return (
+    <input
+      type="checkbox"
+      aria-label={label}
+      checked={checked}
+      ref={(el) => { if (el) el.indeterminate = !!indeterminate && !checked }}
+      onChange={(e) => onChange(e.target.checked)}
+      className="h-4 w-4 cursor-pointer accent-[var(--apex-pink,#e91e63)]"
+    />
+  )
+}
 
 export function RolePermissionsPage({ role }: { role: string }) {
-  const router = useRouter()
   const { toast } = useToast()
-  const crumbs = useBreadcrumbs()
   const [loading, setLoading] = useState(true)
-  const [state, setState] = useState<Record<string, GroupState>>({})
-  const [roleLabel, setRoleLabel] = useState(role)
-
-  useEffect(() => {
-    let alive = true
-    setRoleLabel(role) // raw name until the Arabic label resolves (or there isn't one)
-    fetchRoleLabels().then((labels) => { if (alive) setRoleLabel(labels[role] || role) })
-    return () => { alive = false }
-  }, [role])
-
-  const loadGroup = useCallback(async (group: PageGroup): Promise<GroupState> => {
-    const results = await Promise.all(
-      group.doctypes.map(async (dt) => {
-        const res = await frappeClient.call<PermRow[]>(GET_PERMS, { doctype: dt, role }).catch(() => null)
-        return res?.message || []
-      }),
-    )
-    // A page only counts as "granted" once every one of its doctypes is —
-    // toggling it back on re-applies to all of them, so this never drifts.
-    const granted = (field: keyof PermRow) => results.every((rows) => rows.some((r) => r.permlevel === 0 && r[field]))
-    return {
-      view: granted('read'), add: granted('create'), edit: granted('write'),
-      del: granted('delete'), print: granted('print'), loading: false,
-    }
-  }, [role])
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState<Record<string, Perms>>({})
+  const [draft, setDraft] = useState<Record<string, Perms>>({})
+  const [open, setOpen] = useState<Set<string>>(new Set())
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await frappeClient.call<Record<string, ServerState>>(GET_GROUPS, {
-        role, groups: Object.fromEntries(PAGE_GROUPS.map((g) => [g.key, g.doctypes])),
-      })
-      const all = ((res as any)?.message || {}) as Record<string, ServerState>
-      setState(Object.fromEntries(PAGE_GROUPS.map((g) => [g.key, all[g.key] ? fromServer(all[g.key]) : EMPTY_GROUP_STATE])))
-    } catch (e) {
-      toast({ title: 'تعذّر تحميل الصلاحيات', description: e instanceof Error ? e.message : undefined, variant: 'destructive' })
+      const res: any = await frappeClient.call(GET_GROUPS, { role, groups: Object.fromEntries(ALL_PAGES.map((p) => [p.key, p.doctypes])) })
+      const all = (res?.message || {}) as Record<string, Partial<Perms>>
+      const state = Object.fromEntries(ALL_PAGES.map((p) => [p.key, { ...NONE, ...Object.fromEntries(KINDS.map(({ kind }) => [kind, !!all[p.key]?.[kind]])) } as Perms]))
+      setSaved(state); setDraft(state)
+    } catch (e: any) {
+      toast({ title: 'تعذّر تحميل الصلاحيات', description: e?.message, variant: 'destructive' })
     } finally {
       setLoading(false)
     }
   }, [role, toast])
-
   useEffect(() => { load() }, [load])
 
-  // client 2026-09-27: the whole row used to lock + fade (disabled:opacity-50)
-  // and the box only changed after the server round trip, so a click looked
-  // like the checkbox vanished. Now the box flips at once, only that cell
-  // waits (its own pending mark, full opacity), then the row is re-read.
-  const [pending, setPending] = useState<Record<string, boolean>>({})
-  const toggle = async (group: PageGroup, kind: PermKind, value: boolean) => {
-    const cell = `${group.key}:${kind}`
-    setPending((p) => ({ ...p, [cell]: true }))
-    setState((prev) => ({ ...prev, [group.key]: { ...(prev[group.key] || EMPTY_GROUP_STATE), [kind]: value } }))
-    const ptype = PTYPE_OF[kind]
+  const set = (pages: PageDef[], kinds: Kind[], value: boolean) =>
+    setDraft((d) => {
+      const n = { ...d }
+      for (const p of pages) n[p.key] = { ...(n[p.key] || NONE), ...Object.fromEntries(kinds.map((k) => [k, value])) }
+      return n
+    })
+  const every = (pages: PageDef[], kinds: Kind[]) => pages.every((p) => kinds.every((k) => draft[p.key]?.[k]))
+  const some = (pages: PageDef[], kinds: Kind[]) => pages.some((p) => kinds.some((k) => draft[p.key]?.[k]))
+  const allKinds = KINDS.map((k) => k.kind)
+
+  const changes = useMemo(() => {
+    const out: { doctypes: string[]; ptype: Kind; value: boolean }[] = []
+    for (const { kind } of KINDS) for (const value of [true, false]) {
+      const doctypes = ALL_PAGES.filter((p) => !!draft[p.key]?.[kind] === value && !!saved[p.key]?.[kind] !== value).flatMap((p) => p.doctypes)
+      if (doctypes.length) out.push({ doctypes: [...new Set(doctypes)], ptype: kind, value })
+    }
+    return out
+  }, [draft, saved])
+
+  const save = async () => {
+    setSaving(true)
     try {
-      const res = await frappeClient.call<ServerState>(SET_PERMS, { doctypes: group.doctypes, role, ptype, value: value ? 1 : 0 })
-      const next = fromServer((res as any)?.message || {})
-      setState((prev) => ({ ...prev, [group.key]: next }))
-      if (next[kind] !== value) toast({ title: 'لم يتم حفظ الصلاحية', description: 'أعد المحاولة', variant: 'destructive' })
-      else toast({ title: 'تم تحديث الصلاحية' })
-    } catch (e) {
-      toast({ title: 'فشل تحديث الصلاحية', description: e instanceof Error ? e.message : 'تعذّر الاتصال بالخادم', variant: 'destructive' })
-      const reverted = await loadGroup(group)
-      setState((prev) => ({ ...prev, [group.key]: reverted }))
+      for (const c of changes) await frappeClient.call(SET_PERMS, { doctypes: c.doctypes, role, ptype: c.ptype, value: c.value ? 1 : 0 })
+      toast({ title: 'تم تعديل الصلاحيات' })
+      await load()
+    } catch (e: any) {
+      toast({ title: 'فشل تعديل الصلاحيات', description: e?.message, variant: 'destructive' })
     } finally {
-      setPending((p) => { const n = { ...p }; delete n[cell]; return n })
+      setSaving(false)
     }
   }
 
+  const toggleOpen = (k: string) => setOpen((o) => { const n = new Set(o); n.has(k) ? n.delete(k) : n.add(k); return n })
+
   return (
-    <div dir="rtl" className="p-4 space-y-3 font-[family-name:var(--font-arabic)]">
-      <div className="flex items-center justify-between gap-4 bg-white rounded shadow-sm border border-slate-200/60 px-4 py-2.5">
-        <nav className="flex items-center gap-1.5 text-[13px] text-slate-600 min-w-0">
-          {crumbs.map((c, i) => (
-            <span key={i} className="flex items-center gap-1.5 min-w-0">
-              {i > 0 && <span className="text-slate-400">/</span>}
-              <span className={i === crumbs.length - 1 ? 'font-bold text-slate-800 truncate' : 'truncate'}>{c.label}</span>
-            </span>
-          ))}
-        </nav>
-        <Button onClick={() => router.push('/hr-managers')}
-          className="bg-[#f95f5f] hover:bg-[#e54a4a] text-white rounded px-5 h-9 font-bold text-[13px] shrink-0">
-          <X className="h-4 w-4 ml-1.5" strokeWidth={3} />
-          اغلاق
-        </Button>
+    <div dir="rtl" className="p-4 pt-6 font-[family-name:var(--font-arabic)]">
+      <div className="flex flex-wrap items-center justify-between gap-2 mx-2 mb-4">
+        <div className="text-[14px] text-slate-700">
+          <Link href="/hr-managers" className="text-[var(--apex-link)] hover:underline mx-1">الصلاحيات</Link>
+          <span>/</span>
+          <span className="mx-1">تعديل الصلاحيات</span>
+        </div>
+        <button type="button" onClick={save} disabled={!changes.length || saving}
+          className="h-[38px] px-4 rounded bg-[var(--apex-green)] text-white text-[14px] flex items-center gap-1.5 hover:bg-[var(--apex-green-dark)] disabled:opacity-50 disabled:cursor-not-allowed">
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          تعديل الصلاحيات <Plus className="h-4 w-4" />
+        </button>
       </div>
 
-      <div className="bg-white rounded shadow-sm border border-slate-200/60 p-6">
-        <div className="flex items-center gap-2 mb-5">
-          <ShieldCheck className="h-5 w-5 text-[#2960b6]" />
-          <h3 className="text-[16px] font-bold text-slate-800">صلاحية: {roleLabel}</h3>
-        </div>
-
+      <div className="bg-white rounded shadow-sm overflow-x-auto">
         {loading ? (
-          <div className="py-16 text-center"><Loader2 className="h-8 w-8 animate-spin text-[#2e71c8] mx-auto" /></div>
+          <div className="py-16 text-center"><Loader2 className="h-8 w-8 animate-spin text-[var(--apex-blue)] mx-auto" /></div>
         ) : (
-          <table className="w-full text-[13px]">
+          <table className="apex-table w-full text-[14px]">
             <thead>
-              <tr className="border-b border-slate-200 text-slate-500">
-                <th className="text-start py-2.5 px-3 font-medium">اسم الصفحة</th>
-                <th className="text-center py-2.5 px-3 font-medium w-20">عرض</th>
-                <th className="text-center py-2.5 px-3 font-medium w-20">اضافة</th>
-                <th className="text-center py-2.5 px-3 font-medium w-20">تعديل</th>
-                <th className="text-center py-2.5 px-3 font-medium w-20">حذف</th>
-                <th className="text-center py-2.5 px-3 font-medium w-20">طباعة</th>
+              <tr>
+                <th className="w-12 text-center"><Box label="تحديد الكل" checked={every(ALL_PAGES, allKinds)} indeterminate={some(ALL_PAGES, allKinds)} onChange={(v) => set(ALL_PAGES, allKinds, v)} /></th>
+                <th className="w-12" />
+                <th className="text-right">اسم الصفحة</th>
+                {KINDS.map(({ kind, label }) => (
+                  <th key={kind} className="text-right whitespace-nowrap">
+                    <span className="inline-flex items-center gap-2">
+                      <Box label={`${label} للكل`} checked={every(ALL_PAGES, [kind])} indeterminate={some(ALL_PAGES, [kind])} onChange={(v) => set(ALL_PAGES, [kind], v)} />
+                      {label}
+                    </span>
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody>
-              {PAGE_GROUPS.map((g) => {
-                const s = state[g.key] || EMPTY_GROUP_STATE
-                return (
-                  <tr key={g.key} className="border-b border-slate-100 last:border-0">
-                    <td className="py-3 px-3 text-slate-700">{g.label}</td>
-                    {(['view', 'add', 'edit', 'del', 'print'] as const).map((kind) => (
-                      <td key={kind} className="py-3 px-3 text-center">
-                        <input type="checkbox" checked={s[kind]} aria-busy={!!pending[`${g.key}:${kind}`]}
-                          onChange={(e) => { if (!pending[`${g.key}:${kind}`]) toggle(g, kind, e.target.checked) }}
-                          className={cn('h-4 w-4 accent-[#2e71c8] cursor-pointer', pending[`${g.key}:${kind}`] && 'animate-pulse')} />
-                      </td>
+            {GROUPS.map((g) => {
+              const expanded = open.has(g.key)
+              return (
+                <tbody key={g.key}>
+                  <tr className="bg-white">
+                    <td className="text-center"><Box label={`${g.label} كامل`} checked={every(g.pages, allKinds)} indeterminate={some(g.pages, allKinds)} onChange={(v) => set(g.pages, allKinds, v)} /></td>
+                    <td className="text-center">
+                      <button type="button" onClick={() => toggleOpen(g.key)} aria-expanded={expanded} aria-label={expanded ? 'طي' : 'توسيع'}
+                        className="h-7 w-7 rounded bg-[var(--apex-blue)] text-white inline-flex items-center justify-center hover:opacity-90">
+                        {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </button>
+                    </td>
+                    <td className="font-bold">{g.label}</td>
+                    {KINDS.map(({ kind, label }) => (
+                      <td key={kind}><Box label={`${g.label} ${label}`} checked={every(g.pages, [kind])} indeterminate={some(g.pages, [kind])} onChange={(v) => set(g.pages, [kind], v)} /></td>
                     ))}
                   </tr>
-                )
-              })}
-            </tbody>
+                  {expanded && g.pages.map((p) => (
+                    <Fragment key={p.key}>
+                      <tr className={cn('bg-slate-50/60')}>
+                        <td className="text-center"><Box label={`${p.label} كامل`} checked={every([p], allKinds)} indeterminate={some([p], allKinds)} onChange={(v) => set([p], allKinds, v)} /></td>
+                        <td />
+                        <td className="ps-6 text-slate-700">{p.label}</td>
+                        {KINDS.map(({ kind, label }) => (
+                          <td key={kind}><Box label={`${p.label} ${label}`} checked={!!draft[p.key]?.[kind]} onChange={(v) => set([p], [kind], v)} /></td>
+                        ))}
+                      </tr>
+                    </Fragment>
+                  ))}
+                </tbody>
+              )
+            })}
           </table>
         )}
       </div>

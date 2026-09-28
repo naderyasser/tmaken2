@@ -25,6 +25,7 @@ import { ApexTableCard } from '@/components/hr/apex/table-card'
 import { ApexPagination } from '@/components/hr/apex/pagination'
 import { ApexDialog } from '@/components/hr/apex/dialog'
 import { PrintDialog } from '@/components/hr/apex/print-dialog'
+import { apexExport, apexPrint } from '@/lib/apex-print'
 import { RowMenu } from '@/components/hr/apex/row-menu'
 import { ViewRecordDialog } from '@/components/hr/apex/view-record-dialog'
 import { VersionLogDialog } from '@/components/hr/apex/version-log-dialog'
@@ -458,10 +459,15 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
    *  limit, see load() above — so no extra round-trip is needed). Renders
    *  into the print-only table below, then triggers the browser print
    *  dialog; `afterprint` (registered above) restores the normal screen view. */
-  const doPrint = () => {
+  // Apex-style printed document (lib/apex-print.ts) — letterhead, title, table
+  const printSpec = (lang: 'ar' | 'en' = 'ar') => ({
+    title: config.title, lang, company: company || undefined,
+    columns: tableFields.map((f) => ({ key: f.field, label: f.tableLabel ?? f.label })),
+    rows: filtered.map((row) => Object.fromEntries(tableFields.map((f) => [f.field, cellText(f, row)]))),
+  })
+  const doPrint = (o?: { lang?: 'ar' | 'en' }) => {
     setPrintDialogOpen(false)
-    setPrintRows(filtered)
-    requestAnimationFrame(() => window.print())
+    apexPrint(printSpec(o?.lang))
   }
 
   const exportCsv = () => {
@@ -526,7 +532,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
         <ApexToolbar
           search={{ value: search, onChange: (v) => { setSearch(v); setPage(1) }, placeholder: config.searchPlaceholder || 'ابحث بالاسم' }}
           onFilter={config.drawerFilters?.length ? () => setShowFilter(true) : undefined}
-          print={config.print !== false ? { onPrint: doPrint, onAdvancedPrint: () => setPrintDialogOpen(true) } : undefined}
+          print={config.print !== false ? { onPrint: () => doPrint(), onAdvancedPrint: () => setPrintDialogOpen(true) } : undefined}
           actions={!config.readOnly && config.actionsMenu ? {
             disabled: selected.size === 0,
             items: [
@@ -759,8 +765,8 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
         onOpenChange={setPrintDialogOpen}
         templates={printTemplates}
         storageKey={config.title}
-        onPrint={doPrint}
-        onExport={(o) => { if (o.format === 'excel') exportCsv(); else doPrint() }}
+        onPrint={(o) => doPrint(o)}
+        onExport={(o) => { setPrintDialogOpen(false); apexExport(printSpec(o.lang), o.format) }}
       />
 
       {viewRow && (

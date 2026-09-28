@@ -4,10 +4,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { ChevronDown, Loader2, Search } from 'lucide-react'
 import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
-import { fmtDate, fmtTime } from '@/lib/hr-format'
+import { fmtDate } from '@/lib/hr-format'
 import { ApexTableCard } from '@/components/hr/apex/table-card'
 import { ApexDatePicker } from '@/components/hr/apex/date-picker'
 import { ReportIllustration } from '@/components/hr/report-page'
+import { PrintDialog } from '@/components/hr/apex/print-dialog'
+import { apexExport, apexPrint } from '@/lib/apex-print'
 
 interface Row { name: string; user: string; full_name?: string; subject?: string; operation?: string; status?: string; ip_address?: string; creation: string }
 interface UserOpt { name: string; full_name?: string }
@@ -16,10 +18,16 @@ interface UserOpt { name: string; full_name?: string }
 // what module-page.tsx renders for «حركات المستخدمين», not the generic list,
 // so the mapping has to live here). Unmapped values fall back to the raw text.
 const OPERATION_AR: Record<string, string> = { Login: 'تسجيل دخول', Logout: 'تسجيل خروج', Impersonate: 'انتحال هوية' }
-const STATUS_AR: Record<string, string> = { Success: 'ناجح', Failed: 'فاشل', Linked: 'مرتبط', Closed: 'مغلق' }
 const ar = (map: Record<string, string>, v?: string) => (v && (map[v] || v)) || '—'
 
 function today() { return new Date().toISOString().slice(0, 10) }
+/** Apex shows «5:29:54» — 12-hour clock with seconds, no leading zero. */
+function apexTime(v: string) {
+  const m = /(\d{2}):(\d{2}):(\d{2})/.exec(v || '')
+  if (!m) return '—'
+  const h = Number(m[1]) % 12 || 12
+  return `${h}:${m[2]}:${m[3]}`
+}
 
 /**
  * «حركات المستخدمين» (5.18) — Apex is a REPORT-style page, not a plain list:
@@ -34,6 +42,7 @@ export function UserHistoryPage() {
   const [users, setUsers] = useState<UserOpt[]>([])
   const [showFilters, setShowFilters] = useState(true)
   const [printOpen, setPrintOpen] = useState(false)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [rows, setRows] = useState<Row[] | null>(null)
   const [user, setUser] = useState('')
@@ -62,6 +71,13 @@ export function UserHistoryPage() {
     }
   }, [user, fromDate, toDate, toast])
 
+  const printSpec = (lang: 'ar' | 'en' = 'ar') => ({
+    title: 'حركات المستخدمين', lang,
+    subtitle: `من ${fmtDate(fromDate)} إلى ${fmtDate(toDate)}`,
+    columns: [{ key: 'user', label: 'المستخدم' }, { key: 'op', label: 'الحركة' }, { key: 'date', label: 'التاريخ' }, { key: 'time', label: 'الوقت', ltr: true }],
+    rows: (rows ?? []).map((r) => ({ user: r.full_name || r.user, op: ar(OPERATION_AR, r.operation), date: fmtDate(r.creation), time: apexTime(r.creation) })),
+  })
+
   return (
     <div dir="rtl" className="p-4 pb-8 font-[family-name:var(--font-arabic)]">
       {/* breadcrumb + toolbar */}
@@ -72,31 +88,41 @@ export function UserHistoryPage() {
           <span className="text-slate-800">حركات المستخدمين</span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowFilters((s) => !s)}
+            className="h-[38px] px-3 rounded border border-slate-300 bg-white text-[14px] text-slate-700 flex items-center gap-1"
+          >
+            {showFilters ? 'اخفاء البحث' : 'اظهار البحث'}
+            <ChevronDown className="h-4 w-4" />
+          </button>
           <div className="relative">
             <button
               type="button"
               onClick={() => setPrintOpen((o) => !o)}
               className="h-[38px] px-3 min-w-[110px] rounded border border-[var(--apex-blue-border)] bg-white text-[14px] text-[var(--apex-blue)] flex items-center justify-between gap-3"
             >
-              <ChevronDown className="h-4 w-4" />
               <span>الطباعة</span>
+              <ChevronDown className="h-4 w-4" />
             </button>
             {printOpen && (
-              <div className="absolute left-0 mt-1 w-36 rounded border bg-white shadow z-20 text-[14px]">
-                <button type="button" className="w-full text-right px-3 py-2 hover:bg-slate-50" onClick={() => { window.print(); setPrintOpen(false) }}>طباعة</button>
+              <div className="absolute left-0 mt-1 w-40 rounded border bg-white shadow z-20 text-[14px]">
+                <button type="button" className="w-full text-right px-3 py-2 hover:bg-slate-50" onClick={() => { setPrintOpen(false); apexPrint(printSpec()) }}>طباعة</button>
+                <button type="button" className="w-full text-right px-3 py-2 hover:bg-slate-50" onClick={() => { setPrintOpen(false); setAdvancedOpen(true) }}>طباعة متقدمة</button>
               </div>
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => setShowFilters((s) => !s)}
-            className="h-[38px] px-3 rounded border border-[var(--apex-blue-border)] bg-white text-[14px] text-[var(--apex-blue)] flex items-center gap-1"
-          >
-            <ChevronDown className="h-4 w-4" />
-            {showFilters ? 'اخفاء البحث' : 'اظهار البحث'}
-          </button>
         </div>
       </div>
+
+      <PrintDialog
+        open={advancedOpen}
+        onOpenChange={setAdvancedOpen}
+        templates={[{ key: 'UsersTransactions', label: 'حركات المستخدمين', isDefault: true }]}
+        storageKey="report:user-history"
+        onPrint={(o) => { setAdvancedOpen(false); apexPrint(printSpec(o.lang)) }}
+        onExport={(o) => { setAdvancedOpen(false); apexExport(printSpec(o.lang), o.format) }}
+      />
 
       {/* filters */}
       {showFilters && (
@@ -128,7 +154,7 @@ export function UserHistoryPage() {
               type="button"
               onClick={run}
               disabled={loading}
-              className="h-[42px] w-[42px] rounded bg-[var(--apex-green)] text-white flex items-center justify-center disabled:opacity-60"
+              className="h-[42px] w-[42px] rounded bg-[var(--apex-blue)] text-white flex items-center justify-center disabled:opacity-60"
               aria-label="بحث"
             >
               {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
@@ -148,9 +174,7 @@ export function UserHistoryPage() {
             <thead>
               <tr>
                 <th>المستخدم</th>
-                <th>البريد</th>
-                <th>العملية</th>
-                <th>الحالة</th>
+                <th>الحركة</th>
                 {/* client 2026-09-27: date and time in their own columns (screen + print) */}
                 <th>التاريخ</th>
                 <th>الوقت</th>
@@ -158,15 +182,13 @@ export function UserHistoryPage() {
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan={6} className="py-10 text-center text-slate-500">لا يوجد نتائج للبحث ابحث مرة اخري</td></tr>
+                <tr><td colSpan={4} className="py-10 text-center text-slate-500">لا يوجد نتائج للبحث ابحث مرة اخري</td></tr>
               ) : rows.map((r) => (
                 <tr key={r.name}>
                   <td>{r.full_name || r.user}</td>
-                  <td>{r.user}</td>
-                  <td>{ar(OPERATION_AR, r.operation)}</td>
-                  <td>{ar(STATUS_AR, r.status)}</td>
+                  <td>{ar(OPERATION_AR, r.operation)}{r.status === 'Failed' ? ' (فاشل)' : ''}</td>
                   <td>{fmtDate(r.creation)}</td>
-                  <td dir="ltr" className="text-right">{fmtTime(r.creation)}</td>
+                  <td dir="ltr" className="text-right">{apexTime(r.creation)}</td>
                 </tr>
               ))}
             </tbody>
