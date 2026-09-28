@@ -124,6 +124,13 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
     }))
   }, [])
 
+  // «موظفين غير مسجلين» ✎ on an unlinked device PIN → /employee/new?device_id=<PIN>
+  useEffect(() => {
+    if (!isNew) return
+    const pin = new URLSearchParams(window.location.search).get('device_id')
+    if (pin) setF((prev) => ({ ...prev, attendance_device_id: pin }))
+  }, [isNew])
+
   const load = useCallback(async () => {
     if (!employeeId) return
     setLoading(true)

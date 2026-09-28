@@ -232,13 +232,16 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
   const currentPage = Math.min(page, totalPages)
   const pageRows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
-  const allChecked = pageRows.length > 0 && pageRows.every((r) => selected.has(r.name))
+  // `_virtual` rows (e.g. an unlinked device PIN on «موظفين غير مسجلين») are
+  // not documents — nothing to select, activate or delete, only ✎.
+  const selectable = pageRows.filter((r) => !r._virtual)
+  const allChecked = selectable.length > 0 && selectable.every((r) => selected.has(r.name))
 
   const toggleAll = () => {
     setSelected((prev) => {
       const next = new Set(prev)
-      if (allChecked) pageRows.forEach((r) => next.delete(r.name))
-      else pageRows.forEach((r) => next.add(r.name))
+      if (allChecked) selectable.forEach((r) => next.delete(r.name))
+      else selectable.forEach((r) => next.add(r.name))
       return next
     })
   }
@@ -602,6 +605,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
                                 type="checkbox"
                                 checked={selected.has(row.name)}
                                 onChange={() => toggleOne(row.name)}
+                                disabled={!!row._virtual}
                                 className="h-4 w-4 cursor-pointer align-middle accent-[var(--apex-blue-light)]"
                                 aria-label={`تحديد ${row.name}`}
                               />
@@ -631,7 +635,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
                                   </button>
                                 </>
                               )}
-                              {config.rowMenu ? (
+                              {config.rowMenu ? !row._virtual && (
                                 <RowMenu
                                   kind={config.rowMenu}
                                   onView={() => {

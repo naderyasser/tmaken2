@@ -428,29 +428,35 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
   'unregistered-employees': {
     kind: 'list',
     title: 'موظفين غير مسجلين',
-    subtitle: 'الموظفون الذين لا يملكون حساب مستخدم بعد',
+    subtitle: 'أرقام بصمة بلا موظف، وموظفون تنقصهم بيانات الحضور',
     doctype: 'Employee',
-    orderBy: 'employee_name asc',
-    filters: [['user_id', 'is', 'not set']],
+    // Apex GetNonRegisteredEmployees: PINs a device sent with no employee
+    // behind them (Apex auto-creates «موظف جديد»; here they are `_virtual`
+    // `pin:<PIN>` rows) + employees missing رقم البصمة/الدوام/الوظيفة/الفرع.
+    method: 'base_meena.api.hr_lists.unregistered_employees',
     searchPlaceholder: 'ابحث بالكود',
     // Apex has no «إضافة موظف» button on this list at all — registering an
-    // employee happens through the employees list, not from here.
+    // employee happens through ✎ (the full employee form), not from here.
     noAdd: true,
     actionsMenu: true,
     active: { field: 'status', on: 'Active', off: 'Inactive' },
     noIndex: true,
     print: false,
     rowMenu: 'employee',
+    editHref: (name) => name.startsWith('pin:')
+      ? `/employee/new?device_id=${encodeURIComponent(name.slice(4))}`
+      : `/employee/${encodeURIComponent(name)}`,
+    deletable: (row) => !row._virtual,
     drawerFilters: [
       { field: 'default_shift', label: 'الدوام', source: 'shifts' },
-      { field: 'status', label: 'الحالة', options: ['Active', 'Inactive', 'Suspended', 'Left'] },
+      { field: 'status', label: 'الحالة', options: ['Active', 'Inactive', 'Suspended'] },
     ],
     fields: [
-      { field: 'name', label: 'الكود', inForm: false },
-      { field: 'employee_name', label: 'الاسم', required: true },
-      { field: 'default_shift', label: 'الدوام' },
-      { field: 'attendance_device_id', label: 'جهاز البصمة' },
-      { field: 'status', label: 'الحالة', type: 'select', options: ['Active', 'Inactive', 'Suspended', 'Left'], optionLabels: VALUE_AR, inTable: false },
+      { field: 'code', label: 'الكود', inForm: false },
+      { field: 'employee_name', label: 'الاسم', inForm: false },
+      { field: 'default_shift', label: 'الدوام', inForm: false },
+      { field: 'device', label: 'جهاز البصمة', inForm: false },
+      { field: 'missing', label: 'البيانات الناقصة', inForm: false },
     ],
   },
 
