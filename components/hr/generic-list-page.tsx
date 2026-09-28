@@ -398,6 +398,8 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
           delete rest[config.nameField as string]
           if (Object.keys(rest).length) await frappeClient.put(config.doctype, newName, rest)
         } else {
+          // optional key field left empty on edit → keep the current name
+          if (config.nameField && !newName) delete payload[config.nameField]
           await frappeClient.put(config.doctype, editing.name, payload)
         }
       }

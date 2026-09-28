@@ -576,13 +576,17 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     deriveFields: [
       { as: '_name_ar', from: (r) => r.custom_name_ar || (COUNTRY_AR[r.country_name] ?? r.country_name) },
     ],
+    // English is optional (client 2026-09-28) but country_name is Country's
+    // document name — fall back to the Arabic name as the key.
+    mapCreatePayload: (p) => ({ ...p, country_name: (p.country_name || '').trim() || (p.custom_name_ar || '').trim() }),
     fields: [
-      { field: '_name_ar', label: 'اسم الجنسية (عربي)', inForm: false },
+      // Apex table: a single «اسم الجنسية» column (Arabic)
+      { field: '_name_ar', label: 'اسم الجنسية', inForm: false },
       // client 2026-09-27: Arabic + English name only («الرمز» removed)
       { field: 'custom_name_ar', label: 'اسم الجنسية (عربي)', required: true, inTable: false, fallbackField: '_name_ar' },
       // Country is core Frappe with renaming disabled — the English name (its
       // document name) can't change after creation
-      { field: 'country_name', label: 'اسم الجنسية (إنجليزي)', required: true, lockedOnEdit: true },
+      { field: 'country_name', label: 'اسم الجنسية (إنجليزي)', lockedOnEdit: true, inTable: false },
     ],
   },
 
@@ -638,11 +642,14 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     deriveFields: [
       { as: '_label', from: (r) => r.custom_name_ar || leaveTypeAr(r.leave_type_name) },
     ],
+    // English optional (client 2026-09-28): leave_type_name is the document
+    // name, so an Arabic-only type is keyed by its Arabic name.
+    mapCreatePayload: (p) => ({ ...p, leave_type_name: (p.leave_type_name || '').trim() || (p.custom_name_ar || '').trim() }),
     // client 2026-09-27: Arabic + English name only (max days / LWP / include holidays removed)
     fields: [
-      { field: '_label', label: 'اسم الاجازة (عربي)', inForm: false },
+      { field: '_label', label: 'اسم الاجازة', inForm: false },
       { field: 'custom_name_ar', label: 'اسم الاجازة (عربي)', required: true, inTable: false },
-      { field: 'leave_type_name', label: 'اسم الاجازة (إنجليزي)', required: true },
+      { field: 'leave_type_name', label: 'اسم الاجازة (إنجليزي)', inTable: false },
     ],
   },
 
