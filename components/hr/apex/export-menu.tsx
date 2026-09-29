@@ -28,7 +28,7 @@ export interface ExportMenuProps {
   /** hr_reports.REPORTS key == hr_print.report_pdf's `report` arg (e.g. "detailed") */
   report: string
   /** exactly the filters object run_report/report_pdf expect (JSON-stringified server-side) */
-  filters: Record<string, string>
+  filters: Record<string, unknown>
   /** opens the existing «الطابعة» dialog unchanged — «طباعة متقدمة» */
   onAdvancedPrint: () => void
   /** button label — defaults to «تصدير» to match the button it replaces */

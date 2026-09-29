@@ -1,11 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckCircle2, Link2, Loader2 } from 'lucide-react'
+import { Link2, Loader2 } from 'lucide-react'
 import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
-import { EmptyState } from '@/components/hr/ui/empty-state'
 import { EmployeeCombobox } from './employee-combobox'
 import { formatDateTime, type UnmappedDeviceId, type UnmappedEmployee } from './types'
 
@@ -87,17 +86,9 @@ export function UnmappedPanel({ onMapped }: { onMapped?: () => void }) {
     }
   }
 
-  if (loading) {
-    return <div className="py-6 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-[var(--apex-blue)]" /></div>
-  }
-
-  if (!rows.length) {
-    return (
-      <div className="rounded border border-[var(--apex-border)] bg-white">
-        <EmptyState icon={CheckCircle2} title="كل البصمات مربوطة ✓" className="py-6" />
-      </div>
-    )
-  }
+  // Not an Apex element: only surfaces when there are punches to link, so the
+  // «الاجهزة» page otherwise matches Apex exactly.
+  if (loading || !rows.length) return null
 
   const pickedCount = Object.keys(picks).length
 

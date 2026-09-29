@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   AlertCircle, Loader2, MoreVertical, Plus, Power,
-  RotateCcw, Trash2, Wifi, History, Pencil, Check, Copy,
+  RotateCcw, Trash2, Wifi, Fingerprint, Pencil,
 } from 'lucide-react'
 import { fmtDate } from '@/lib/hr-format'
 import { frappeClient } from '@/lib/api-client'
@@ -11,7 +11,6 @@ import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
@@ -20,11 +19,14 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { LocalizedDateInput } from '@/components/ui/localized-date-input'
 import { DeviceLogDrawer } from '@/components/hr/devices/log-drawer'
 import { UnmappedPanel } from '@/components/hr/devices/unmapped-panel'
-import { deviceSerial, deviceStatus, type BiometricDevice } from '@/components/hr/devices/types'
+import { deviceSerial, type BiometricDevice } from '@/components/hr/devices/types'
 import { ApexToolbar } from '@/components/hr/apex/toolbar'
 import { ApexTableCard } from '@/components/hr/apex/table-card'
 import { ApexPagination } from '@/components/hr/apex/pagination'
 import { ApexDialog } from '@/components/hr/apex/dialog'
+import { AdvancedSearchDrawer, applyDrawer, type DrawerFilter, type DrawerValues } from '@/components/hr/advanced-search-drawer'
+import { ViewRecordDialog } from '@/components/hr/apex/view-record-dialog'
+import { VersionLogDialog } from '@/components/hr/apex/version-log-dialog'
 
 const ADMS = 'base_meena.biometric_management.adms'
 // 5.22: Apex's devices page size is 5 (this list's own default, not the
@@ -67,7 +69,7 @@ function connectionStatusAr(data?: { connected?: boolean; seconds_ago?: number; 
   return { title: 'الجهاز غير متصل', description: known || 'لم يصل أي اتصال من الجهاز بعد' }
 }
 
-type DeviceForm = { mode: 'add' | 'edit'; serial: string; name: string; location: string }
+type DeviceForm = { mode: 'add' | 'edit'; serial: string; name: string; nameEn: string; location: string }
 
 /**
  * «الاجهزة» — bespoke fingerprint-device management page (not GenericListPage: the row
@@ -84,13 +86,14 @@ export function DevicesPage() {
   const [pageSize, setPageSize] = useState(PAGE_SIZES[0])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
-  const [branchFilter, setBranchFilter] = useState('')
+  const [drawerValues, setDrawerValues] = useState<DrawerValues>({})
   const [filterOpen, setFilterOpen] = useState(false)
+  const [viewDevice, setViewDevice] = useState<BiometricDevice | null>(null)
+  const [historyDevice, setHistoryDevice] = useState<BiometricDevice | null>(null)
   const [printRows, setPrintRows] = useState<BiometricDevice[] | null>(null)
 
   const [serverInfo, setServerInfo] = useState<{ server_ip?: string; server_port?: string } | null>(null)
   const [branches, setBranches] = useState<string[]>([])
-  const [addressCopied, setAddressCopied] = useState(false)
 
   const [deviceForm, setDeviceForm] = useState<DeviceForm | null>(null)
   const [saving, setSaving] = useState(false)
@@ -132,18 +135,6 @@ export function DevicesPage() {
       .catch(() => setBranches([]))
   }, [load])
 
-  const serverAddress = serverInfo?.server_ip && serverInfo?.server_port ? `${serverInfo.server_ip}:${serverInfo.server_port}` : null
-  const copyServerAddress = async () => {
-    if (!serverAddress) return
-    try {
-      await navigator.clipboard.writeText(serverAddress)
-      setAddressCopied(true)
-      setTimeout(() => setAddressCopied(false), 1500)
-    } catch {
-      toast({ title: 'تعذّر نسخ العنوان', variant: 'destructive' })
-    }
-  }
-
   // `location` on Biometric Device is free text ("Location / Branch" — not a
   // Link to Branch), so the filter's options come from whatever values
   // devices actually carry, not the Branch catalogue (that's `branches`
@@ -153,15 +144,21 @@ export function DevicesPage() {
     [devices],
   )
 
+  // Apex «بحث متقدم»: one «الفروع» accordion — search box, «الكل», a checkbox per branch
+  const drawerFilters: DrawerFilter[] = useMemo(() => [{
+    field: 'location', label: 'الفروع', multi: true, searchPlaceholder: 'البحث باسم الفرع',
+    options: Array.from(new Set([...branches, ...deviceLocations])).sort(),
+  }], [branches, deviceLocations])
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    const byBranch = branchFilter ? devices.filter((d) => (d.location || '') === branchFilter) : devices
+    const byBranch = applyDrawer(devices, drawerFilters, drawerValues)
     if (!q) return byBranch
     return byBranch.filter((d) =>
       deviceSerial(d).toLowerCase().includes(q) ||
       (d.device_name || '').toLowerCase().includes(q) ||
       (d.location || '').toLowerCase().includes(q))
-  }, [devices, search, branchFilter])
+  }, [devices, search, drawerFilters, drawerValues])
 
   // Printing mirrors components/hr/generic-list-page.tsx: render a hidden
   // print-only table into `printRows`, call window.print(), then restore the
@@ -278,9 +275,14 @@ export function DevicesPage() {
   }
 
   // ── add / edit dialog ────────────────────────────────────────────────
-  const openAdd = () => { setDeviceForm({ mode: 'add', serial: '', name: '', location: '' }); setFormError(null); setRegisterSuccess(null) }
+  const openAdd = () => { setDeviceForm({ mode: 'add', serial: '', name: '', nameEn: '', location: '' }); setFormError(null); setRegisterSuccess(null) }
   const openEdit = (d: BiometricDevice) => {
-    setDeviceForm({ mode: 'edit', serial: deviceSerial(d), name: d.device_name || '', location: d.location || '' })
+    const serial = deviceSerial(d)
+    setDeviceForm({ mode: 'edit', serial, name: d.device_name || '', nameEn: '', location: d.location || '' })
+    // get_device_list doesn't return the (tenant custom) English name — fetch it separately.
+    frappeClient.call<{ device_name_en?: string }>('frappe.client.get_value', { doctype: 'Biometric Device', filters: serial, fieldname: 'device_name_en' })
+      .then((r) => setDeviceForm((f) => f && f.serial === serial ? { ...f, nameEn: r.message?.device_name_en || '' } : f))
+      .catch(() => {})
     setFormError(null)
     setRegisterSuccess(null)
   }
@@ -288,6 +290,15 @@ export function DevicesPage() {
 
   // Narrow on purpose — a stray "site" in an unrelated error must not surface the force-retry button.
   const looksLikeTenantConflict = !!formError && /(مستأجر|موقع آخر|another\s+(tenant|site))/i.test(formError)
+
+  // «الاسم بالانجليزية» lives in a Custom Field (device_name_en), which the ADMS
+  // register/update endpoints don't know about — written with a separate set_value.
+  const saveEnglishName = async (serial: string) => {
+    if (!deviceForm || (deviceForm.mode === 'add' && !deviceForm.nameEn.trim())) return
+    await frappeClient.call('frappe.client.set_value', {
+      doctype: 'Biometric Device', name: serial, fieldname: 'device_name_en', value: deviceForm.nameEn.trim(),
+    })
+  }
 
   const submitDevice = async (force = false) => {
     if (!deviceForm) return
@@ -303,6 +314,10 @@ export function DevicesPage() {
     }
     if (!deviceForm.location.trim()) {
       toast({ title: 'الفرع مطلوب', variant: 'destructive' })
+      return
+    }
+    if (branches.length && !branches.includes(deviceForm.location.trim())) {
+      toast({ title: 'اختر الفرع من القائمة', variant: 'destructive' })
       return
     }
     setSaving(true)
@@ -322,12 +337,14 @@ export function DevicesPage() {
           server_ip: info?.server_ip || serverInfo?.server_ip || '',
           server_port: info?.server_port || serverInfo?.server_port || '',
         })
+        await saveEnglishName(serial)
         toast({ title: 'تم تسجيل الجهاز' })
         load()
       } else {
         await frappeClient.call(`${ADMS}.update_device`, {
           serial_number: deviceForm.serial, device_name: deviceForm.name.trim(), location: deviceForm.location.trim(),
         })
+        await saveEnglishName(deviceForm.serial)
         toast({ title: 'تم الحفظ' })
         closeDeviceForm()
         load()
@@ -339,29 +356,10 @@ export function DevicesPage() {
     }
   }
 
-  const colSpan = 8
+  const colSpan = 6
 
   return (
     <div dir="rtl" className="space-y-3 p-4 font-[family-name:var(--font-arabic)]">
-
-      <div className="flex items-start gap-2 rounded bg-blue-50 border border-blue-200 px-3 py-2.5 text-[12.5px] text-blue-900 leading-relaxed">
-        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-        <span>
-          عنوان الخادم الحالي: <span dir="ltr" className="font-mono font-bold">{serverInfo?.server_ip || '—'}</span>
-          {' '}· المنفذ <span dir="ltr" className="font-mono font-bold">{serverInfo?.server_port || '—'}</span> (HTTP).
-          {' '}يجب تسجيل الجهاز من هذه الصفحة أولاً، ثم ضبط عنوان الخادم على الجهاز نفسه — وليس العكس.
-          {serverAddress && (
-            <button
-              type="button"
-              onClick={copyServerAddress}
-              aria-label="نسخ عنوان الخادم"
-              className="inline-flex align-middle mr-1 text-blue-700 hover:text-blue-900"
-            >
-              {addressCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            </button>
-          )}
-        </span>
-      </div>
 
       <UnmappedPanel onMapped={load} />
 
@@ -376,9 +374,8 @@ export function DevicesPage() {
               <tr>
                 <th className="border border-slate-300 px-2 py-1 text-right">الرقم التسلسلي</th>
                 <th className="border border-slate-300 px-2 py-1 text-right">اسم الجهاز</th>
-                <th className="border border-slate-300 px-2 py-1 text-right">الموقع/الفرع</th>
+                <th className="border border-slate-300 px-2 py-1 text-right">فرع</th>
                 <th className="border border-slate-300 px-2 py-1 text-right">الحالة</th>
-                <th className="border border-slate-300 px-2 py-1 text-right">عدد البصمات المزامنة</th>
               </tr>
             </thead>
             <tbody>
@@ -387,8 +384,7 @@ export function DevicesPage() {
                   <td className="border border-slate-300 px-2 py-1">{deviceSerial(d)}</td>
                   <td className="border border-slate-300 px-2 py-1">{d.device_name || '—'}</td>
                   <td className="border border-slate-300 px-2 py-1">{d.location || '—'}</td>
-                  <td className="border border-slate-300 px-2 py-1">{deviceStatus(d).label}</td>
-                  <td className="border border-slate-300 px-2 py-1">{d.total_synced_records ?? 0}</td>
+                  <td className="border border-slate-300 px-2 py-1">{lastSeenLabel(d)}</td>
                 </tr>
               ))}
             </tbody>
@@ -400,27 +396,20 @@ export function DevicesPage() {
           «حذف» replaces «الاجراءات», RTL order search→filter→طباعة→حذف→اضافة ── */}
       <div className="print:hidden">
         <ApexToolbar
-          search={{ value: search, onChange: (v) => { setSearch(v); setPage(1) }, placeholder: 'ابحث بالرقم التسلسلي أو اسم الجهاز أو الموقع' }}
-          onFilter={() => setFilterOpen((v) => !v)}
+          search={{ value: search, onChange: (v) => { setSearch(v); setPage(1) }, placeholder: 'ابحث بالاسم' }}
+          onFilter={() => setFilterOpen(true)}
           print={{ onPrint: () => doPrint(false), onAdvancedPrint: () => doPrint(true) }}
           deleteButton={{ onClick: () => setBulkDeleteOpen(true), disabled: selected.size === 0 }}
           add={{ label: 'اضافة', onClick: openAdd }}
         />
 
-        {filterOpen && (
-          <div dir="rtl" className="flex justify-start px-[5px] -mt-1 mb-2">
-            <div className="w-52 rounded border border-slate-200 bg-white shadow-lg py-2 px-3 text-[13px]">
-              <Label className="text-slate-600 text-[12px] mb-1 block">الفرع</Label>
-              <Select value={branchFilter || '__all'} onValueChange={(v) => { setBranchFilter(v === '__all' ? '' : v); setPage(1) }}>
-                <SelectTrigger className="h-9 rounded border-slate-300 text-[13px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all">الكل</SelectItem>
-                  {deviceLocations.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        )}
+        <AdvancedSearchDrawer
+          open={filterOpen}
+          onClose={() => setFilterOpen(false)}
+          filters={drawerFilters}
+          values={drawerValues}
+          onApply={(v) => { setDrawerValues(v); setPage(1) }}
+        />
 
         {loadError && !loading && (
           <div className="mb-2 flex items-center gap-2 rounded bg-amber-50 border border-amber-200 px-3 py-2 text-[12.5px] text-amber-800">
@@ -443,9 +432,7 @@ export function DevicesPage() {
                 <th className="whitespace-nowrap">اسم الجهاز</th>
                 <th className="whitespace-nowrap">فرع</th>
                 <th className="whitespace-nowrap">الحالة</th>
-                <th className="whitespace-nowrap">عدد البصمات المزامنة</th>
-                <th className="whitespace-nowrap">آخر IP</th>
-                <th className="apex-col-actions w-16 whitespace-nowrap">الاجراءات</th>
+                <th className="apex-col-actions w-28 whitespace-nowrap">الاجراءات</th>
               </tr>
             </thead>
             <tbody>
@@ -460,7 +447,6 @@ export function DevicesPage() {
                 </td></tr>
               ) : pageRows.map((d, i) => {
                 const serial = deviceSerial(d)
-                const status = deviceStatus(d)
                 const rowNumber = (currentPage - 1) * pageSize + i + 1
                 return (
                   <tr key={serial}>
@@ -471,14 +457,13 @@ export function DevicesPage() {
                     <td className="font-mono">{serial}</td>
                     <td>{d.device_name || '—'}</td>
                     <td>{d.location || '—'}</td>
-                    <td>
-                      <span className={`inline-flex items-center rounded px-2 py-0.5 text-[12px] font-bold whitespace-nowrap ${status.className}`}>
-                        {status.label}
-                      </span>
-                    </td>
-                    <td>{d.total_synced_records ?? 0}</td>
-                    <td className="font-mono" dir="ltr">{d.last_push_ip || '—'}</td>
+                    <td className="whitespace-nowrap"><span className={lastSeenClass(d)}>{lastSeenLabel(d)}</span></td>
                     <td className="apex-col-actions">
+                      <div className="inline-flex items-center">
+                      <button onClick={() => openEdit(d)} title="تعديل" aria-label={`تعديل ${serial}`} className="apex-icon-edit px-1 hover:opacity-75"><Pencil className="h-[17px] w-[17px]" /></button>
+                      <span className="mx-1 h-4 w-px bg-slate-200" />
+                      <button onClick={() => setDeleteTarget(d)} title="حذف" aria-label={`حذف ${serial}`} className="apex-icon-delete px-1 hover:opacity-75"><Trash2 className="h-[17px] w-[17px]" /></button>
+                      <span className="mx-1 h-4 w-px bg-slate-200" />
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button title="خيارات" className="apex-icon-more px-1" aria-label={`خيارات ${serial}`}>
@@ -486,7 +471,9 @@ export function DevicesPage() {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start" className="text-[13px]">
-                          <DropdownMenuItem onClick={() => openEdit(d)}><Pencil className="apex-icon-edit h-3.5 w-3.5 ml-2" />تعديل</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setViewDevice(d)}>عرض</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setHistoryDevice(d)}>سجل الحركات</DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => toggleEnabled(d)}>
                             <Power className="h-3.5 w-3.5 ml-2" />{d.enabled ? 'تعطيل' : 'تفعيل'}
                           </DropdownMenuItem>
@@ -495,13 +482,10 @@ export function DevicesPage() {
                             اختبار الاتصال
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => openResync(d)}><RotateCcw className="h-3.5 w-3.5 ml-2" />إعادة مزامنة</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setLogDevice(d)}><History className="h-3.5 w-3.5 ml-2" />سجل الجهاز</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => setDeleteTarget(d)} className="text-red-600 focus:text-red-600">
-                            <Trash2 className="apex-icon-delete h-3.5 w-3.5 ml-2" />حذف
-                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setLogDevice(d)}><Fingerprint className="h-3.5 w-3.5 ml-2" />سجل البصمات</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
+                      </div>
                     </td>
                   </tr>
                 )
@@ -527,11 +511,11 @@ export function DevicesPage() {
       <ApexDialog
         open={!!deviceForm}
         onOpenChange={(o) => !o && closeDeviceForm()}
-        title={registerSuccess ? 'تم تسجيل الجهاز' : (deviceForm?.mode === 'edit' ? 'تعديل جهاز' : 'اضافة جهاز')}
-        size="sm"
+        title={registerSuccess ? 'تم تسجيل الجهاز' : (deviceForm?.mode === 'edit' ? 'تعديل الاجهزة' : 'اضافة الاجهزة')}
+        size={registerSuccess ? 'sm' : 'lg'}
         primary={registerSuccess
           ? { label: 'تم', onClick: closeDeviceForm }
-          : { label: 'حفظ', onClick: () => submitDevice(false), disabled: saving, loading: saving }}
+          : { label: deviceForm?.mode === 'edit' ? 'حفظ' : 'اضافة', onClick: () => submitDevice(false), disabled: saving, loading: saving }}
       >
         {registerSuccess ? (
           <div className="space-y-3">
@@ -551,45 +535,44 @@ export function DevicesPage() {
           </div>
         ) : (
           <>
-            {deviceForm && deviceForm.mode === 'add' && (
-              <div className="space-y-1.5">
-                <Label className="text-[13px] text-slate-600">الرقم التسلسلي<span className="text-red-500"> *</span></Label>
-                <Input
-                  value={deviceForm.serial}
-                  onChange={(e) => setDeviceForm((f) => f && { ...f, serial: e.target.value })}
-                  placeholder="مثال: CJXK123456789"
-                  className="text-right font-mono"
-                />
-              </div>
-            )}
             <div className="space-y-1.5">
               <Label className="text-[13px] text-slate-600">الاسم بالعربية<span className="text-red-500"> *</span></Label>
               <Input value={deviceForm?.name ?? ''} onChange={(e) => setDeviceForm((f) => f && { ...f, name: e.target.value })} placeholder="الاسم بالعربية" className="text-right" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-[13px] text-slate-600">الاسم بالانجليزية</Label>
-              {/* Biometric Device has no English-name field on the backend
-                  (checked 2026-09-20) — shown to match Apex's field set but
-                  kept disabled rather than silently faking persistence. */}
-              <Input value="" disabled placeholder="غير مدعوم من الخادم حالياً" className="text-right bg-slate-50 text-slate-400 cursor-not-allowed" />
+              <Input value={deviceForm?.nameEn ?? ''} onChange={(e) => setDeviceForm((f) => f && { ...f, nameEn: e.target.value })} placeholder="الاسم بالانجليزية" dir="ltr" className="text-left" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-[13px] text-slate-600">الفرع<span className="text-red-500"> *</span></Label>
-              {branches.length ? (
-                <Select value={deviceForm?.location || '__none__'} onValueChange={(v) => setDeviceForm((f) => f && { ...f, location: v === '__none__' ? '' : v })}>
-                  <SelectTrigger><SelectValue placeholder="اختر الفرع" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">—</SelectItem>
-                    {branches.map((b) => <SelectItem key={b} value={b}>{b}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input value={deviceForm?.location ?? ''} onChange={(e) => setDeviceForm((f) => f && { ...f, location: e.target.value })} placeholder="الفرع" className="text-right" />
-              )}
+              {/* Apex: type-to-filter autocomplete over the branch list. */}
+              <Input
+                value={deviceForm?.location ?? ''}
+                onChange={(e) => setDeviceForm((f) => f && { ...f, location: e.target.value })}
+                list="device-branch-options"
+                autoComplete="off"
+                placeholder="الفرع"
+                className="text-right"
+              />
+              <datalist id="device-branch-options">
+                {branches.map((b) => <option key={b} value={b} />)}
+              </datalist>
             </div>
 
+            {deviceForm && (
+              <div className="space-y-1.5">
+                <Label className="text-[13px] text-slate-600">الرقم التسلسلي<span className="text-red-500"> *</span></Label>
+                <Input
+                  value={deviceForm.serial}
+                  disabled={deviceForm.mode === 'edit'}
+                  onChange={(e) => setDeviceForm((f) => f && { ...f, serial: e.target.value })}
+                  placeholder="مثال: CJXK123456789"
+                  className="text-right font-mono"
+                />
+              </div>
+            )}
             {formError && (
-              <div className="rounded bg-red-50 border border-red-200 px-3 py-2 text-[12.5px] text-[var(--apex-red-text)] leading-relaxed">
+              <div className="col-span-full rounded bg-red-50 border border-red-200 px-3 py-2 text-[12.5px] text-[var(--apex-red-text)] leading-relaxed">
                 {formError}
                 {looksLikeTenantConflict && (
                   <div className="mt-2">
@@ -631,6 +614,26 @@ export function DevicesPage() {
         </DialogContent>
       </Dialog>
 
+      <ViewRecordDialog
+        open={!!viewDevice}
+        onOpenChange={(o) => !o && setViewDevice(null)}
+        title="عرض الاجهزة"
+        fields={viewDevice ? [
+          { label: 'الرقم التسلسلي', value: <span className="font-mono">{deviceSerial(viewDevice)}</span> },
+          { label: 'اسم الجهاز', value: viewDevice.device_name || '—' },
+          { label: 'فرع', value: viewDevice.location || '—' },
+          { label: 'الحالة', value: <span className={lastSeenClass(viewDevice)}>{lastSeenLabel(viewDevice)}</span> },
+          { label: 'عدد البصمات المزامنة', value: viewDevice.total_synced_records ?? 0 },
+        ] : []}
+      />
+      <VersionLogDialog
+        open={!!historyDevice}
+        onOpenChange={(o) => !o && setHistoryDevice(null)}
+        doctype="Biometric Device"
+        name={historyDevice ? deviceSerial(historyDevice) : ''}
+        labels={{ device_name: 'اسم الجهاز', device_name_en: 'الاسم بالانجليزية', location: 'فرع', enabled: 'مفعل' }}
+      />
+
       <DeviceLogDrawer open={!!logDevice} onClose={() => setLogDevice(null)} serial={logDevice ? deviceSerial(logDevice) : ''} deviceName={logDevice?.device_name} />
 
       <ConfirmDialog
@@ -656,4 +659,17 @@ export function DevicesPage() {
       />
     </div>
   )
+}
+
+/** Apex «الحالة» cell: «اخر ظهور: YYYY-MM-DD HH:MM», green while the device is
+ *  polling, red once it has gone quiet; «لم يتصل بعد» / «معطّل» otherwise. */
+function lastSeenLabel(d: BiometricDevice): string {
+  if (!d.enabled) return 'معطّل'
+  return d.last_activity ? `اخر ظهور: ${String(d.last_activity).slice(0, 16)}` : 'لم يتصل بعد'
+}
+
+function lastSeenClass(d: BiometricDevice): string {
+  if (!d.enabled) return 'text-slate-400'
+  if (!d.last_activity) return 'text-amber-600'
+  return d.is_online ? 'text-[var(--apex-green)]' : 'text-[var(--apex-red)]'
 }

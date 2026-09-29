@@ -12,8 +12,15 @@ export interface DrawerFilter {
   source?: DrawerOptionSource
   options?: string[]
   date?: boolean
+  /** Apex checkbox list: «البحث باسم …» box, «الكل», one checkbox per option */
+  multi?: boolean
+  searchPlaceholder?: string
 }
 export type DrawerValues = Record<string, string>
+
+/** multi filters keep their picks in the same string map, joined by this */
+const SEP = '\u001f'
+export const drawerMulti = (v?: string) => (v ? v.split(SEP) : [])
 
 let cache: Record<string, string[]> | null = null
 
@@ -27,6 +34,7 @@ export function AdvancedSearchDrawer({ open, onClose, filters, values, onApply }
   const [local, setLocal] = useState<DrawerValues>(values)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [opts, setOpts] = useState<Record<string, string[]>>(cache ?? {})
+  const [query, setQuery] = useState<Record<string, string>>({})
 
   useEffect(() => { setLocal(values) }, [values, open])
   useEffect(() => {
@@ -60,7 +68,33 @@ export function AdvancedSearchDrawer({ open, onClose, filters, values, onApply }
                   </button>
                   {isOpen && (
                     <div className="px-3 pb-3">
-                      {f.date ? (
+                      {f.multi ? (() => {
+                        const all = items(f)
+                        const picked = drawerMulti(local[f.field])
+                        const setPicked = (v: string[]) => setLocal((l) => ({ ...l, [f.field]: v.join(SEP) }))
+                        const q = (query[f.field] ?? '').trim()
+                        return (
+                          <div className="space-y-2">
+                            <input value={query[f.field] ?? ''} onChange={(e) => setQuery((x) => ({ ...x, [f.field]: e.target.value }))}
+                              placeholder={f.searchPlaceholder ?? `البحث باسم ${f.label}`} className="w-full h-9 rounded border border-slate-300 px-2 text-[13px]" />
+                            <label className="flex items-center gap-2 text-[14px] cursor-pointer">
+                              <input type="checkbox" className="h-4 w-4 accent-[var(--apex-blue)]"
+                                checked={all.length > 0 && picked.length === all.length}
+                                onChange={(e) => setPicked(e.target.checked ? [...all] : [])} />
+                              الكل
+                            </label>
+                            <div className="max-h-56 overflow-y-auto space-y-1.5">
+                              {all.filter((o) => !q || o.includes(q)).map((o) => (
+                                <label key={o} className="flex items-center gap-2 text-[14px] cursor-pointer">
+                                  <input type="checkbox" className="h-4 w-4 accent-[var(--apex-blue)]" checked={picked.includes(o)}
+                                    onChange={(e) => setPicked(e.target.checked ? [...picked, o] : picked.filter((x) => x !== o))} />
+                                  {o}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })() : f.date ? (
                         <div className="space-y-2">
                           <input type="date" value={local[`${f.field}_from`] ?? ''} onChange={(e) => setLocal((l) => ({ ...l, [`${f.field}_from`]: e.target.value }))} className="w-full h-9 rounded border border-slate-300 px-2 text-[13px]" />
                           <input type="date" value={local[`${f.field}_to`] ?? ''} onChange={(e) => setLocal((l) => ({ ...l, [`${f.field}_to`]: e.target.value }))} className="w-full h-9 rounded border border-slate-300 px-2 text-[13px]" />
@@ -98,6 +132,7 @@ export function applyDrawer<T extends Record<string, any>>(rows: T[], filters: D
       return true
     }
     const want = values[f.field]
+    if (f.multi) return !want || drawerMulti(want).includes(String(r[f.field] ?? ''))
     return !want || String(r[f.field] ?? '') === want
   }))
 }

@@ -12,17 +12,19 @@ import { PrintDialog } from '@/components/hr/apex/print-dialog'
 import { ExportMenu, SERVER_PRINTABLE_REPORTS } from '@/components/hr/apex/export-menu'
 import { ApexDatePicker } from '@/components/hr/apex/date-picker'
 import { apexExport, apexPrint } from '@/lib/apex-print'
+import { MultiSelect } from '@/components/hr/apex/multi-select'
+import { APEX_LAYOUTS, DayStatusTable, NestedReport } from '@/components/hr/apex/report-tables'
 
 interface Column { key: string; label: string; children?: Column[] }
-interface Group { title: string; rows: Record<string, any>[] }
+interface Group { title: string; rows: Record<string, any>[]; day?: string; date?: string }
 interface ReportData { columns: Column[]; groups: Group[]; total: number; from_date: string; to_date: string }
 interface Options {
-  branches: string[]; departments: string[]; designations: string[]; shifts: string[]; projects: string[]
+  branches: string[]; sections: string[]; departments: string[]; designations: string[]; shifts: string[]; projects: string[]
   groups: string[]; leave_types: string[]; permission_types: string[]
 }
 
 const EMPTY_OPTIONS: Options = {
-  branches: [], departments: [], designations: [], shifts: [], projects: [], groups: [], leave_types: [], permission_types: [],
+  branches: [], sections: [], departments: [], designations: [], shifts: [], projects: [], groups: [], leave_types: [], permission_types: [],
 }
 
 let optionsCache: Options | null = null
@@ -57,14 +59,17 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
   const [data, setData] = useState<ReportData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState<Set<number>>(new Set())
-  const [f, setF] = useState<Record<string, string>>({
-    employee: '', branch: '', department: '', section: '', project: '', designation: '', group: '', shift: '',
+  /** bumped per search so the Apex tables reset to their default expand state */
+  const [runId, setRunId] = useState(0)
+  const [f, setF] = useState<Record<string, any>>({
+    employee: '', branch: [] as string[], section: [] as string[], department: [] as string[], project: '', designation: '', group: '', shift: '',
     from_date: defaultFrom === 'month' ? today().slice(0, 8) + '01' : today(), to_date: today(),
     leave_type: '', permission_type: '', status: '',
   })
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setF((p) => ({ ...p, [k]: e.target.value }))
   const setDate = (k: string) => (v: string) => setF((p) => ({ ...p, [k]: v }))
+  const setMulti = (k: string) => (v: string[]) => setF((p) => ({ ...p, [k]: v }))
 
   // reset when switching between reports
   useEffect(() => { setData(null); setError(null); setCollapsed(new Set()) }, [config.slug])
@@ -72,7 +77,7 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
   useEffect(() => {
     if (optionsCache) return
     frappeClient.call<Options>('base_meena.api.hr_reports.get_filter_options')
-      .then((r: any) => { optionsCache = r?.message ?? EMPTY_OPTIONS; setOpts(optionsCache!) })
+      .then((r: any) => { optionsCache = { ...EMPTY_OPTIONS, ...(r?.message ?? {}) }; setOpts(optionsCache!) })
       .catch(() => {})
   }, [])
 
@@ -86,6 +91,7 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
         report: config.report, filters: JSON.stringify(filters),
       })
       setData(r?.message ?? null)
+      setRunId((n) => n + 1)
       setCollapsed(new Set())
     } catch (e: any) {
       const msg = e?.message || 'تعذّر تحميل التقرير'
@@ -115,6 +121,7 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
     return out
   }, [data])
   const hasChildren = !!data?.columns.some((c) => c.children?.length)
+  const layout = APEX_LAYOUTS[config.report]
 
   // Apex-style printed document (lib/apex-print.ts): one band per report group
   const printSpec = (lang: 'ar' | 'en' = 'ar') => ({
@@ -212,12 +219,11 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
         <div className="space-y-4 mb-6 print:hidden">
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <Txt value={f.employee} onChange={set('employee')} label="كود أو إسم الموظف" />
-            <Sel value={f.branch} onChange={set('branch')} label="الفروع" items={opts.branches} />
-            <Sel value={f.department} onChange={set('department')} label="الإدارة" items={opts.departments} />
-            {/* «القسم» used to reuse opts.departments verbatim — an exact duplicate
-                of «الإدارة» right next to it, not a distinct filter. get_filter_options
-                has no separate custom_section catalogue to back a real one, so the
-                duplicate is dropped rather than kept broken. */}
+            <MultiSelect value={f.branch} onChange={setMulti('branch')} label="الفروع" items={opts.branches} />
+            {/* «الإدارة» = group departments (hr_reports narrows to every
+                department under it), «القسم» = leaf departments */}
+            <MultiSelect value={f.section} onChange={setMulti('section')} label="الإدارة" items={opts.sections} />
+            <MultiSelect value={f.department} onChange={setMulti('department')} label="القسم" items={opts.departments} />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             <Sel value={f.project} onChange={set('project')} label="المشروع" items={opts.projects} />
@@ -227,10 +233,10 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-end">
             {config.extras?.includes('status') && <Sel value={f.status} onChange={set('status')} label="الحالة" items={['مقبولة', 'مرفوضة']} />}
-            {config.extras?.includes('leave_type') && <Sel value={f.leave_type} onChange={set('leave_type')} label="نوع الاجازة" items={opts.leave_types} labelFor={leaveTypeAr} />}
-            {config.extras?.includes('permission_type') && <Sel value={f.permission_type} onChange={set('permission_type')} label="نوع الاذن" items={opts.permission_types} />}
             {config.dates && <ApexDatePicker value={f.from_date} onChange={setDate('from_date')} label="من تاريخ" required />}
             {config.dates && <ApexDatePicker value={f.to_date} onChange={setDate('to_date')} label="إلى تاريخ" required />}
+            {config.extras?.includes('leave_type') && <Sel value={f.leave_type} onChange={set('leave_type')} label="نوع الاجازة" items={opts.leave_types} labelFor={leaveTypeAr} />}
+            {config.extras?.includes('permission_type') && <Sel value={f.permission_type} onChange={set('permission_type')} label="نوع الاذن" items={opts.permission_types} />}
             <div>
               <button
                 type="button"
@@ -255,7 +261,11 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
         <div className="flex justify-center py-16 text-slate-500"><Loader2 className="h-8 w-8 animate-spin" /></div>
       )}
       {data && renderBody && renderBody(data.groups.flatMap((g) => g.rows))}
-      {data && !renderBody && (
+      {/* Apex keeps the per-day rows of the day-grouped reports even when empty */}
+      {data && !renderBody && data.total === 0 && !(layout === 'daystatus' && data.groups.length) && <NoResults />}
+      {data && !renderBody && layout === 'daystatus' && data.groups.length > 0 && <DayStatusTable key={runId} data={data} />}
+      {data && !renderBody && data.total > 0 && layout && layout !== 'daystatus' && <NestedReport key={runId} data={data} spec={layout} />}
+      {data && !renderBody && data.total > 0 && !layout && (
         <div className="overflow-x-auto rounded-sm">
           <table className="w-full text-[14px] border-collapse">
             <thead>
@@ -278,9 +288,6 @@ export function ReportPage({ config, breadcrumb = ['الحضور و الانصر
               {data.groups.map((g, gi) => (
                 <GroupRows key={gi} g={g} gi={gi} cols={leafCols} collapsed={collapsed.has(gi)} onToggle={() => toggleGroup(gi)} />
               ))}
-              {data.total === 0 && (
-                <tr><td colSpan={leafCols.length + 1} className="py-10 text-center text-slate-500">لا يوجد نتائج للبحث ابحث مرة اخري</td></tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -374,6 +381,16 @@ function cellClass(key: string, v: any) {
   if ((key === 'late' || key === 'early') && Number(v) > 0) return 'text-red-600'
   if (key === 'extra' && Number(v) > 0) return 'text-emerald-600'
   return ''
+}
+
+/** Apex «noSearch» state: illustration + «لا يوجد نتائج للبحث ابحث مرة اخري». */
+function NoResults() {
+  return (
+    <div className="flex flex-col items-center">
+      <ReportIllustration />
+      <h2 className="text-center text-[22px] text-slate-700 -mt-4">لا يوجد نتائج للبحث ابحث مرة اخري</h2>
+    </div>
+  )
 }
 
 /** The "chart clipboard" placeholder shown before the first search. */
