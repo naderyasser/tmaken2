@@ -119,7 +119,7 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
       // No is_group filter: an employee already assigned to a group department must still
       // see that value in the select (otherwise it renders blank and gets wiped on save).
       list('Designation'), list('Branch'), list('Shift Type'), list('Department'),
-      list('Employee Group'), list('Project'), list('Employee', ['name', 'employee_name'], [['status', '=', 'Active']]), list('Country', ['name', 'country_name', 'custom_name_ar']),
+      list('Employee Group'), list('Project'), list('Employee', ['name', 'employee_name'], [['status', '=', 'Active']]), list('Country', ['name', 'country_name', 'custom_name_ar'], [['custom_is_nationality', '=', 1]]),
       shiftOptions(),
     ]).then(([d, b, s, dep, g, p, e, c, so]) => setOpts({
       designations: d.map((x: any) => x.name), branches: b.map((x: any) => x.name), shifts: s.map((x: any) => x.name),

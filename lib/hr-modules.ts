@@ -592,6 +592,11 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     subtitle: 'قائمة الدول/الجنسيات',
     doctype: 'Country',
     orderBy: 'country_name asc',
+    // Only the tenant's own nationalities (Apex), not all 253 Country rows:
+    // add ticks/creates, delete only unticks (Country is a shared core master).
+    filters: [['custom_is_nationality', '=', 1]],
+    createMethod: 'base_meena.api.hr_lists.add_nationality',
+    deleteMethod: 'base_meena.api.hr_lists.remove_nationality',
     addLabel: 'اضافة جنسية',
     searchPlaceholder: 'ابحث باسم الجنسية',
     actionsMenu: true,
