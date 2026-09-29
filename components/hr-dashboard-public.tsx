@@ -1,455 +1,381 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import {
-  CalendarDays, Gift, AlertTriangle, CheckSquare, ArrowUpFromLine, RefreshCw, Loader2,
-  MapPin, Printer,
-} from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
+import { CalendarDays, Gift, AlertTriangle, CheckSquare, Umbrella, CircleHelp, Loader2, Printer } from 'lucide-react'
 import {
   PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts'
 import { frappeClient, isAuthError } from '@/lib/api-client'
 import { frappeImageUrl } from '@/lib/utils'
-import { fmtDate, fmtDateTime } from '@/lib/hr-format'
+import { subscribeRealtime } from '@/lib/frappe-realtime'
 import { SessionRenew } from '@/components/login-page'
 import { Skeleton } from '@/components/ui/skeleton'
-import { EmptyState } from '@/components/hr/ui/empty-state'
 import { APEX } from '@/lib/apex-colors'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 /**
- * لوحة تحكم الحضور — live version of the Apex reference dashboard.
- * One backend call (base_meena.api.attendance_overview.get_attendance_overview)
- * feeds every widget: summary tiles, employees donut, per-branch stacked bars,
- * the day's latest movements and the 10-day movements series.
+ * لوحة تحكم الحضور — Apex /hr/dashboard, 1:1.
+ *
+ * One call (base_meena.api.hr_dashboard.get_dashboard, branch-scoped) feeds
+ * every widget. Live: each processed punch arrives over Frappe socket.io as
+ * `hr_attendance_punch` (Apex: SignalR "AttandanceLog") and is prepended to
+ * «حركات يوم …»; the cards/donut/branch chart then refresh (debounced 2s —
+ * an enhancement over Apex, which only updates the table). 60s polling stays
+ * as the fallback while the socket is down.
  */
 
-interface Totals {
-  employees: number; present: number; absent: number; on_leave: number
-  official_holiday: number; weekly_off: number; waiting: number
-}
-interface BranchRow {
-  branch: string; present: number; on_leave: number; absent: number; waiting: number
-  weekly_off: number; official_holiday: number; total: number
-}
+type Bucket = 'present' | 'absent' | 'on_leave' | 'official_holiday' | 'weekly_off' | 'waiting'
+type Totals = Record<Bucket, number> & { employees: number }
+interface BranchRow extends Totals { branch: string; total: number }
 interface Movement {
-  employee: string; employee_number: string; employee_name: string; image?: string | null
-  branch?: string | null; log_type?: string | null; time: string; is_fallback?: boolean
-  location_label?: string | null; location_map_url?: string | null
+  id: string; code: string; name: string; image?: string | null; employee?: string | null
+  transaction_time: string | null; location: { name: string }; branch?: string | null
+  device?: string | null; status?: string; is_unknown?: boolean; clock_skew?: boolean
 }
-interface ListRow { code: string | number; name: string; shift?: string; branch?: string }
-interface Overview {
-  date: string; day_name: string; is_today: boolean
-  totals: Totals; by_branch: BranchRow[]; movements: Movement[]
-  last_days: ({ date: string; count: number } & Partial<Totals>)[]
-  lists?: Record<string, ListRow[]>
-}
-
-// Maps a summary-card `key` (see `stats` below) → the matching `lists` bucket
-// returned by the backend (same names `_totals`/`_classify` use server-side).
-const CATEGORY_LIST_KEYS: Record<string, string> = {
-  leave: 'on_leave', official: 'official_holiday', weekly: 'weekly_off', absent: 'absent', present: 'present',
+interface ListRow { code: string; name: string; branch?: string; shift?: string }
+interface Dashboard {
+  date: string; day_name: string; is_today: boolean; totals: Totals; by_branch: BranchRow[]
+  max_value: number; movements: Movement[]; last_days: ({ date: string } & Totals)[]
+  lists: Record<Bucket, ListRow[]>
 }
 
+const METHOD = 'base_meena.api.hr_dashboard.get_dashboard'
+const POLL_MS = 60_000
+const REFRESH_DEBOUNCE_MS = 2_000
+const HIGHLIGHT_MS = 4_000
+const WAITING = '#ffb62e' // --apex-amber
+const WEEKLY = '#9d9fa0'
+
+// Apex series colours (legend order = Apex legend order).
+const SERIES: { key: Bucket; label: string; color: string }[] = [
+  { key: 'present', label: 'حضور', color: APEX.chartPresent },
+  { key: 'absent', label: 'الغياب', color: APEX.chartAbsent },
+  { key: 'on_leave', label: 'الاجازات', color: APEX.chartLeave },
+  { key: 'waiting', label: 'في الانتظار', color: WAITING },
+  { key: 'weekly_off', label: 'عطله إسبوعية', color: WEEKLY },
+]
+
+// «ملخص حضور اليوم» cards, Apex RTL order (right → left).
+const CARDS: { key: Bucket; label: string; icon: typeof CheckSquare; color: string; numberColor: string }[] = [
+  { key: 'present', label: 'حضور', icon: CheckSquare, color: '#2960b6', numberColor: '#2960b6' },
+  { key: 'absent', label: 'الغياب', icon: AlertTriangle, color: '#ff0000', numberColor: '#ff0000' },
+  { key: 'weekly_off', label: 'عطله إسبوعية', icon: CalendarDays, color: '#808080', numberColor: '#808080' },
+  { key: 'official_holiday', label: 'عطلات رسمية', icon: Gift, color: '#808080', numberColor: '#808080' },
+  { key: 'on_leave', label: 'الاجازات', icon: Umbrella, color: '#2eaf7d', numberColor: '#2eaf7d' },
+]
+
+const EMPTY_TOTALS: Totals = { present: 0, absent: 0, on_leave: 0, official_holiday: 0, weekly_off: 0, waiting: 0, employees: 0 }
+
+const pad = (n: number) => String(n).padStart(2, '0')
+/** Apex «الحركة»: MM/DD/YYYY HH:mm:ss */
+function apexDateTime(v: string | null): string {
+  if (!v) return ''
+  const d = new Date(v.replace(' ', 'T'))
+  if (Number.isNaN(d.getTime())) return v
+  return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+}
 function escapeHtml(v: unknown): string {
-  return String(v ?? '').replace(/[&<>"']/g, (c) => (
-    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string
-  ))
+  return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
 }
 
-/** «الطباعة» for a category drill-down dialog — opens a plain, self-contained
- *  print document instead of window.print()-ing the live app (the dialog is a
- *  Radix portal appended to <body>, outside the dashboard's own print rules,
- *  and a modal backdrop has no sensible printed form anyway). */
-function printCategoryList(title: string, rows: ListRow[]) {
+function printList(title: string, rows: ListRow[]) {
   const w = window.open('', '_blank', 'width=900,height=700')
   if (!w) return
-  const rowsHtml = rows.map((r) => (
-    `<tr><td>${escapeHtml(r.code)}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.shift || '—')}</td><td>${escapeHtml(r.branch || '—')}</td></tr>`
-  )).join('') || `<tr><td colspan="4" style="text-align:center;padding:20px">لا توجد بيانات</td></tr>`
-  w.document.write(`<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8" /><title>${escapeHtml(title)}</title><style>
-    body{font-family:'Noto Kufi Arabic',Tahoma,sans-serif;padding:24px;direction:rtl;color:#212529}
-    h1{font-size:18px;margin:0 0 16px;text-align:center}
-    table{width:100%;border-collapse:collapse;font-size:13px}
-    th,td{border:1px solid #ced4da;padding:6px 10px;text-align:right}
-    thead tr{background:#bcc2d1}
-  </style></head><body>
-    <h1>${escapeHtml(title)}</h1>
-    <table><thead><tr><th>كود الموظف</th><th>الاسم</th><th>الدوام</th><th>الفرع</th></tr></thead><tbody>${rowsHtml}</tbody></table>
-  </body></html>`)
-  w.document.close()
-  w.focus()
-  w.print()
+  const body = rows.map((r) => `<tr><td>${escapeHtml(r.code)}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.branch || '')}</td><td>${escapeHtml(r.shift || '')}</td></tr>`).join('')
+    || '<tr><td colspan="4" style="text-align:center;padding:20px">لا توجد بيانات</td></tr>'
+  w.document.write(`<!doctype html><html dir="rtl" lang="ar"><head><meta charset="utf-8"/><title>${escapeHtml(title)}</title><style>
+    body{font-family:'Noto Kufi Arabic',Tahoma,sans-serif;padding:24px;direction:rtl}h1{font-size:18px;text-align:center}
+    table{width:100%;border-collapse:collapse;font-size:13px}th,td{border:1px solid #ced4da;padding:6px 10px;text-align:right}thead tr{background:#bcc2d1}
+  </style></head><body><h1>${escapeHtml(title)}</h1><table><thead><tr><th>الكود</th><th>الاسم</th><th>الفرع</th><th>الدوام</th></tr></thead><tbody>${body}</tbody></table></body></html>`)
+  w.document.close(); w.focus(); w.print()
 }
 
-// Token cleanup only (zero visual change): every value here now comes from
-// lib/apex-colors.ts (a JS mirror of the --apex-chart-* vars in globals.css)
-// or an existing --apex-* var — no literal hex left in this file. See
-// --apex-chart-absent's comment for why it's distinct from --apex-red.
-const COLORS = {
-  present: APEX.chartPresent, absent: APEX.chartAbsent, leave: APEX.chartLeave, waiting: 'var(--apex-amber)', weekly: 'var(--apex-neutral-fill)',
-}
-
-const EMPTY_TOTALS: Totals = { employees: 0, present: 0, absent: 0, on_leave: 0, official_holiday: 0, weekly_off: 0, waiting: 0 }
-
-/** Truncates a long branch name for the x-axis tick; the bar's Tooltip still
- *  shows the untruncated name (it reads the underlying data value, not this). */
-function truncateLabel(value: string, max = 10): string {
-  return value.length > max ? `${value.slice(0, max)}…` : value
-}
-
-function BranchAxisTick({ x, y, payload }: any) {
+/** Apex chart tooltip: series title, then "<category>: <n>". */
+function SeriesTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null
+  const p = payload[0]
   return (
-    <text x={x} y={y + 12} textAnchor="middle" fontSize={9} fill={APEX.chartTick}>
-      {truncateLabel(String(payload?.value ?? ''))}
+    <div dir="rtl" className="rounded border border-slate-200 bg-white px-3 py-2 text-[12px] shadow-md">
+      <div className="mb-1 flex items-center gap-1.5 font-bold text-slate-700">
+        <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: p.color || p.fill }} />{p.name}
+      </div>
+      <div className="text-slate-600">{label}: <b>{p.value}</b></div>
+    </div>
+  )
+}
+
+function Legend() {
+  return (
+    <div className="mt-auto flex flex-wrap items-center justify-center gap-4 text-[11px] font-bold text-slate-600">
+      {SERIES.map((s) => (
+        <div key={s.key} className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm" style={{ background: s.color }} /><span>{s.label}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function BranchTick({ x, y, payload }: any) {
+  const v = String(payload?.value ?? '')
+  return (
+    <text x={x} y={y + 8} textAnchor="start" fontSize={10} fill={APEX.chartTick} transform={`rotate(-45 ${x} ${y + 8})`}>
+      {v}
     </text>
   )
 }
 
-export function PublicHrDashboard() {
-  const [data, setData] = useState<Overview | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [error, setError] = useState<'auth' | 'load' | null>(null)
-  const [openCategory, setOpenCategory] = useState<string | null>(null)
+function DefaultAvatar() {
+  return (
+    <svg viewBox="0 0 40 40" className="inline-block h-[50px] w-[50px]" aria-hidden>
+      <circle cx="20" cy="20" r="20" fill="#e2ebfb" />
+      <circle cx="20" cy="15" r="7" fill="#2960b6" />
+      <path d="M7 34c2-7 7-10 13-10s11 3 13 10a19 19 0 0 1-26 0z" fill="#2960b6" />
+    </svg>
+  )
+}
 
-  const load = useCallback(async (isRefresh = false) => {
-    isRefresh ? setRefreshing(true) : setLoading(true)
+export function PublicHrDashboard() {
+  const params = useSearchParams()
+  const date = params?.get('date') || undefined
+  const [data, setData] = useState<Dashboard | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<'auth' | 'load' | null>(null)
+  const [openCard, setOpenCard] = useState<Bucket | null>(null)
+  const [live, setLive] = useState(false)
+  const [fresh, setFresh] = useState<Set<string>>(new Set())
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const dateRef = useRef<string | null>(null)
+
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setLoading(true)
     try {
-      const res = await frappeClient.call<Overview>('base_meena.api.attendance_overview.get_attendance_overview')
-      const payload = (res as any)?.message ?? (res as any)?.data
-      if (!payload?.totals) throw new Error('empty overview payload')
-      setData(payload as Overview)
+      const res = await frappeClient.call<Dashboard>(METHOD, date ? { date } : {})
+      const payload = (res as any)?.message
+      if (!payload?.totals) throw new Error('empty dashboard payload')
+      dateRef.current = payload.date
+      setData(payload)
       setError(null)
     } catch (e) {
       setError(isAuthError(e) ? 'auth' : 'load')
-      if (!isAuthError(e)) console.error('Failed to load attendance overview:', e)
+      if (!isAuthError(e)) console.error('Failed to load attendance dashboard:', e)
     } finally {
       setLoading(false)
-      setRefreshing(false)
     }
-  }, [])
+  }, [date])
 
   useEffect(() => { load() }, [load])
 
-  // «حركات اليوم» / whole overview auto-refresh every 30s, paused while the
-  // tab is hidden (background tabs shouldn't keep hammering the endpoint).
+  // Live punches: prepend + highlight, then a debounced full refresh.
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | null = null
-    const start = () => {
-      if (interval) return
-      interval = setInterval(() => {
-        if (document.visibilityState === 'visible') load(true)
-      }, 30000)
-    }
-    const stop = () => { if (interval) { clearInterval(interval); interval = null } }
-    const onVisibility = () => { if (document.visibilityState === 'hidden') stop(); else start() }
-    document.addEventListener('visibilitychange', onVisibility)
-    start()
-    return () => { stop(); document.removeEventListener('visibilitychange', onVisibility) }
+    return subscribeRealtime<Movement & { removed?: boolean }>('hr_attendance_punch', (row) => {
+      if (row?.removed) { // a held punch was replayed — its replacement arrives as its own event
+        setData((d) => d && { ...d, movements: d.movements.filter((m) => m.id !== row.id) })
+        return
+      }
+      if (!row?.transaction_time || row.transaction_time.slice(0, 10) !== dateRef.current) return
+      setData((d) => {
+        if (!d) return d
+        const same = (m: Movement) => m.id === row.id
+          || (m.code === row.code && m.transaction_time === row.transaction_time && m.device === row.device)
+        return { ...d, movements: [row, ...d.movements.filter((m) => !same(m))] }
+      })
+      setFresh((s) => new Set(s).add(row.id))
+      setTimeout(() => setFresh((s) => { const n = new Set(s); n.delete(row.id); return n }), HIGHLIGHT_MS)
+      if (refreshTimer.current) clearTimeout(refreshTimer.current)
+      refreshTimer.current = setTimeout(() => load(true), REFRESH_DEBOUNCE_MS)
+    }, setLive)
   }, [load])
+
+  // Fallback polling (paused while the tab is hidden).
+  useEffect(() => {
+    const id = setInterval(() => { if (document.visibilityState === 'visible') load(true) }, POLL_MS)
+    return () => clearInterval(id)
+  }, [load])
+
+  const totals = data?.totals ?? EMPTY_TOTALS
+  const donut = useMemo(() => [
+    { name: 'حضور', value: totals.present, fill: APEX.chartPresent },
+    { name: 'الغياب', value: totals.absent, fill: APEX.chartAbsent },
+    { name: 'الاجازات', value: totals.on_leave, fill: APEX.chartLeave },
+    { name: 'في الانتظار', value: totals.waiting, fill: WAITING },
+    { name: 'عطله إسبوعية', value: totals.weekly_off + totals.official_holiday, fill: WEEKLY },
+  ].filter((p) => p.value > 0), [totals])
+  const branches = (data?.by_branch ?? []).map((b) => ({ ...b, weekly_off: b.weekly_off + b.official_holiday }))
+  const lastDays = (data?.last_days ?? []).map((d) => ({ ...d, weekly_off: d.weekly_off + d.official_holiday }))
+  const movements = data?.movements ?? []
+  const card = CARDS.find((c) => c.key === openCard)
+  const cardRows = openCard ? (data?.lists?.[openCard] ?? []) : []
 
   if (error === 'auth') return <div className="p-4"><SessionRenew /></div>
 
-  const totals = data?.totals ?? EMPTY_TOTALS
-  const stats = [
-    { key: 'leave', label: 'الاجازات', value: totals.on_leave, icon: ArrowUpFromLine, color: 'var(--apex-green)' },
-    { key: 'official', label: 'عطلات رسمية', value: totals.official_holiday, icon: Gift, color: 'var(--apex-chart-neutral-icon)' },
-    { key: 'weekly', label: 'عطله إسبوعية', value: totals.weekly_off, icon: CalendarDays, color: 'var(--apex-chart-neutral-icon)' },
-    { key: 'absent', label: 'الغياب', value: totals.absent, icon: AlertTriangle, color: 'var(--apex-chart-absent-icon)' },
-    { key: 'present', label: 'حضور', value: totals.present, icon: CheckSquare, color: 'var(--apex-blue)' },
-  ]
-  const donut = [
-    { name: 'حضور', value: totals.present, fill: COLORS.present },
-    { name: 'غياب', value: totals.absent, fill: COLORS.absent },
-    { name: 'اجازات', value: totals.on_leave, fill: COLORS.leave },
-    { name: 'في الانتظار', value: totals.waiting, fill: COLORS.waiting },
-    { name: 'عطلة', value: totals.weekly_off + totals.official_holiday, fill: COLORS.weekly },
-  ].filter((d) => d.value > 0)
-  const branches = (data?.by_branch ?? []).map((b) => ({
-    name: b.branch, present: b.present, absent: b.absent, leave: b.on_leave, waiting: b.waiting,
-    weekly: b.weekly_off + b.official_holiday,
-  }))
-  const branchMax = Math.max(4, ...branches.map((b) => b.present + b.absent + b.leave + b.waiting + b.weekly))
-  // Apex «حركات اخر 10 ايام» — official holidays share the weekly-off bar,
-  // same as the branch chart above (Apex has no separate series for them).
-  const lastDays = (data?.last_days ?? []).map((d) => ({
-    date: d.date, present: d.present ?? 0, absent: d.absent ?? 0, leave: d.on_leave ?? 0,
-    waiting: d.waiting ?? 0, weekly: (d.weekly_off ?? 0) + (d.official_holiday ?? 0),
-  }))
-  const movements = data?.movements ?? []
-  // 5.1: Apex's exact title format is weekday + a HYPHENATED date (dd-mm-yyyy),
-  // unlike every other date in the app (dd/mm/yyyy, lib/hr-format.ts) — kept
-  // local to this one title rather than touching the shared formatter.
-  const dayTitle = data ? `حركات يوم ${data.day_name} ${fmtDate(data.date).replace(/\//g, '-')}` : 'حركات اليوم'
-  const openStat = stats.find((s) => s.key === openCategory)
-  const openRows = openCategory ? (data?.lists?.[CATEGORY_LIST_KEYS[openCategory]] ?? []) : []
-
   return (
-    <div className="p-4 space-y-4 bg-[var(--apex-bg)] min-h-full font-[family-name:var(--font-arabic)]" dir="rtl">
-
-      {/* Apex has no separate status strip / «تحديث» button above the summary
-          panel — the load-error note (if any) surfaces on the movements card
-          below instead, next to its own small refresh icon (5.1). */}
-
-      {/* Top Row: Cards and Circle Chart */}
-      <div className="flex flex-col xl:flex-row-reverse gap-4">
-        {/* 5.1: grey panel (Apex measured 1603×218 — height fixed, width fluid
-            to the column), title 24px/400 (not bold), 5 white cards 170×117
-            radius 5 no shadow, no icons. */}
-        <div className="flex-1 bg-[var(--apex-chart-panel-bg)] p-5 rounded min-h-[218px]">
-          <h2 className="mb-5 text-[24px] font-normal text-slate-800 text-center">ملخص حضور اليوم</h2>
-          <div className="flex flex-wrap gap-3 flex-row-reverse justify-center">
-            {stats.map((s) => (
-              <button
-                key={s.key}
-                type="button"
-                onClick={() => setOpenCategory(s.key)}
-                aria-haspopup="dialog"
-                className="h-[117px] w-[170px] flex flex-col items-center justify-center bg-white rounded-[5px]"
-              >
-                <p className="text-[13px] font-bold text-slate-700 mb-2">{s.label}</p>
-                {loading ? (
-                  <Skeleton className="h-6 w-8" />
-                ) : (
-                  <p className="text-xl font-bold" style={{ color: s.color }}>{s.value}</p>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="w-full xl:w-[320px] shrink-0 bg-white p-5 rounded border border-slate-100 flex flex-col items-center justify-center shadow-sm">
+    <div className="min-h-full space-y-4 bg-[var(--apex-bg)] p-4 font-[family-name:var(--font-arabic)]" dir="rtl" data-testid="hr-dashboard">
+      {/* ── Row 1: donut (right) · «ملخص حضور اليوم» (left) ── */}
+      <div className="flex flex-col gap-4 xl:flex-row">
+        <div className="flex w-full shrink-0 items-center justify-center rounded bg-white p-5 shadow-sm xl:w-[310px]">
           <div className="relative h-44 w-44">
             <ResponsiveContainer width="100%" height="100%">
-              {/* role/title (not aria-label — not a typed recharts prop) give the
-                  generated <svg> an accessible name (D7, round-1: svg-img-alt) */}
-              <PieChart role="img" aria-label="توزيع الموظفين حسب حالة الحضور" title="توزيع الموظفين حسب حالة الحضور">
-                <Pie
-                  data={donut.length ? donut : [{ name: '—', value: 1, fill: APEX.chartGrid }]}
-                  dataKey="value" cx="50%" cy="50%" innerRadius={61} outerRadius={70}
-                  stroke="none" isAnimationActive={false}
-                >
-                  {(donut.length ? donut : [{ fill: APEX.chartGrid }]).map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
+              <PieChart role="img" aria-label="إجمالي الموظفين">
+                <Pie data={donut.length ? donut : [{ name: '—', value: 1, fill: APEX.chartGrid }]} dataKey="value"
+                  cx="50%" cy="50%" innerRadius={58} outerRadius={70} startAngle={90} endAngle={-270} stroke="none" isAnimationActive={false}>
+                  {(donut.length ? donut : [{ fill: APEX.chartGrid }]).map((p, i) => <Cell key={i} fill={p.fill} />)}
                 </Pie>
                 {donut.length > 0 && <Tooltip contentStyle={{ direction: 'rtl', borderRadius: 4, fontSize: 12 }} />}
               </PieChart>
             </ResponsiveContainer>
-            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center mt-2">
-              <span className="text-[11px] font-bold text-slate-600 mb-0.5">إجمالي الموظفين</span>
-              <span className="text-xl font-bold text-blue-500">{loading ? '…' : totals.employees}</span>
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-[13px] text-slate-700">إجمالي الموظفين</span>
+              <span className="text-xl text-[var(--apex-blue)]" data-testid="total-employees">{loading ? '…' : totals.employees}</span>
             </div>
+          </div>
+        </div>
+
+        <div className="flex-1 rounded bg-[var(--apex-chart-panel-bg)] p-5 shadow-sm">
+          <h2 className="mb-5 text-center text-[24px] font-normal text-slate-800">ملخص حضور اليوم</h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            {CARDS.map((c) => (
+              <button key={c.key} type="button" onClick={() => setOpenCard(c.key)} aria-haspopup="dialog" data-testid={`card-${c.key}`}
+                className="flex h-[92px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-[5px] bg-white shadow-sm hover:shadow">
+                <span className="relative inline-flex h-7 w-7 items-center justify-center rounded">
+                  <span className="absolute inset-0 rounded opacity-15" style={{ background: c.color }} />
+                  <c.icon className="relative h-[18px] w-[18px]" style={{ color: c.color }} aria-hidden />
+                </span>
+                <span className="text-[13px] text-slate-700">{c.label}</span>
+                {loading ? <Skeleton className="h-4 w-6" /> : <span className="text-[13px] font-bold" style={{ color: c.numberColor }}>{totals[c.key]}</span>}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Middle Row: Stacked Bar Chart and Table */}
+      {/* ── Row 2: «حركات يوم …» (right) · «ملخص الحضور في الفروع» (left) ── */}
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <div className="order-2 bg-white pt-5 pb-3 px-4 rounded border border-slate-100 shadow-sm flex flex-col">
-          <h2 className="mb-6 text-[24px] font-bold text-slate-800 text-center">ملخص الحضور في الفروع</h2>
-          <div className="h-[300px] mb-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart role="img" aria-label="ملخص الحضور في الفروع" title="ملخص الحضور في الفروع" data={branches} barSize={26} margin={{ right: 12, left: -18, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={APEX.chartGrid} />
-                <XAxis
-                  dataKey="name" tick={<BranchAxisTick />} axisLine={{ stroke: APEX.chartAxisLine }}
-                  tickLine={false} angle={0} interval={0} height={36}
-                />
-                <YAxis tick={{ fontSize: 11, fill: APEX.chartTick }} axisLine={{ stroke: APEX.chartAxisLine }} tickLine={false} allowDecimals={false} domain={[0, branchMax]} />
-                <Tooltip cursor={{ fill: 'rgba(148,163,184,0.1)' }} contentStyle={{ direction: 'rtl', borderRadius: 4, fontSize: 12 }} />
-                <Bar dataKey="present" name="حضور" stackId="a" fill={COLORS.present} isAnimationActive={false} />
-                <Bar dataKey="leave" name="الاجازات" stackId="a" fill={COLORS.leave} isAnimationActive={false} />
-                <Bar dataKey="absent" name="الغياب" stackId="a" fill={COLORS.absent} isAnimationActive={false} />
-                <Bar dataKey="weekly" name="عطلة" stackId="a" fill={COLORS.weekly} isAnimationActive={false} />
-                <Bar dataKey="waiting" name="في الانتظار" stackId="a" fill={COLORS.waiting} radius={[2, 2, 0, 0]} isAnimationActive={false} />
-              </BarChart>
-            </ResponsiveContainer>
+        <div className="flex flex-col rounded bg-white px-4 pb-3 pt-5 shadow-sm">
+          <div className="mb-3 flex items-center justify-center gap-2">
+            <h2 className="text-[1.5rem] text-slate-800" data-testid="movements-title">
+              {data ? `حركات يوم ${data.day_name} ${data.date}` : 'حركات اليوم'}
+            </h2>
+            <span className="relative" title={live ? 'تحديث مباشر: متصل — تظهر كل بصمة فور تسجيلها' : 'تحديث مباشر غير متصل — يتم التحديث كل دقيقة'}>
+              <CircleHelp className="h-4 w-4 animate-pulse text-slate-400" aria-hidden />
+              <span className={`absolute -left-0.5 -top-0.5 h-1.5 w-1.5 rounded-full ${live ? 'bg-emerald-500' : 'bg-slate-300'}`} data-testid="live-dot" data-live={live ? '1' : '0'} />
+            </span>
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] font-bold text-slate-600 mt-auto">
-            <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS.present }} /><span>حضور</span></div>
-            <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS.absent }} /><span>الغياب</span></div>
-            <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS.leave }} /><span>الاجازات</span></div>
-            <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS.waiting }} /><span>في الانتظار</span></div>
-            <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS.weekly }} /><span>عطله إسبوعية</span></div>
-          </div>
-        </div>
-
-        <div className="order-1 bg-white pt-5 pb-3 px-4 rounded border border-slate-100 shadow-sm flex flex-col">
-          <div className="flex items-center justify-between mb-1 px-2">
-            <div className="flex items-center justify-center gap-2">
-              <h2 className="text-[24px] font-bold text-slate-800">{dayTitle}</h2>
-              {/* 5.1: a small refresh icon replaces the removed top «تحديث» button/status line */}
-              <button
-                type="button"
-                onClick={() => load(true)}
-                disabled={loading || refreshing}
-                aria-label="تحديث بيانات الحركات"
-                title="تحديث"
-                className="text-slate-400 hover:text-slate-600 disabled:opacity-50"
-              >
-                {refreshing ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <RefreshCw className="h-4 w-4" aria-hidden />}
-              </button>
-            </div>
-          </div>
-          {/* Apex shows no status line here — kept as a screen-reader-only note
-              (not visible, so the title row stays title+icon exactly like Apex)
-              so the "stale data" / load-error states aren't silently dropped. */}
-          {(error === 'load' || (data && !data.is_today)) && (
-            <p className="sr-only" role="status" aria-live="polite">
-              {error === 'load'
-                ? 'تعذّر تحميل البيانات من الخادم'
-                : `لا توجد حركات اليوم بعد — يُعرض آخر يوم به حركات (${fmtDate(data!.date)})`}
-            </p>
-          )}
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-[12px]">
-              <thead>
-                <tr className="border-b border-slate-200 text-slate-600">
-                  <th className="pb-3 pt-1 px-2 font-bold w-12 text-center whitespace-nowrap">الصورة</th>
-                  <th className="pb-3 pt-1 px-2 font-bold text-center whitespace-nowrap">كود الموظف</th>
-                  <th className="pb-3 pt-1 px-2 font-bold text-center whitespace-nowrap">الاسم</th>
-                  <th className="pb-3 pt-1 px-2 font-bold text-center whitespace-nowrap">الحركة</th>
-                  <th className="pb-3 pt-1 px-2 font-bold text-center whitespace-nowrap">الموقع</th>
+          {error === 'load' && <p className="mb-2 text-center text-[12px] text-rose-600">تعذّر تحميل البيانات من الخادم</p>}
+          <div className="h-[330px] overflow-y-auto">
+            <table className="w-full table-fixed text-right text-[12.5px]">
+              <thead className="sticky top-0 bg-white">
+                <tr className="border-b-2 border-slate-300 text-slate-800">
+                  <th className="w-[70px] px-2 pb-2 font-bold">الصورة</th>
+                  <th className="w-24 px-2 pb-2 font-bold">كود الموظف</th>
+                  <th className="px-2 pb-2 font-bold">الاسم</th>
+                  <th className="w-40 px-2 pb-2 font-bold">الحركة</th>
+                  <th className="px-2 pb-2 font-bold">الموقع</th>
                 </tr>
               </thead>
-              <tbody>
-                {loading && (
-                  <tr><td colSpan={5} className="py-8 text-center text-slate-400"><Loader2 className="inline h-4 w-4 animate-spin" aria-hidden /></td></tr>
+              <tbody data-testid="movements">
+                {loading && !data && (
+                  <tr><td colSpan={5} className="py-10 text-center text-slate-400"><Loader2 className="inline h-4 w-4 animate-spin" aria-hidden /></td></tr>
                 )}
                 {!loading && movements.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="py-2">
-                      <EmptyState
-                        icon={CalendarDays}
-                        title="لا توجد حركات مسجّلة اليوم"
-                        description="ستظهر هنا حركات الحضور والانصراف بمجرد تسجيلها"
-                      />
-                    </td>
-                  </tr>
+                  <tr><td colSpan={5} className="py-10 text-center text-slate-400">لا توجد حركات</td></tr>
                 )}
-                {movements.map((m, i) => (
-                  <tr key={`${m.employee}-${m.time}-${i}`} className="border-b border-slate-100">
-                    <td className="py-2.5 px-2 text-center whitespace-nowrap">
-                      {m.image ? (
+                {movements.map((m) => (
+                  <tr key={m.id} data-testid="movement-row" data-code={m.code}
+                    className={`h-[62px] border-b border-slate-200 transition-colors duration-700 ${fresh.has(m.id) ? 'bg-amber-100' : ''}`}>
+                    <td className="px-2">
+                      {m.image
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={frappeImageUrl(m.image)} alt="" className="inline-block h-7 w-7 rounded-full object-cover" />
-                      ) : (
-                        <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[var(--apex-chart-badge-bg)] text-[11px] font-bold text-[var(--apex-chart-badge-text)]">
-                          {(m.employee_name || '?').trim().charAt(0)}
-                        </span>
+                        ? <img src={frappeImageUrl(m.image)} alt="" className="h-[50px] w-[50px] rounded-full object-cover" />
+                        : <DefaultAvatar />}
+                    </td>
+                    <td className="px-2 text-slate-700">{m.code}</td>
+                    <td className="truncate px-2 text-slate-700" title={m.name}>{m.name}</td>
+                    <td className="whitespace-nowrap px-2 text-slate-700">
+                      {apexDateTime(m.transaction_time)}
+                      {m.clock_skew && (
+                        <span className="ms-1 align-middle text-amber-600" title="ساعة جهاز البصمة غير مضبوطة — الحركة محفوظة وستُصحَّح تلقائياً">⚠</span>
                       )}
                     </td>
-                    <td className="py-2.5 px-2 text-center font-bold text-slate-700 whitespace-nowrap">{m.employee_number}</td>
-                    <td className="py-2.5 px-2 text-center font-bold text-slate-700 whitespace-nowrap">{m.employee_name}</td>
-                    <td className="py-2.5 px-2 text-center text-slate-500 font-medium whitespace-nowrap">
-                      {fmtDateTime(m.time)}
-                      {m.log_type && (
-                        <span className={`ms-1.5 rounded px-1 text-[10px] font-bold ${m.log_type === 'IN' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
-                          {m.log_type === 'IN' ? 'دخول' : 'خروج'}
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-2.5 px-2 text-center text-slate-500 font-medium whitespace-nowrap">
-                      {m.location_label ?? m.branch ?? '—'}
-                      {m.location_map_url && (
-                        <a
-                          href={m.location_map_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label="عرض الموقع على الخريطة"
-                          className="ms-1 inline-flex align-middle text-[var(--apex-blue)] hover:text-[var(--apex-blue-light)]"
-                        >
-                          <MapPin className="inline h-3 w-3" aria-hidden />
-                        </a>
-                      )}
-                    </td>
+                    <td className="truncate px-2 text-slate-700" title={m.location?.name}>{m.location?.name}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </div>
+
+        <div className="flex flex-col rounded bg-white px-4 pb-3 pt-5 shadow-sm">
+          <h2 className="mb-4 text-center text-[1.5rem] font-medium text-slate-800">ملخص الحضور في الفروع</h2>
+          <div className="mb-2 h-[360px]" data-testid="branch-chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={branches} barSize={46} margin={{ right: 8, left: -18, bottom: 0 }}>
+                <CartesianGrid vertical={false} stroke={APEX.chartGrid} />
+                <XAxis dataKey="branch" tick={<BranchTick />} interval={0} height={110} axisLine={{ stroke: APEX.chartAxisLine }} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: APEX.chartTick }} axisLine={false} tickLine={false} allowDecimals={false}
+                  domain={[0, Math.max(4, data?.max_value ?? 0)]} />
+                <Tooltip shared={false} cursor={false} content={<SeriesTooltip />} />
+                {SERIES.map((s) => <Bar key={s.key} dataKey={s.key} name={s.label} stackId="b" fill={s.color} isAnimationActive={false} />)}
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <Legend />
+        </div>
       </div>
 
-      {/* Apex «حركات اخر 10 ايام» (ejs-chart #Schartcontainer): grouped
-          columns per day, one per category, legend below. */}
-      <div className="bg-white pt-5 pb-3 px-4 rounded border border-slate-100 shadow-sm flex flex-col">
-        <h2 className="mb-6 text-[24px] font-medium text-slate-800 text-center">حركات اخر 10 ايام</h2>
-        <div className="h-[320px] mb-2">
-          {loading ? (
-            <Skeleton className="h-full w-full" />
-          ) : (
+      {/* ── Row 3: «حركات اخر 10 ايام» — grouped (clustered) columns ── */}
+      <div className="flex flex-col rounded bg-white px-4 pb-3 pt-5 shadow-sm">
+        <h2 className="mb-4 text-center text-[1.5rem] font-medium text-slate-800">حركات اخر 10 ايام</h2>
+        <div className="mb-2 h-[320px]" data-testid="trend-chart">
+          {loading && !data ? <Skeleton className="h-full w-full" /> : (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart role="img" aria-label="حركات اخر 10 ايام" title="حركات اخر 10 ايام" data={lastDays} barGap={1} barCategoryGap="20%" margin={{ right: 12, left: -18, bottom: 0 }}>
+              <BarChart data={lastDays} barGap={2} barCategoryGap="18%" margin={{ right: 8, left: -18, bottom: 0 }}>
                 <CartesianGrid vertical={false} stroke={APEX.chartGrid} />
-                <XAxis dataKey="date" tick={{ fontSize: 10, fill: APEX.chartTick }} tickFormatter={(v: string) => fmtDate(v)} axisLine={{ stroke: APEX.chartAxisLine }} tickLine={false} minTickGap={4} height={30} />
-                <YAxis tick={{ fontSize: 11, fill: APEX.chartTick }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip cursor={{ fill: 'rgba(148,163,184,0.1)' }} labelFormatter={(v: string) => fmtDate(v)} contentStyle={{ direction: 'rtl', borderRadius: 4, fontSize: 12 }} />
-                <Bar dataKey="present" name="حضور" fill={COLORS.present} isAnimationActive={false} />
-                <Bar dataKey="absent" name="الغياب" fill={COLORS.absent} isAnimationActive={false} />
-                <Bar dataKey="leave" name="الاجازات" fill={COLORS.leave} isAnimationActive={false} />
-                <Bar dataKey="waiting" name="في الانتظار" fill={COLORS.waiting} isAnimationActive={false} />
-                <Bar dataKey="weekly" name="عطله إسبوعية" fill={COLORS.weekly} isAnimationActive={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: APEX.chartTick }} interval={0} axisLine={{ stroke: APEX.chartAxisLine }} tickLine={false} height={30} />
+                <YAxis tick={{ fontSize: 10, fill: APEX.chartTick }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip shared={false} cursor={false} content={<SeriesTooltip />} />
+                {SERIES.map((s) => <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color} isAnimationActive={false} />)}
               </BarChart>
             </ResponsiveContainer>
           )}
         </div>
-        <div className="flex flex-wrap items-center justify-center gap-4 text-[11px] font-bold text-slate-600 mt-auto">
-          <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS.present }} /><span>حضور</span></div>
-          <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS.absent }} /><span>الغياب</span></div>
-          <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS.leave }} /><span>الاجازات</span></div>
-          <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS.waiting }} /><span>في الانتظار</span></div>
-          <div className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLORS.weekly }} /><span>عطله إسبوعية</span></div>
-        </div>
+        <Legend />
       </div>
 
-      {/* Category drill-down — Apex `AttendingLeaveDetalies`: clicking a summary
-          card opens the underlying list (code · name · shift · branch). The
-          `theme-hr hr-dialog-lg` classes are applied directly on the portalled
-          content itself (not relied on via ancestry) so the Apex dialog-geometry
-          tokens in globals.css (`[role="dialog"].theme-hr…`) always match it. */}
-      <Dialog open={openCategory !== null} onOpenChange={(open) => { if (!open) setOpenCategory(null) }}>
-        <DialogContent className="theme-hr hr-dialog-lg">
-          <DialogHeader className="flex-row items-center justify-between gap-3 space-y-0">
-            <DialogTitle>{openStat?.label ?? ''}</DialogTitle>
-            <button
-              type="button"
-              onClick={() => printCategoryList(openStat?.label ?? '', openRows)}
-              className="inline-flex items-center gap-1.5 rounded border border-slate-200 bg-white px-2.5 py-1.5 text-[12px] font-bold text-slate-600 hover:bg-slate-50"
-            >
-              <Printer className="h-3.5 w-3.5" aria-hidden />
-              الطباعة
-            </button>
-          </DialogHeader>
-          <div className="overflow-y-auto max-h-[60vh]">
-            <table className="w-full text-[13px] text-right">
-              <thead>
-                <tr className="bg-[var(--apex-thead)] text-[var(--apex-text)] border-y border-slate-300 h-11">
-                  <th className="px-3 font-bold whitespace-nowrap">كود الموظف</th>
-                  <th className="px-3 font-bold whitespace-nowrap">الاسم</th>
-                  <th className="px-3 font-bold whitespace-nowrap">الدوام</th>
-                  <th className="px-3 font-bold whitespace-nowrap">الفرع</th>
+      {/* ── «عرض <label>» drill-down (Apex AttendingLeaveDetalies) ── */}
+      <Dialog open={openCard !== null} onOpenChange={(o) => { if (!o) setOpenCard(null) }}>
+        <DialogContent className="theme-hr hr-dialog-lg" data-testid="card-dialog">
+          <DialogHeader><DialogTitle className="text-center">عرض {card?.label}</DialogTitle></DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto">
+            <table className="w-full text-right text-[13px]">
+              <thead className="sticky top-0">
+                <tr className="h-11 border-y border-slate-300 bg-[var(--apex-thead)] text-[var(--apex-text)]">
+                  <th className="px-3 font-bold">الكود</th><th className="px-3 font-bold">الاسم</th>
+                  <th className="px-3 font-bold">الفرع</th><th className="px-3 font-bold">الدوام</th>
                 </tr>
               </thead>
               <tbody>
-                {openRows.length === 0 ? (
-                  <tr><td colSpan={4} className="py-8 text-center text-slate-400">لا توجد بيانات</td></tr>
-                ) : openRows.map((r, i) => (
-                  <tr key={`${r.code}-${i}`} className="border-b border-slate-100 h-11">
-                    <td className="px-3 font-bold text-slate-700 whitespace-nowrap">{r.code}</td>
-                    <td className="px-3 whitespace-nowrap">{r.name}</td>
-                    <td className="px-3 text-slate-500 whitespace-nowrap">{r.shift || '—'}</td>
-                    <td className="px-3 text-slate-500 whitespace-nowrap">{r.branch || '—'}</td>
-                  </tr>
-                ))}
+                {cardRows.length === 0
+                  ? <tr><td colSpan={4} className="py-8 text-center text-slate-400">لا توجد بيانات</td></tr>
+                  : cardRows.map((r, i) => (
+                    <tr key={`${r.code}-${i}`} className="h-11 border-b border-slate-100">
+                      <td className="px-3">{r.code}</td><td className="px-3">{r.name}</td>
+                      <td className="px-3 text-slate-600">{r.branch || '—'}</td><td className="px-3 text-slate-600">{r.shift || '—'}</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
+          </div>
+          <div className="mt-3 flex items-center justify-end gap-2">
+            <button type="button" onClick={() => printList(`عرض ${card?.label ?? ''}`, cardRows)}
+              className="inline-flex h-9 items-center gap-1.5 rounded border border-slate-300 px-3 text-[13px] text-slate-600 hover:bg-slate-50">
+              <Printer className="h-3.5 w-3.5" aria-hidden />الطباعة
+            </button>
+            <button type="button" onClick={() => setOpenCard(null)} className="h-9 rounded bg-[var(--apex-red)] px-6 text-[13px] text-white hover:opacity-90">إلغاء</button>
           </div>
         </DialogContent>
       </Dialog>
-
     </div>
   )
 }

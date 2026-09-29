@@ -18,7 +18,6 @@ import {
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { LocalizedDateInput } from '@/components/ui/localized-date-input'
 import { DeviceLogDrawer } from '@/components/hr/devices/log-drawer'
-import { UnmappedPanel } from '@/components/hr/devices/unmapped-panel'
 import { deviceSerial, type BiometricDevice } from '@/components/hr/devices/types'
 import { ApexToolbar } from '@/components/hr/apex/toolbar'
 import { ApexTableCard } from '@/components/hr/apex/table-card'
@@ -69,6 +68,13 @@ function connectionStatusAr(data?: { connected?: boolean; seconds_ago?: number; 
   return { title: 'الجهاز غير متصل', description: known || 'لم يصل أي اتصال من الجهاز بعد' }
 }
 
+// device_clock.get_clock_status — offset in effect + last observed skew + held punches.
+type ClockStatus = {
+  name: string; clock_offset_minutes?: number; clock_offset_source?: string; clock_offset_since?: string
+  clock_skew_minutes?: number; held_punches: number; flagged: boolean
+}
+const CLOCK = 'base_meena.biometric_management.device_clock'
+
 type DeviceForm = { mode: 'add' | 'edit'; serial: string; name: string; nameEn: string; location: string }
 
 /**
@@ -96,6 +102,9 @@ export function DevicesPage() {
   const [branches, setBranches] = useState<string[]>([])
 
   const [deviceForm, setDeviceForm] = useState<DeviceForm | null>(null)
+  const [clock, setClock] = useState<Record<string, ClockStatus>>({})
+  const [offsetDevice, setOffsetDevice] = useState<{ serial: string; minutes: string; note: string } | null>(null)
+  const [savingOffset, setSavingOffset] = useState(false)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [registerSuccess, setRegisterSuccess] = useState<{ server_ip: string; server_port: string } | null>(null)
@@ -116,6 +125,9 @@ export function DevicesPage() {
     try {
       const resp = await frappeClient.call<BiometricDevice[]>(`${ADMS}.get_device_list`)
       setDevices(Array.isArray(resp.message) ? resp.message : [])
+      frappeClient.call<ClockStatus[]>(`${CLOCK}.get_clock_status`)
+        .then((r) => setClock(Object.fromEntries((r.message ?? []).map((c) => [c.name, c]))))
+        .catch(() => setClock({}))
     } catch (err) {
       console.error('Failed to load devices:', err)
       setLoadError(true)
@@ -361,7 +373,6 @@ export function DevicesPage() {
   return (
     <div dir="rtl" className="space-y-3 p-4 font-[family-name:var(--font-arabic)]">
 
-      <UnmappedPanel onMapped={load} />
 
       {/* ── Print-only view (see app/globals.css for the rules that hide the
           sidebar/topbar around it) ── */}
@@ -418,6 +429,26 @@ export function DevicesPage() {
           </div>
         )}
 
+        {Object.values(clock).filter((c) => c.flagged).map((c) => {
+          const dev = devices.find((d) => deviceSerial(d) === c.name)
+          const skew = c.clock_skew_minutes ?? 0
+          return (
+            <div key={c.name} data-testid="clock-warning" className="mb-2 flex flex-wrap items-center gap-2 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-900">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>
+                ساعة الجهاز <b>{dev?.device_name || c.name}</b> {skew >= 0 ? 'متقدمة' : 'متأخرة'} بحوالي <b>{Math.abs(skew)}</b> دقيقة.
+                {' '}{c.clock_offset_minutes
+                  ? <>يتم تصحيح الحركات تلقائياً بـ {c.clock_offset_minutes} دقيقة ({c.clock_offset_source === 'manual' ? 'يدوي' : 'تلقائي'}).</>
+                  : <>لا يوجد تصحيح بعد.</>}
+                {c.held_punches > 0 && <> {c.held_punches} حركة محفوظة بانتظار التصحيح.</>}
+                {' '}اضبط وقت الجهاز أو المنطقة الزمنية (GMT+3).
+              </span>
+              <button type="button" onClick={() => setOffsetDevice({ serial: c.name, minutes: String(c.clock_offset_minutes ?? 0), note: '' })}
+                className="ms-auto rounded border border-amber-300 bg-white px-2 py-0.5 text-[12px] hover:bg-amber-100">ضبط فرق الساعة</button>
+            </div>
+          )
+        })}
+
         {/* ── Table (5.22 columns: ☐ · م · الرقم التسلسلي · اسم الجهاز · فرع ·
             الحالة · الاجراءات — synced-count/last-IP kept as X extras) ── */}
         <ApexTableCard>
@@ -457,7 +488,10 @@ export function DevicesPage() {
                     <td className="font-mono">{serial}</td>
                     <td>{d.device_name || '—'}</td>
                     <td>{d.location || '—'}</td>
-                    <td className="whitespace-nowrap"><span className={lastSeenClass(d)}>{lastSeenLabel(d)}</span></td>
+                    <td className="whitespace-nowrap">
+                      <span className={lastSeenClass(d)}>{lastSeenLabel(d)}</span>
+                      {clock[serial]?.flagged && <span className="ms-1 text-amber-600" title="ساعة الجهاز غير مضبوطة">⚠</span>}
+                    </td>
                     <td className="apex-col-actions">
                       <div className="inline-flex items-center">
                       <button onClick={() => openEdit(d)} title="تعديل" aria-label={`تعديل ${serial}`} className="apex-icon-edit px-1 hover:opacity-75"><Pencil className="h-[17px] w-[17px]" /></button>
@@ -483,6 +517,9 @@ export function DevicesPage() {
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => openResync(d)}><RotateCcw className="h-3.5 w-3.5 ml-2" />إعادة مزامنة</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setLogDevice(d)}><Fingerprint className="h-3.5 w-3.5 ml-2" />سجل البصمات</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setOffsetDevice({ serial, minutes: String(clock[serial]?.clock_offset_minutes ?? 0), note: '' })}>
+                            <RotateCcw className="h-3.5 w-3.5 ml-2" />ضبط فرق الساعة
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                       </div>
@@ -587,6 +624,43 @@ export function DevicesPage() {
         )}
       </ApexDialog>
 
+      {/* ── Manual clock offset (audited server-side as a Comment on the device) ── */}
+      <ApexDialog
+        open={!!offsetDevice}
+        onOpenChange={(o) => !o && setOffsetDevice(null)}
+        title="ضبط فرق ساعة الجهاز"
+        size="sm"
+        primary={{
+          label: 'حفظ', disabled: savingOffset, loading: savingOffset,
+          onClick: async () => {
+            if (!offsetDevice) return
+            setSavingOffset(true)
+            try {
+              await frappeClient.call(`${CLOCK}.set_manual_offset`, {
+                serial_number: offsetDevice.serial, minutes: parseInt(offsetDevice.minutes || '0', 10) || 0, note: offsetDevice.note,
+              })
+              toast({ title: 'تم حفظ فرق الساعة وإعادة معالجة الحركات المحفوظة' })
+              setOffsetDevice(null)
+              load()
+            } catch (err: any) {
+              toast({ title: err?.message || 'تعذّر الحفظ', variant: 'destructive' })
+            } finally {
+              setSavingOffset(false)
+            }
+          },
+        }}
+      >
+        <div className="space-y-1.5">
+          <Label className="text-[13px] text-slate-600">الفرق بالدقائق (وقت الجهاز − الوقت الحقيقي)</Label>
+          <Input type="number" dir="ltr" value={offsetDevice?.minutes ?? ''} onChange={(e) => setOffsetDevice((o) => o && { ...o, minutes: e.target.value })} />
+          <p className="text-[11.5px] text-slate-500">مثال: الجهاز متقدم 5 ساعات = 300. يُلغى تلقائياً عند ضبط ساعة الجهاز.</p>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-[13px] text-slate-600">ملاحظة</Label>
+          <Input value={offsetDevice?.note ?? ''} onChange={(e) => setOffsetDevice((o) => o && { ...o, note: e.target.value })} className="text-right" />
+        </div>
+      </ApexDialog>
+
       {/* ── Resync dialog ── */}
       <Dialog open={!!resyncDevice} onOpenChange={(o) => !o && setResyncDevice(null)}>
         <DialogContent dir="rtl" className="max-w-sm">
@@ -665,7 +739,11 @@ export function DevicesPage() {
  *  polling, red once it has gone quiet; «لم يتصل بعد» / «معطّل» otherwise. */
 function lastSeenLabel(d: BiometricDevice): string {
   if (!d.enabled) return 'معطّل'
-  return d.last_activity ? `اخر ظهور: ${String(d.last_activity).slice(0, 16)}` : 'لم يتصل بعد'
+  if (!d.last_activity) return 'لم يتصل بعد'
+  // Apex: «اخر ظهور: DD-MM-YYYY HH:mm»
+  const [day, time] = String(d.last_activity).split(' ')
+  const [y, m, dd] = day.split('-')
+  return `اخر ظهور: ${dd}-${m}-${y} ${(time || '').slice(0, 5)}`
 }
 
 function lastSeenClass(d: BiometricDevice): string {

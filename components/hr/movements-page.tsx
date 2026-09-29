@@ -78,13 +78,14 @@ export function MovementsPage() {
     if (!form.employee || !form.date || !/^\d{2}:\d{2}$/.test(form.time)) {
       toast({ title: 'أكمل الحقول المطلوبة', description: 'الموظف والتاريخ والوقت (HH:mm)', variant: 'destructive' }); return
     }
-    if (editing && !form.password) { toast({ title: 'أدخل كلمة مرور المسؤول', variant: 'destructive' }); return }
+    if (!form.password) { toast({ title: 'أدخل كلمة مرور المسؤول', variant: 'destructive' }); return }
     setSaving(true)
     try {
       if (editing) {
         await frappeClient.call(`${M}.update_movement`, { name: editing.id, ...form })
       } else {
-        await frappeClient.call(`${M}.add_movement`, { employee: form.employee, date: form.date, time: form.time, log_type: form.log_type, device: form.device })
+        // Apex: no type field — the server derives IN/OUT from the day's punch order
+        await frappeClient.call(`${M}.add_movement`, { employee: form.employee, date: form.date, time: form.time, device: form.device, password: form.password })
       }
       toast({ title: editing ? 'تم التعديل' : 'تمت إضافة الحركة' })
       setOpen(false); setReloadKey((k) => k + 1)
@@ -141,28 +142,17 @@ export function MovementsPage() {
             {devices.map((d) => <option key={d.name} value={d.name}>{d.device_name || d.name}</option>)}
           </select>
         </div>
-        {!editing && (
-          <div>
-            <label className="block text-[13px] text-slate-700 mb-1">نوع الحركة</label>
-            <select value={form.log_type} onChange={(e) => setForm((f) => ({ ...f, log_type: e.target.value }))} className={FIELD}>
-              <option value="IN">حضور</option>
-              <option value="OUT">انصراف</option>
-            </select>
+        <div className="col-span-2">
+          <label className="block text-[13px] text-slate-700 mb-1">كلمة مرور المسؤول <span className="text-red-500">*</span></label>
+          <div className="relative">
+            <input type={showPwd ? 'text' : 'password'} value={form.password} autoComplete="current-password"
+              onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} className={`${FIELD} ps-10`} />
+            <button type="button" onClick={() => setShowPwd((s) => !s)} aria-label={showPwd ? 'اخفاء كلمة المرور' : 'اظهار كلمة المرور'}
+              className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700">
+              {showPwd ? <Eye className="h-[18px] w-[18px]" /> : <EyeOff className="h-[18px] w-[18px]" />}
+            </button>
           </div>
-        )}
-        {editing && (
-          <div className="col-span-2">
-            <label className="block text-[13px] text-slate-700 mb-1">كلمة مرور المسؤول <span className="text-red-500">*</span></label>
-            <div className="relative">
-              <input type={showPwd ? 'text' : 'password'} value={form.password} autoComplete="current-password"
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} className={`${FIELD} ps-10`} />
-              <button type="button" onClick={() => setShowPwd((s) => !s)} aria-label={showPwd ? 'اخفاء كلمة المرور' : 'اظهار كلمة المرور'}
-                className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700">
-                {showPwd ? <Eye className="h-[18px] w-[18px]" /> : <EyeOff className="h-[18px] w-[18px]" />}
-              </button>
-            </div>
-          </div>
-        )}
+        </div>
       </ApexDialog>
 
       <ConfirmDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null) }}

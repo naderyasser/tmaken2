@@ -2,7 +2,8 @@ import type { FrappeFilter } from '@/lib/api-client'
 import type { DrawerFilter } from '@/components/hr/advanced-search-drawer'
 import { VALUE_AR, leaveTypeAr } from '@/lib/enums'
 import { COUNTRY_AR } from '@/lib/country-names-ar'
-import type { ComponentType } from 'react'
+import { createElement, type ComponentType } from 'react'
+import { UnmappedPanel } from '@/components/hr/devices/unmapped-panel'
 import { PermissionTypeField, validatePermission } from '@/components/hr/permission-type-field'
 
 /**
@@ -29,6 +30,12 @@ export interface FieldDef {
   /** Display labels for `select` options (value → Arabic label) — the stored
    *  value stays the raw key; unmapped options fall back to the raw value. */
   optionLabels?: Record<string, string>
+  /** Row field whose text becomes this cell's hover tooltip (e.g. the missing data of an unregistered employee). */
+  tooltipField?: string
+  /** Render a `select` as Apex-style radio buttons (e.g. الحالة: نشط / غير نشط). */
+  radio?: boolean
+  /** Initial value in the add form. */
+  default?: string
   /** For `link`: the doctype to pick from, and the field shown as the label (default name). */
   link?: {
     doctype: string
@@ -79,6 +86,12 @@ export interface FieldDef {
 
 export interface ListModuleConfig {
   kind: 'list'
+  /** Hide the toolbar «حذف» (Apex screens without bulk delete). */
+  noBulkDelete?: boolean
+  /** Extra green toolbar button that opens the add dialog (e.g. «تفعيل اول دوام رمضان»). */
+  toolbarAction?: string
+  /** Panel rendered above the toolbar; `onChanged` reloads the list. */
+  topSlot?: ComponentType<{ onChanged: () => void }>
   title: string
   subtitle?: string
   doctype: string
@@ -258,7 +271,8 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       // itself is frozen after first creation and no longer reflects later shift/group
       // switches (see set_employee_shift's new contract).
       { field: 'custom_shift_label', label: 'الدوام', fallbackField: 'default_shift' },
-      { field: 'attendance_device_id', label: 'رقم البصمة' },
+      // Apex /employees has no «رقم البصمة» column (form-only; the «بلا رقم بصمة» filter stays)
+      { field: 'attendance_device_id', label: 'رقم البصمة', inTable: false },
       { field: 'status', label: 'الحالة', statusDot: { on: 'Active' } },
       { field: 'department', label: 'الإدارة', inTable: false, inForm: false },
     ],
@@ -284,33 +298,29 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     ],
     fields: [
       { field: 'idx', label: 'رقم', inForm: false },
-      { field: 'branch', label: 'اسم الفرع', required: true },
+      { field: 'branch', label: 'اسم الفرع بالعربيه', tableLabel: 'اسم الفرع', required: true },
       { field: 'employees', label: 'الموظفين', inForm: false },
       { field: 'manager', label: 'مدير الفرع', inForm: false },
       { field: 'departments', label: 'الادارات', inForm: false },
       { field: 'status', label: 'الحالة', inForm: false, statusDot: { on: 'Active' } },
-      // Saudi address fields (Apex GetAllBranches) — optional, form-only.
-      // base_meena.hr_management.setup_branch_fields adds the custom fields.
-      { field: 'custom_building_number', label: 'رقم المبنى', inTable: false },
-      { field: 'custom_district', label: 'الحي', inTable: false },
-      { field: 'custom_city', label: 'المدينة', inTable: false },
-      { field: 'custom_street', label: 'الشارع', inTable: false },
-      { field: 'custom_zip_code', label: 'الرمز البريدي', inTable: false },
-      { field: 'custom_phone', label: 'الهاتف', inTable: false },
-      { field: 'custom_fax', label: 'الفاكس', inTable: false },
-      { field: 'custom_address_en', label: 'العنوان بالانجليزية', inTable: false },
-      // Existed on the doctype (setup_branch_location_fields) but was never
-      // exposed on this form — see hr_lists.branches() comment, item B5.
-      { field: 'custom_address', label: 'عنوان الفرع بالعربي', type: 'textarea', inTable: false },
-      // Apex-parity branch depth (item B5, 2026-09-21).
+      // Apex «اضافة فرع» — exact field order (setup_branch_fields / setup_master_name_fields
+      // add the custom fields). الرمز البريدي / الفاكس are not in Apex's form.
+      { field: 'custom_name_en', label: 'اسم الفرع بالانجليزيه', inTable: false },
       { field: 'custom_manager_name', label: 'اسم المدير', inTable: false },
       { field: 'custom_manager_phone', label: 'رقم المدير', inTable: false },
+      { field: 'custom_phone', label: 'التليفون', inTable: false },
       { field: 'custom_commercial_register', label: 'السجل التجاري', inTable: false },
-      { field: 'custom_country', label: 'الدولة', type: 'link', link: { doctype: 'Country' }, inTable: false },
       {
-        field: 'custom_location_group', label: 'مجموعة المواقع', type: 'link',
+        field: 'custom_location_group', label: 'مجموعات المواقع', type: 'link',
         link: { doctype: 'Location', titleField: 'location_name', filters: [['is_group', '=', 1]] }, inTable: false,
       },
+      { field: 'custom_address', label: 'عنوان الفرع بالعربية', inTable: false },
+      { field: 'custom_address_en', label: 'عنوان الفرع بالانجليزية', inTable: false },
+      { field: 'custom_country', label: 'الدولة', type: 'link', link: { doctype: 'Country', titleField: 'custom_name_ar' }, inTable: false },
+      { field: 'custom_city', label: 'المدينة', inTable: false },
+      { field: 'custom_district', label: 'الحي', inTable: false },
+      { field: 'custom_street', label: 'الشارع', inTable: false },
+      { field: 'custom_building_number', label: 'رقم المبنى', inTable: false },
       { field: 'custom_notes', label: 'ملاحظات', type: 'textarea', inTable: false },
     ],
   },
@@ -427,21 +437,26 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     rowMenu: 'employee',
     nameField: 'designation_name',
     deriveFields: [
-      { as: '_status_label', from: () => 'نشط' },
+      { as: '_status_label', from: (r) => (r.custom_status === 'Inactive' ? 'غير نشط' : 'نشط') },
     ],
     drawerFilters: [
-      { field: '_status_label', label: 'الحالة', options: ['نشط'] },
+      { field: '_status_label', label: 'الحالة', options: ['نشط', 'غير نشط'] },
     ],
     fields: [
-      { field: 'designation_name', label: 'اسم الوظيفة', required: true },
+      { field: 'designation_name', label: 'اسم الوظيفة بالعربية', tableLabel: 'اسم الوظيفة', required: true },
+      { field: 'custom_name_en', label: 'اسم الوظيفة بالانجليزية', inTable: false },
       { field: '_status_label', label: 'الحالة', inForm: false, statusDot: { on: 'نشط' } },
       { field: 'employees_count', label: 'عدد الموظفين', inForm: false },
-      { field: 'description', label: 'الوصف', type: 'textarea', inTable: false },
+      // Apex «الحالة» radio (نشط / غير نشط) — Designation.custom_status (setup_master_name_fields)
+      { field: 'custom_status', label: 'الحالة', type: 'select', options: ['Active', 'Inactive'], optionLabels: { Active: 'نشط', Inactive: 'غير نشط' }, radio: true, default: 'Active', inTable: false },
+      { field: 'custom_notes', label: 'ملاحظات', type: 'textarea', inTable: false },
     ],
   },
 
   'unregistered-employees': {
     kind: 'list',
+    // Apex parity: the unmapped device PINs («ربط الكل», «ربط 5000») live here, not on الاجهزة
+    topSlot: ({ onChanged }) => createElement(UnmappedPanel, { onMapped: onChanged }),
     title: 'موظفين غير مسجلين',
     subtitle: 'أرقام بصمة بلا موظف، وموظفون تنقصهم بيانات الحضور',
     doctype: 'Employee',
@@ -468,10 +483,11 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     ],
     fields: [
       { field: 'code', label: 'الكود', inForm: false },
-      { field: 'employee_name', label: 'الاسم', inForm: false },
+      { field: 'employee_name', label: 'الاسم', inForm: false, tooltipField: 'missing' },
       { field: 'default_shift', label: 'الدوام', inForm: false },
       { field: 'device', label: 'جهاز البصمة', inForm: false },
-      { field: 'missing', label: 'البيانات الناقصة', inForm: false },
+      // Apex has no «البيانات الناقصة» column — shown as the name's tooltip instead
+      { field: 'missing', label: 'البيانات الناقصة', inForm: false, inTable: false },
     ],
   },
 
@@ -482,7 +498,7 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     doctype: 'Project',
     needsCompany: true,
     orderBy: 'modified desc',
-    addLabel: 'اضافة مشروع',
+    addLabel: 'اضافة المشروع',
     searchPlaceholder: 'ابحث باسم المشروع',
     actionsMenu: true,
     print: false,
@@ -510,8 +526,8 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     fields: [
       { field: 'name', label: 'الكود', inForm: false },
       // client 2026-09-27: name in both languages only (status/priority/due date removed)
-      { field: 'subject', label: 'اسم المهمة (عربي)', required: true },
-      { field: 'custom_subject_en', label: 'اسم المهمة (إنجليزي)' },
+      { field: 'subject', label: 'اسم المهمة بالعربية', tableLabel: 'اسم المهمة (عربي)', required: true },
+      { field: 'custom_subject_en', label: 'اسم المهمة بالانجليزية', tableLabel: 'اسم المهمة (إنجليزي)' },
     ],
   },
 
@@ -538,8 +554,8 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     editInDialog: true,
     fields: [
       // client 2026-09-27: name in both languages only («الموقع الأب» removed)
-      { field: 'location_name', label: 'اسم المجموعة (عربي)', required: true },
-      { field: 'custom_name_en', label: 'اسم المجموعة (إنجليزي)' },
+      { field: 'location_name', label: 'اسم مجموعة المواقع بالعربيه', tableLabel: 'اسم المجموعة (عربي)', required: true },
+      { field: 'custom_name_en', label: 'اسم مجموعة المواقع بالانجليزية', tableLabel: 'اسم المجموعة (إنجليزي)' },
     ],
   },
 
@@ -565,8 +581,8 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     linkField: 'employee_group_name',
     nameField: 'employee_group_name',
     fields: [
-      { field: 'employee_group_name', label: 'اسم المجموعة (عربي)', required: true },
-      { field: 'custom_name_en', label: 'اسم المجموعة (إنجليزي)' },
+      { field: 'employee_group_name', label: 'اسم مجموعة الموظفين بالعربيه', tableLabel: 'اسم المجموعة (عربي)', required: true },
+      { field: 'custom_name_en', label: 'اسم مجموعة الموظفين بالانجليزي', tableLabel: 'اسم المجموعة (إنجليزي)' },
     ],
   },
 
@@ -596,10 +612,10 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       // Apex table: a single «اسم الجنسية» column (Arabic)
       { field: '_name_ar', label: 'اسم الجنسية', inForm: false },
       // client 2026-09-27: Arabic + English name only («الرمز» removed)
-      { field: 'custom_name_ar', label: 'اسم الجنسية (عربي)', required: true, inTable: false, fallbackField: '_name_ar' },
+      { field: 'custom_name_ar', label: 'اسم الجنسية بالعربية', tableLabel: 'اسم الجنسية (عربي)', required: true, inTable: false, fallbackField: '_name_ar' },
       // Country is core Frappe with renaming disabled — the English name (its
       // document name) can't change after creation
-      { field: 'country_name', label: 'اسم الجنسية (إنجليزي)', lockedOnEdit: true, inTable: false },
+      { field: 'country_name', label: 'اسم الجنسية بالانجليزية', tableLabel: 'اسم الجنسية (إنجليزي)', lockedOnEdit: true, inTable: false },
     ],
   },
 
@@ -629,8 +645,8 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     deleteMethod: 'base_meena.api.official_holidays.delete_official_holiday',
     nameField: 'holiday_list_name',
     fields: [
-      { field: 'holiday_list_name', label: 'اسم العطلة (عربي)', required: true },
-      { field: 'custom_name_en', label: 'اسم العطلة (إنجليزي)' },
+      { field: 'holiday_list_name', label: 'اسم العطلة الرسمية بالعربية', tableLabel: 'اسم العطلة (عربي)', required: true },
+      { field: 'custom_name_en', label: 'اسم العطلة الرسمية بالانجليزية', tableLabel: 'اسم العطلة (إنجليزي)' },
       { field: 'from_date', label: 'من تاريخ', type: 'date', required: true },
       { field: 'to_date', label: 'إلى تاريخ', type: 'date', required: true },
     ],
@@ -661,8 +677,8 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     // client 2026-09-27: Arabic + English name only (max days / LWP / include holidays removed)
     fields: [
       { field: '_label', label: 'اسم الاجازة', inForm: false },
-      { field: 'custom_name_ar', label: 'اسم الاجازة (عربي)', required: true, inTable: false },
-      { field: 'leave_type_name', label: 'اسم الاجازة (إنجليزي)', inTable: false },
+      { field: 'custom_name_ar', label: 'اسم الاجازة بالعربية', tableLabel: 'اسم الاجازة (عربي)', required: true, inTable: false },
+      { field: 'leave_type_name', label: 'اسم الاجازة بالانجليزية', tableLabel: 'اسم الاجازة (إنجليزي)', inTable: false },
     ],
   },
 
@@ -851,7 +867,8 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
       // Apex: after employee + date, «نوع الاذن» مؤقت/يوم كامل + per-shift times
       { field: '_permission', label: 'نوع الاذن', type: 'custom', inTable: false, component: PermissionTypeField,
         payloadKeys: ['custom_permission_type', 'custom_shift_times', 'from_time', 'to_time'], validate: validatePermission },
-      { field: 'reason', label: 'ملاحظات', type: 'textarea' },
+      // Apex «اضافة اذن» has no ملاحظات field (column only)
+      { field: 'reason', label: 'ملاحظات', type: 'textarea', inForm: false },
       { field: 'custom_permission_type', label: 'نوع الاذن', inTable: false, inForm: false },
       { field: 'custom_shift_times', label: 'الأوقات', inTable: false, inForm: false },
       { field: 'from_time', label: 'من', inTable: false, inForm: false },
@@ -921,6 +938,9 @@ export const HR_MODULES: Record<string, ModuleConfig> = {
     rowMenu: 'master',
     emptyText: 'لم يتم اضافة اى دوام لرمضان من قبل',
     emptyAction: 'تفعيل اول دوام رمضان',
+    // Apex toolbar: الطباعة · اضافة · تفعيل اول دوام رمضان — no «حذف»
+    noBulkDelete: true,
+    toolbarAction: 'تفعيل اول دوام رمضان',
     // Apex «اضافة مواعيد رمضان»: Arabic + English name and the period. The
     // reduced daily hours keep their current value (default 6 on create).
     createDefaults: { reduced_daily_hours: 6 },

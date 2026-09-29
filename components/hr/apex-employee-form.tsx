@@ -7,6 +7,7 @@ import { frappeClient } from '@/lib/api-client'
 import { useCompanySafe } from '@/hooks/use-company'
 import { useToast } from '@/hooks/use-toast'
 import { cn, frappeImageUrl } from '@/lib/utils'
+import { COUNTRY_AR } from '@/lib/country-names-ar'
 
 /** Apex `checkImageSize` — 1 MB. */
 const MAX_IMAGE_BYTES = 1 * 1024 * 1024
@@ -53,7 +54,7 @@ const STATUS = [['Active', 'نشط'], ['Inactive', 'غير نشط'], ['Suspended
 
 interface Opts {
   designations: string[]; branches: string[]; shifts: string[]; departments: string[]; groups: string[]; projects: string[]
-  employees: { name: string; employee_name: string }[]; countries: string[]
+  employees: { name: string; employee_name: string }[]; countries: [string, string][]
   /** «الدوام *» combined picker — every normal/open shift AND every
    *  variable rotational group, from base_meena.api.hr_rotational_shifts.list_shift_options. */
   shiftOptions: { value: string; label: string; kind: string; default_shift: string }[]
@@ -71,12 +72,15 @@ const EMPTY: Opts = { designations: [], branches: [], shifts: [], departments: [
 // though (see setup_employee_optional_fields.py) — dropping them here
 // without also relaxing the schema would silently fail every save again,
 // the exact bug this file already carries scar tissue from once.
-const REQUIRED = ['employee_name', 'designation', 'branch', 'default_shift', 'attendance_device_id']
+// Apex /hr/AddEmployee required set (client parity audit 2026-09-30, supersedes
+// the 2026-09-20 five-field spec): كود الموظف · حالة الموظف · اسم الموظف بالعربية ·
+// صلاحية الموظف بالفروع · الفروع · الدوام · طريقة الحضور — الوظيفة is optional.
+const REQUIRED = ['attendance_device_id', 'status', 'employee_name', 'custom_branch_access', 'branch', 'default_shift', 'custom_attendance_method']
 /** Which collapsible section to open (so the field is actually in the DOM) when scrolling a
  *  failed-validation field into view. Fields in the always-open top block need no entry. */
 const FIELD_SECTION: Record<string, 'basic' | 'info' | 'personal' | 'ot' | undefined> = {
-  designation: 'basic', attendance_device_id: 'basic',
-  branch: 'info', default_shift: 'info',
+  attendance_device_id: 'basic', status: 'basic', custom_branch_access: 'basic',
+  branch: 'info', default_shift: 'info', custom_attendance_method: 'info',
 }
 
 export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
@@ -115,12 +119,15 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
       // No is_group filter: an employee already assigned to a group department must still
       // see that value in the select (otherwise it renders blank and gets wiped on save).
       list('Designation'), list('Branch'), list('Shift Type'), list('Department'),
-      list('Employee Group'), list('Project'), list('Employee', ['name', 'employee_name'], [['status', '=', 'Active']]), list('Country'),
+      list('Employee Group'), list('Project'), list('Employee', ['name', 'employee_name'], [['status', '=', 'Active']]), list('Country', ['name', 'country_name', 'custom_name_ar']),
       shiftOptions(),
     ]).then(([d, b, s, dep, g, p, e, c, so]) => setOpts({
       designations: d.map((x: any) => x.name), branches: b.map((x: any) => x.name), shifts: s.map((x: any) => x.name),
       departments: dep.map((x: any) => x.name), groups: g.map((x: any) => x.name), projects: p.map((x: any) => x.name),
-      employees: e, countries: c.map((x: any) => x.name), shiftOptions: so,
+      employees: e, shiftOptions: so,
+      // «الجنسية» = the tenant's الجنسية master, Arabic names exactly as the Nationality page shows them
+      countries: c.map((x: any) => [x.name, x.custom_name_ar || COUNTRY_AR[x.country_name] || x.country_name] as [string, string])
+        .sort((a: [string, string], b: [string, string]) => a[1].localeCompare(b[1], 'ar')),
     }))
   }, [])
 
@@ -549,11 +556,11 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
                   className={FIELD}
                 />
               </div>
-              {Sel('status', 'حالة الموظف', STATUS as [string, string][])}
+              {Sel('status', 'حالة الموظف', STATUS as [string, string][], true)}
               {Txt('employee_name', 'اسم الموظف بالعربية', true)}
               {Txt('custom_employee_name_en', 'اسم الموظف بالانجليزية')}
-              {Sel('designation', 'الوظيفة', opts.designations, true)}
-              {MultiSel('custom_branch_access', 'صلاحية الموظف بالفروع', opts.branches)}
+              {Sel('designation', 'الوظيفة', opts.designations)}
+              {MultiSel('custom_branch_access', 'صلاحية الموظف بالفروع', opts.branches, true)}
             </div>
           ))}
 
@@ -567,19 +574,14 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
               {Combo('reports_to', 'المدير المباشر', reportsToText, onReportsToText, opts.employees.map((e) => e.employee_name))}
               {Sel('custom_project', 'المشروع', opts.projects)}
               {Combo('custom_task', 'المهمة', f.custom_task ?? '', (v) => setF((p) => ({ ...p, custom_task: v })), [])}
-              {MultiSel('custom_attendance_method', 'طريقة الحضور', ['جهاز البصمة', 'تطبيق الجوال'])}
+              {MultiSel('custom_attendance_method', 'طريقة الحضور', ['جهاز البصمة', 'تطبيق الجوال'], true)}
               {Sel('custom_mobile_app', 'تفعيل تطبيق الجوال', ['نعم', 'لا'])}
             </div>
           ))}
 
           {section('personal', 'معلومات شخصية', (
             <div className={grid}>
-              {/* Optional per the client's own 5-field spec (2026-09-20).
-                  Employee.gender/date_of_birth were reqd:1 on the core
-                  schema — relaxed via Property Setter (see
-                  setup_employee_optional_fields.py) so leaving these blank
-                  actually saves instead of failing silently server-side. */}
-              {Sel('gender', 'الجنس', [['Male', 'ذكر'], ['Female', 'أنثى']])}
+              {/* Apex has no «الجنس» field (removed 2026-09-30; gender stays optional on the schema). */}
               {Sel('custom_nationality', 'الجنسية', opts.countries)}
               {Txt('custom_national_id', 'رقم الهوية')}
               {Sel('custom_religion', 'الديانة', ['مسلم', 'غير مسلم'])}

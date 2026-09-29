@@ -163,6 +163,19 @@ export function FieldInput({
       </>
     )
   }
+  if (field.type === 'select' && field.radio) {
+    return (
+      <div role="radiogroup" aria-label={field.label} className="flex h-[38px] items-center gap-6">
+        {(field.options || []).map((o) => (
+          <label key={o} className="inline-flex cursor-pointer items-center gap-2 text-[14px] text-slate-700">
+            <input type="radio" name={`radio-${field.field}`} checked={value === o} onChange={() => onChange(o)}
+              className="h-4 w-4 accent-[var(--apex-green)]" />
+            {field.optionLabels?.[o] ?? o}
+          </label>
+        ))}
+      </div>
+    )
+  }
   if (field.type === 'select') {
     return (
       <>

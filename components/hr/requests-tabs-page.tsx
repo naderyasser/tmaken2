@@ -416,9 +416,9 @@ export function RequestsTabsPage() {
         />
       )}
 
-      {/* G4 — اضافة اجازة (title as measured live, incl. the duplicated «اضافة») */}
+      {/* G4 — اضافة اجازة (client audit 2026-09-30: title «اضافة اجازة», not the doubled «اضافة اضافة اجازة») */}
       {tab === 'leaves' && (
-        <ApexDialog open={addOpen} onOpenChange={setAddOpen} title="اضافة اضافة اجازة" size="lg" primary={{ label: 'اضافة', onClick: submitAdd, loading: saving }}>
+        <ApexDialog open={addOpen} onOpenChange={setAddOpen} title="اضافة اجازة" size="lg" primary={{ label: 'اضافة', onClick: submitAdd, loading: saving }}>
           <div>
             <label className="block text-[13px] text-slate-700 mb-1">الموظف <span className="text-red-500">*</span></label>
             <EmployeeAutocomplete

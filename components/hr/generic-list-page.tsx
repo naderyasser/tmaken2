@@ -108,6 +108,9 @@ function cellValue(f: FieldDef, row: Row): ReactNode {
       </span>
     )
   }
+  if (f.tooltipField && row[f.tooltipField]) {
+    return <span title={String(row[f.tooltipField])} className="cursor-help">{cellText(f, row)}</span>
+  }
   return cellText(f, row)
 }
 
@@ -340,7 +343,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
   const openAdd = () => {
     if (config.addHref) { router.push(config.addHref); return }
     const initial: Record<string, any> = {}
-    for (const f of fieldsFor(false)) initial[f.field] = f.type === 'checkbox' ? false : ''
+    for (const f of fieldsFor(false)) initial[f.field] = f.type === 'checkbox' ? false : (f.default ?? '')
     setEditing(null)
     setForm(initial)
     setFieldErrors({})
@@ -532,6 +535,8 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
         </div>
       )}
 
+      {config.topSlot && <div className="print:hidden">{createElement(config.topSlot, { onChanged: load })}</div>}
+
       <div className="print:hidden">
         <ApexToolbar
           search={{ value: search, onChange: (v) => { setSearch(v); setPage(1) }, placeholder: config.searchPlaceholder || 'ابحث بالاسم' }}
@@ -547,9 +552,18 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
               { label: 'حذف', onSelect: () => setBulkDelete(true) },
             ],
           } : undefined}
-          deleteButton={!config.readOnly && !config.actionsMenu ? { onClick: () => setBulkDelete(true), disabled: selected.size === 0 } : undefined}
+          deleteButton={!config.readOnly && !config.actionsMenu && !config.noBulkDelete ? { onClick: () => setBulkDelete(true), disabled: selected.size === 0 } : undefined}
           add={!config.readOnly && !config.noAdd ? { label: config.addLabel || 'اضافة', onClick: openAdd } : undefined}
-        />
+        >
+          {config.toolbarAction && !config.readOnly && !config.noAdd && (
+            <li>
+              <button type="button" onClick={openAdd}
+                className="inline-flex h-[38px] items-center rounded-[4px] bg-[var(--apex-green)] px-[12px] text-[16px] text-white hover:bg-[var(--apex-green-dark)]">
+                {config.toolbarAction}
+              </button>
+            </li>
+          )}
+        </ApexToolbar>
       </div>
 
       {authRequired && !loading && (

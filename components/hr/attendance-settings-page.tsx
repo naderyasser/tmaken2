@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { ChevronUp, ChevronDown, Loader2, Save } from 'lucide-react'
+import { Loader2, Save } from 'lucide-react'
 import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 
@@ -23,22 +23,17 @@ const DEFAULTS: Rules = {
   first_in_last_out: 1,
 }
 
-/** Apex number spinner: value on the right, ▲▼ stacked on the left. */
+/** Apex: a plain number input (no custom ▲▼ stepper buttons). */
 function Spinner({ value, onChange, disabled }: { value: number; onChange: (v: number) => void; disabled?: boolean }) {
   return (
-    <div className={`flex items-center h-[42px] w-[162px] rounded border border-[var(--apex-border)] bg-white ${disabled ? 'opacity-50' : ''}`}>
-      <input
-        type="number"
-        value={value}
-        disabled={disabled}
-        onChange={(e) => onChange(Number(e.target.value || 0))}
-        className="flex-1 min-w-0 w-0 h-full px-3 text-[15px] text-right outline-none bg-transparent [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-      />
-      <div className="flex flex-col border-r border-slate-200 h-full w-9 shrink-0">
-        <button type="button" disabled={disabled} onClick={() => onChange(value + 1)} aria-label="زيادة" className="flex-1 flex items-center justify-center text-slate-500 hover:bg-slate-50"><ChevronUp className="h-4 w-4" /></button>
-        <button type="button" disabled={disabled} onClick={() => onChange(Math.max(0, value - 1))} aria-label="إنقاص" className="flex-1 flex items-center justify-center text-slate-500 hover:bg-slate-50"><ChevronDown className="h-4 w-4" /></button>
-      </div>
-    </div>
+    <input
+      type="number"
+      min={0}
+      value={value}
+      disabled={disabled}
+      onChange={(e) => onChange(Math.max(0, Number(e.target.value || 0)))}
+      className={`h-[42px] w-[162px] rounded border border-[var(--apex-border)] bg-white px-3 text-[15px] text-right outline-none focus:border-[var(--apex-blue)] ${disabled ? 'opacity-50' : ''}`}
+    />
   )
 }
 
@@ -68,7 +63,6 @@ export function AttendanceSettingsPage() {
   const [r, setR] = useState<Rules>(DEFAULTS)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [open, setOpen] = useState(true)
   const set = <K extends keyof Rules>(k: K) => (v: Rules[K]) => setR((p) => ({ ...p, [k]: v }))
 
   const load = useCallback(async () => {
@@ -102,12 +96,9 @@ export function AttendanceSettingsPage() {
       <div className="bg-white rounded shadow-sm px-8 py-6 mt-6">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-[16px] text-slate-800">اعدادات الحضور و الانصراف</h2>
-          <button type="button" onClick={() => setOpen((o) => !o)} className="text-slate-500" aria-label="طي">
-            {open ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-          </button>
         </div>
 
-        {open && (loading ? (
+        {(loading ? (
           <div className="py-12 text-center"><Loader2 className="h-7 w-7 animate-spin mx-auto text-[var(--apex-blue)]" /></div>
         ) : (
           <div className="divide-y-0">

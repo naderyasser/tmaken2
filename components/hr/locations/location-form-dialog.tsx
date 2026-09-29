@@ -89,7 +89,7 @@ export function LocationFormDialog({
 
   return (
     <ApexDialog open={open} onOpenChange={(o) => !saving && onOpenChange(o)}
-      title={editing ? 'تعديل المواقع' : 'اضافة المواقع'} size="lg"
+      title={editing ? 'تعديل موقع' : 'اضافة موقع'} size="lg"
       primary={{ label: editing ? 'تعديل' : 'اضافة', onClick: save, loading: saving }}>
       <div>
         <label className="block text-[13px] text-slate-700 mb-1">اسم بالعربيه <span className="text-red-500">*</span></label>
