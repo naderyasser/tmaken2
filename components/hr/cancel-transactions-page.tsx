@@ -14,6 +14,9 @@ interface Result { employees: number; cancelled_days: number; recovered_punches:
 function today() { return new Date().toISOString().slice(0, 10) }
 
 const API = 'base_meena.api.hr_unpost'
+const nothingToDo = (r: Result) => !r.cancelled_days && !r.recovered_punches
+// the reports compute every punch live — with nothing posted or waiting, there is nothing to redo
+const UP_TO_DATE = 'لا توجد أيام مرحّلة ولا بصمات معلّقة في هذه الفترة — كل حركات الفترة محسوبة بالفعل في التقارير.'
 
 /**
  * «إلغاء ترحيل الحركات» — Apex layout: من تاريخ | إلى تاريخ | [+ تحديد الموظفين]
@@ -56,7 +59,7 @@ export function CancelTransactionsPage() {
     try {
       const r = (await frappeClient.call<Result>(`${API}.unpost`, args)).message as Result
       setDone(r)
-      toast({ title: 'تم إلغاء ترحيل الحركات', description: `أيام أُلغي ترحيلها: ${r.cancelled_days} · بصمات أُعيد سحبها: ${r.recovered_punches}` })
+      toast({ title: 'تمت إعادة معالجة الفترة', description: nothingToDo(r) ? UP_TO_DATE : `أيام أُلغي ترحيلها: ${r.cancelled_days} · بصمات أُعيد سحبها: ${r.recovered_punches}` })
       loadPreview()
     } catch (e: any) {
       toast({ title: 'تعذّر إلغاء الترحيل', description: e?.message, variant: 'destructive' })
@@ -111,7 +114,9 @@ export function CancelTransactionsPage() {
         ) : null}
         {done && (
           <p className="mt-4 text-center text-emerald-700 font-semibold">
-            تم: أُلغي ترحيل {done.cancelled_days} يوم وأُعيد سحب {done.recovered_punches} بصمة — حدّث صفحة التقارير لرؤية الحركات بعد إعادة المعالجة.
+            {nothingToDo(done)
+              ? UP_TO_DATE
+              : `تم: أُلغي ترحيل ${done.cancelled_days} يوم وأُعيد سحب ${done.recovered_punches} بصمة — حدّث صفحة التقارير لرؤية الحركات بعد إعادة المعالجة.`}
           </p>
         )}
       </div>
