@@ -8,15 +8,23 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { ApexDatePicker } from '@/components/hr/apex/date-picker'
 import { EmployeePickerDialog } from '@/components/hr/apex/employee-picker-dialog'
 
-interface Preview { employees: number; posted_days: number; unmatched_punches: number; checkins: number }
-interface Result { employees: number; cancelled_days: number; recovered_punches: number }
+interface Preview { employees: number; posted_days: number; unposted_days: number; unmatched_punches: number; checkins: number }
+interface Result { employees: number; cancelled_days?: number; posted_days?: number; recovered_punches: number }
 
 function today() { return new Date().toISOString().slice(0, 10) }
 
 const API = 'base_meena.api.hr_unpost'
-const nothingToDo = (r: Result) => !r.cancelled_days && !r.recovered_punches
-// the reports compute every punch live — with nothing posted or waiting, there is nothing to redo
-const UP_TO_DATE = 'لا توجد أيام مرحّلة ولا بصمات معلّقة في هذه الفترة — كل حركات الفترة محسوبة بالفعل في التقارير.'
+type Action = 'unpost' | 'post'
+function resultText(action: Action, r: Result) {
+  const punches = r.recovered_punches ? ` وأُعيد سحب ${r.recovered_punches} بصمة` : ''
+  if (action === 'unpost')
+    return r.cancelled_days
+      ? `تم إلغاء ترحيل ${r.cancelled_days} يوم${punches} — لن تظهر حركات هذه الأيام في التقارير حتى تُرحَّل من جديد.`
+      : `كل أيام هذه الفترة غير مرحّلة بالفعل${punches}.`
+  return r.posted_days
+    ? `تم ترحيل ${r.posted_days} يوم${punches} — حركات هذه الأيام ظاهرة ومحسوبة في التقارير الآن.`
+    : `كل أيام هذه الفترة مرحّلة بالفعل${punches} — حركاتها ظاهرة في التقارير.`
+}
 
 /**
  * «إلغاء ترحيل الحركات» — Apex layout: من تاريخ | إلى تاريخ | [+ تحديد الموظفين]
@@ -32,9 +40,9 @@ export function CancelTransactionsPage() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [preview, setPreview] = useState<Preview | null>(null)
   const [loading, setLoading] = useState(false)
-  const [confirm, setConfirm] = useState(false)
+  const [confirm, setConfirm] = useState<Action | null>(null)
   const [working, setWorking] = useState(false)
-  const [done, setDone] = useState<Result | null>(null)
+  const [done, setDone] = useState<string | null>(null)
 
   const valid = !!from && !!to && from <= to
   const args = { from_date: from, to_date: to, employees: JSON.stringify([...selected]) }
@@ -55,17 +63,20 @@ export function CancelTransactionsPage() {
   useEffect(() => { loadPreview() }, [loadPreview])
 
   const run = async () => {
+    const action = confirm
+    if (!action) return
     setWorking(true)
     try {
-      const r = (await frappeClient.call<Result>(`${API}.unpost`, args)).message as Result
-      setDone(r)
-      toast({ title: 'تمت إعادة معالجة الفترة', description: nothingToDo(r) ? UP_TO_DATE : `أيام أُلغي ترحيلها: ${r.cancelled_days} · بصمات أُعيد سحبها: ${r.recovered_punches}` })
+      const r = (await frappeClient.call<Result>(`${API}.${action}`, args)).message as Result
+      const text = resultText(action, r)
+      setDone(text)
+      toast({ title: action === 'post' ? 'تم ترحيل الحركات' : 'تم إلغاء ترحيل الحركات', description: text })
       loadPreview()
     } catch (e: any) {
-      toast({ title: 'تعذّر إلغاء الترحيل', description: e?.message, variant: 'destructive' })
+      toast({ title: action === 'post' ? 'تعذّر الترحيل' : 'تعذّر إلغاء الترحيل', description: e?.message, variant: 'destructive' })
     } finally {
       setWorking(false)
-      setConfirm(false)
+      setConfirm(null)
     }
   }
 
@@ -78,7 +89,7 @@ export function CancelTransactionsPage() {
         <span className="text-slate-800">إلغاء ترحيل الحركات</span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto_auto] gap-4 items-end">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto_auto_auto] gap-4 items-end">
         <ApexDatePicker label="من تاريخ" required value={from} onChange={setFrom} />
         <ApexDatePicker label="إلى تاريخ" required value={to} onChange={setTo} />
         <button
@@ -92,7 +103,15 @@ export function CancelTransactionsPage() {
         <button
           type="button"
           disabled={!valid || working}
-          onClick={() => setConfirm(true)}
+          onClick={() => setConfirm('post')}
+          className="h-[42px] px-5 rounded text-white text-[15px] bg-[var(--apex-blue)] hover:bg-[var(--apex-blue-hover)] disabled:opacity-60"
+        >
+          ترحيل الحركات
+        </button>
+        <button
+          type="button"
+          disabled={!valid || working}
+          onClick={() => setConfirm('unpost')}
           className="h-[42px] px-5 rounded text-white text-[15px] bg-[var(--apex-red-muted)] disabled:opacity-90 enabled:bg-[var(--apex-red)] enabled:hover:bg-[var(--apex-red-dark)]"
         >
           إلغاء ترحيل الحركات
@@ -107,16 +126,14 @@ export function CancelTransactionsPage() {
         ) : preview ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             <div><div className="text-slate-500 text-[13px]">الموظفين</div><div className="font-bold text-[20px]">{who}</div></div>
-            <div><div className="text-slate-500 text-[13px]">أيام مرحّلة</div><div className="font-bold text-[20px]">{preview.posted_days}</div></div>
+            <div><div className="text-slate-500 text-[13px]">أيام مرحّلة / غير مرحّلة</div><div className="font-bold text-[20px]">{preview.posted_days} / {preview.unposted_days}</div></div>
             <div><div className="text-slate-500 text-[13px]">حركات في الفترة</div><div className="font-bold text-[20px]">{preview.checkins}</div></div>
             <div><div className="text-slate-500 text-[13px]">بصمات تنتظر السحب</div><div className="font-bold text-[20px]">{preview.unmatched_punches}</div></div>
           </div>
         ) : null}
         {done && (
           <p className="mt-4 text-center text-emerald-700 font-semibold">
-            {nothingToDo(done)
-              ? UP_TO_DATE
-              : `تم: أُلغي ترحيل ${done.cancelled_days} يوم وأُعيد سحب ${done.recovered_punches} بصمة — حدّث صفحة التقارير لرؤية الحركات بعد إعادة المعالجة.`}
+            {done}
           </p>
         )}
       </div>
@@ -130,14 +147,16 @@ export function CancelTransactionsPage() {
       />
 
       <ConfirmDialog
-        open={confirm}
-        onOpenChange={setConfirm}
-        title="إلغاء ترحيل الحركات"
-        description={`سيتم إلغاء ترحيل الحركات وإعادة معالجتها لـ${who} من ${from} إلى ${to}. هل أنت متأكد؟`}
-        confirmLabel="إلغاء الترحيل"
+        open={!!confirm}
+        onOpenChange={(o) => { if (!o) setConfirm(null) }}
+        title={confirm === 'post' ? 'ترحيل الحركات' : 'إلغاء ترحيل الحركات'}
+        description={confirm === 'post'
+          ? `سيتم ترحيل حركات ${who} من ${from} إلى ${to} فتظهر محسوبة في التقارير. متابعة؟`
+          : `سيتم إلغاء ترحيل ${who} من ${from} إلى ${to}: لن تظهر حركات هذه الأيام في التقارير حتى تُرحَّل من جديد (البصمات نفسها لا تُحذف). هل أنت متأكد؟`}
+        confirmLabel={confirm === 'post' ? 'ترحيل' : 'إلغاء الترحيل'}
         cancelLabel="رجوع"
         loading={working}
-        variant="destructive"
+        variant={confirm === 'post' ? 'default' : 'destructive'}
         onConfirm={run}
       />
     </div>

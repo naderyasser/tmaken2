@@ -129,6 +129,17 @@ function useToggles() {
   }
 }
 
+/** Client ask: each وردية's حضور/إنصراف sit together under its name, tinted per وردية and
+ *  fenced off from the next one, so a month of punches reads period by period. */
+const SHIFT_TINT = ['bg-sky-50', 'bg-amber-50', 'bg-emerald-50', 'bg-violet-50']
+function shiftCls(key: string) {
+  const m = /^(shift|in|out)(\d)$/.exec(key)
+  if (!m) return ''
+  const tint = SHIFT_TINT[(Number(m[2]) - 1) % SHIFT_TINT.length]
+  if (m[1] === 'shift') return cn(tint, 'border-x-2 border-slate-400')
+  return cn(tint, m[1] === 'in' ? 'border-s-2 border-slate-400' : 'border-e-2 border-slate-400')
+}
+
 /** Two-row head when some columns have حضور/إنصراف children (green/red). */
 function LeafHead({ cols, lead, pad, className }: { cols: Column[]; lead: number; pad: number; className?: string }) {
   const nested = cols.some((c) => c.children?.length)
@@ -140,7 +151,7 @@ function LeafHead({ cols, lead, pad, className }: { cols: Column[]; lead: number
         {cols.map((c, i) => (
           <th key={c.key} colSpan={c.children?.length || 1}
               className={cn('py-3 px-2 font-bold whitespace-nowrap', i === 0 && !nested ? 'text-right' : 'text-center',
-                c.key === 'in1' && 'text-green-700', c.key === 'out1' && 'text-red-600')}>
+                c.key === 'in1' && 'text-green-700', c.key === 'out1' && 'text-red-600', shiftCls(c.key))}>
             {c.label}
           </th>
         ))}
@@ -151,7 +162,7 @@ function LeafHead({ cols, lead, pad, className }: { cols: Column[]; lead: number
           {blank(lead, 'l2')}
           {cols.flatMap((c) => c.children?.length
             ? c.children.map((ch) => (
-                <th key={ch.key} className={cn('py-2 px-2 font-bold text-center', ch.key.startsWith('out') ? 'text-red-600' : 'text-green-700')}>{ch.label}</th>
+                <th key={ch.key} className={cn('py-2 px-2 font-bold text-center', ch.key.startsWith('out') ? 'text-red-600' : 'text-green-700', shiftCls(ch.key))}>{ch.label}</th>
               ))
             : [<th key={c.key} />])}
           {blank(pad, 'p2')}
@@ -166,7 +177,7 @@ function LeafRow({ r, cols, lead, pad }: { r: Record<string, any>; cols: Column[
     <tr className="border-b border-slate-200 bg-white hover:bg-slate-50">
       {Array.from({ length: lead }, (_, i) => <td key={'l' + i} />)}
       {cols.map((c, i) => (
-        <td key={c.key} className={cn('py-2.5 px-2 whitespace-nowrap', i === 0 ? 'text-right' : 'text-center', statusClass(c.key, r[c.key]))}>
+        <td key={c.key} className={cn('py-2.5 px-2 whitespace-nowrap', i === 0 ? 'text-right' : 'text-center', statusClass(c.key, r[c.key]), shiftCls(c.key))}>
           {fmtVal(c.key, r[c.key])}
         </td>
       ))}
@@ -195,7 +206,7 @@ function TotalsRow({ rows, cols, lead, pad }: { rows: Record<string, any>[]; col
     <tr className="border-b border-slate-300 bg-amber-50 font-bold text-slate-800" data-testid="report-totals">
       {Array.from({ length: lead }, (_, i) => <td key={'l' + i} />)}
       {cols.map((c, i) => (
-        <td key={c.key} className={cn('py-2.5 px-2 whitespace-nowrap', i === 0 ? 'text-right' : 'text-center')}>
+        <td key={c.key} className={cn('py-2.5 px-2 whitespace-nowrap', i === 0 ? 'text-right' : 'text-center', shiftCls(c.key))}>
           {i === 0 ? 'الإجمالي' : val[c.key] ?? ''}
         </td>
       ))}
