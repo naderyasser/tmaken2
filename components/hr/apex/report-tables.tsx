@@ -30,6 +30,8 @@ interface NestedSpec {
   midOpen: boolean
   /** Apex «الاجمالي»: no toggle column — the branch toggle sits in the first data column */
   noToggleColumn?: boolean
+  /** a «الإجمالي» row above each open employee's days (ساعات الدوام/التأخير/الإضافي/ساعات العمل) */
+  totals?: boolean
 }
 
 const empCells = (rows: Record<string, any>[]): Cell[] => [
@@ -42,7 +44,7 @@ const empCells = (rows: Record<string, any>[]): Cell[] => [
 export const APEX_LAYOUTS: Record<string, 'daystatus' | NestedSpec> = {
   daystatus: 'daystatus',
   incomplete: 'daystatus',
-  detailed: { branch: true, mid: 'employee', midCells: empCells, header: 'inner', branchOpen: false, midOpen: false },
+  detailed: { branch: true, mid: 'employee', midCells: empCells, header: 'inner', branchOpen: false, midOpen: false, totals: true },
   total: { branch: true, header: 'top', branchOpen: true, midOpen: true, noToggleColumn: true },
   vacations: {
     branch: false, mid: 'employee', header: 'inner', branchOpen: true, midOpen: false,
@@ -96,8 +98,8 @@ function statusClass(key: string, v: any) {
   if (key !== 'status') return ''
   const s = String(v ?? '')
   if (s.includes('غياب')) return 'text-red-600 font-semibold'
-  if (s.includes('حضور')) return 'text-emerald-600 font-semibold'
-  if (s.includes('اجازة') || s.includes('عطلة')) return 'text-amber-600 font-semibold'
+  if (s.includes('حضور') || s === 'مداوم') return 'text-emerald-600 font-semibold'
+  if (s.includes('اجازة') || s.includes('إجازة') || s.includes('عطلة')) return 'text-amber-600 font-semibold'
   return ''
 }
 
@@ -173,6 +175,35 @@ function LeafRow({ r, cols, lead, pad }: { r: Record<string, any>; cols: Column[
   )
 }
 
+/** "HH:MM" → minutes (the backend sends ساعات الدوام pre-formatted) */
+function hmToMin(v: any): number {
+  const m = /^(\d+):(\d{2})$/.exec(String(v ?? ''))
+  return m ? Number(m[1]) * 60 + Number(m[2]) : 0
+}
+
+/** Per-employee totals for the period, in the leaf columns' own places. */
+function TotalsRow({ rows, cols, lead, pad }: { rows: Record<string, any>[]; cols: Column[]; lead: number; pad: number }) {
+  const sum = (f: (r: Record<string, any>) => number) => rows.reduce((s, r) => s + (f(r) || 0), 0)
+  const val: Record<string, string> = {
+    // required hours = working days only (not weekly off / holiday / leave)
+    duty: hm(sum((r) => (r.kind === 'holiday' || r.kind === 'leave' ? 0 : hmToMin(r.duty)))),
+    late: hm(sum((r) => Number(r.late))),
+    extra: hm(sum((r) => Number(r.extra))),
+    hours: hm(sum((r) => Number(r.hours)) * 60),
+  }
+  return (
+    <tr className="border-b border-slate-300 bg-amber-50 font-bold text-slate-800" data-testid="report-totals">
+      {Array.from({ length: lead }, (_, i) => <td key={'l' + i} />)}
+      {cols.map((c, i) => (
+        <td key={c.key} className={cn('py-2.5 px-2 whitespace-nowrap', i === 0 ? 'text-right' : 'text-center')}>
+          {i === 0 ? 'الإجمالي' : val[c.key] ?? ''}
+        </td>
+      ))}
+      {Array.from({ length: pad }, (_, i) => <td key={'p' + i} />)}
+    </tr>
+  )
+}
+
 function groupBy(rows: Record<string, any>[], key: (r: Record<string, any>) => string) {
   const m = new Map<string, Record<string, any>[]>()
   for (const r of rows) {
@@ -223,6 +254,7 @@ export function NestedReport({ data, spec }: { data: ReportData; spec: NestedSpe
           {open && spec.header === 'inner' && (
             <LeafHead cols={cols} lead={lead} pad={pad} className="bg-[var(--apex-thead)] text-slate-800" />
           )}
+          {open && spec.totals && <TotalsRow rows={rs} cols={leafCols} lead={lead} pad={pad} />}
           {open && rs.map((r, i) => <LeafRow key={id + i} r={r} cols={leafCols} lead={lead} pad={pad} />)}
         </Fragment>
       )

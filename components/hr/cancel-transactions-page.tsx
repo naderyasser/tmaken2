@@ -1,95 +1,72 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Loader2, Plus, Search, X } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { Loader2, Plus } from 'lucide-react'
 import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
-import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { EmptyState } from '@/components/hr/ui/empty-state'
 import { ApexDatePicker } from '@/components/hr/apex/date-picker'
-import { cn } from '@/lib/utils'
 import { EmployeePickerDialog } from '@/components/hr/apex/employee-picker-dialog'
 
-interface Emp { name: string; employee_name: string; employee_number?: string; branch?: string }
-interface AttendanceRow { name: string; employee: string; employee_name?: string; attendance_date: string; status?: string }
+interface Preview { employees: number; posted_days: number; unmatched_punches: number; checkins: number }
+interface Result { employees: number; cancelled_days: number; recovered_punches: number }
 
 function today() { return new Date().toISOString().slice(0, 10) }
 
-const FIELD = 'h-[42px] rounded border border-[var(--apex-border)] bg-white px-3 text-[14px] text-slate-800 outline-none focus:border-[var(--apex-blue)]'
+const API = 'base_meena.api.hr_unpost'
 
 /**
  * «إلغاء ترحيل الحركات» — Apex layout: من تاريخ | إلى تاريخ | [+ تحديد الموظفين]
- * | [إلغاء ترحيل الحركات]. Cancels every submitted Attendance record of the
- * chosen employees inside the range (frappe.client.cancel), i.e. un-posts the
- * movements so they can be re-processed.
+ * | [إلغاء ترحيل الحركات]. No employees chosen = all of them. The server cancels
+ * the posted days, replays punches that were waiting for their fingerprint
+ * number to be linked, and re-posts; the reports then show the reprocessed days.
  */
 export function CancelTransactionsPage() {
   const { toast } = useToast()
   const [from, setFrom] = useState(today())
   const [to, setTo] = useState(today())
-  const [emps, setEmps] = useState<Emp[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [pickerOpen, setPickerOpen] = useState(false)
-  const [q, setQ] = useState('')
-  const [preview, setPreview] = useState<AttendanceRow[] | null>(null)
+  const [preview, setPreview] = useState<Preview | null>(null)
   const [loading, setLoading] = useState(false)
   const [confirm, setConfirm] = useState(false)
   const [working, setWorking] = useState(false)
+  const [done, setDone] = useState<Result | null>(null)
 
-  useEffect(() => {
-    frappeClient.getList<Emp>('Employee', {
-      fields: ['name', 'employee_name', 'employee_number', 'branch'],
-      filters: [['status', '=', 'Active']], order_by: 'employee_name asc', limit_page_length: 0,
-    }).then(setEmps).catch(() => setEmps([]))
-  }, [])
-
-  const filteredEmps = useMemo(() => {
-    const s = q.trim().toLowerCase()
-    if (!s) return emps
-    return emps.filter((e) => [e.name, e.employee_name, e.employee_number].some((v) => String(v ?? '').toLowerCase().includes(s)))
-  }, [emps, q])
+  const valid = !!from && !!to && from <= to
+  const args = { from_date: from, to_date: to, employees: JSON.stringify([...selected]) }
 
   const loadPreview = useCallback(async () => {
-    if (!selected.size) { setPreview(null); return }
+    if (!valid) { setPreview(null); return }
     setLoading(true)
     try {
-      const rows = await frappeClient.getList<AttendanceRow>('Attendance', {
-        fields: ['name', 'employee', 'employee_name', 'attendance_date', 'status'],
-        filters: [['docstatus', '=', 1], ['employee', 'in', [...selected]], ['attendance_date', 'between', [from, to]]],
-        order_by: 'attendance_date asc', limit_page_length: 0,
-      })
-      setPreview(rows)
+      setPreview((await frappeClient.call<Preview>(`${API}.preview`, args)).message ?? null)
     } catch {
-      setPreview([])
+      setPreview(null)
     } finally {
       setLoading(false)
     }
-  }, [selected, from, to])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [from, to, selected, valid])
 
   useEffect(() => { loadPreview() }, [loadPreview])
 
   const run = async () => {
-    if (!preview?.length) return
     setWorking(true)
-    let ok = 0, failed = 0
-    for (const r of preview) {
-      try {
-        await frappeClient.call('frappe.client.cancel', { doctype: 'Attendance', name: r.name })
-        ok++
-      } catch {
-        failed++
-      }
+    try {
+      const r = (await frappeClient.call<Result>(`${API}.unpost`, args)).message as Result
+      setDone(r)
+      toast({ title: 'تم إلغاء ترحيل الحركات', description: `أيام أُلغي ترحيلها: ${r.cancelled_days} · بصمات أُعيد سحبها: ${r.recovered_punches}` })
+      loadPreview()
+    } catch (e: any) {
+      toast({ title: 'تعذّر إلغاء الترحيل', description: e?.message, variant: 'destructive' })
+    } finally {
+      setWorking(false)
+      setConfirm(false)
     }
-    setWorking(false)
-    setConfirm(false)
-    toast({ title: `تم إلغاء ترحيل ${ok} حركة`, description: failed ? `تعذّر إلغاء ${failed}` : undefined, variant: failed ? 'destructive' : undefined })
-    loadPreview()
   }
 
-  const toggle = (name: string) =>
-    setSelected((p) => { const n = new Set(p); n.has(name) ? n.delete(name) : n.add(name); return n })
+  const who = selected.size ? `${selected.size} موظف` : 'كل الموظفين'
 
   return (
     <div className="px-4 pt-2 pb-8" dir="rtl">
@@ -111,7 +88,7 @@ export function CancelTransactionsPage() {
         </button>
         <button
           type="button"
-          disabled={!preview?.length || working}
+          disabled={!valid || working}
           onClick={() => setConfirm(true)}
           className="h-[42px] px-5 rounded text-white text-[15px] bg-[var(--apex-red-muted)] disabled:opacity-90 enabled:bg-[var(--apex-red)] enabled:hover:bg-[var(--apex-red-dark)]"
         >
@@ -119,40 +96,25 @@ export function CancelTransactionsPage() {
         </button>
       </div>
 
-      {/* what will be cancelled */}
-      {preview && (
-        <div className="mt-6 bg-white rounded-sm shadow-sm">
-          {loading ? (
-            <div className="py-10 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-[var(--apex-blue)]" /></div>
-          ) : preview.length === 0 ? (
-            <EmptyState
-              title="لا توجد حركات مرحّلة في هذه الفترة"
-              description="اختر موظفين ونطاق تاريخ ثم اضغط معاينة"
-            />
-          ) : (
-            <table className="w-full text-[14px]">
-              <thead>
-                <tr className="bg-[var(--apex-thead)] text-slate-800">
-                  <th className="py-3 px-3 text-right">الكود</th>
-                  <th className="py-3 px-3 text-right">الموظف</th>
-                  <th className="py-3 px-3 text-right">التاريخ</th>
-                  <th className="py-3 px-3 text-right">الحالة</th>
-                </tr>
-              </thead>
-              <tbody>
-                {preview.map((r) => (
-                  <tr key={r.name} className="border-b border-slate-200">
-                    <td className="py-2.5 px-3">{r.employee}</td>
-                    <td className="py-2.5 px-3">{r.employee_name || r.employee}</td>
-                    <td className="py-2.5 px-3">{r.attendance_date}</td>
-                    <td className="py-2.5 px-3">{r.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
+      <div className="mt-6 bg-white rounded-sm shadow-sm p-5 text-[15px] text-slate-700" data-testid="unpost-summary">
+        {loading ? (
+          <Loader2 className="h-6 w-6 animate-spin mx-auto text-[var(--apex-blue)]" />
+        ) : !valid ? (
+          <p className="text-center text-red-600">الفترة غير صحيحة</p>
+        ) : preview ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div><div className="text-slate-500 text-[13px]">الموظفين</div><div className="font-bold text-[20px]">{who}</div></div>
+            <div><div className="text-slate-500 text-[13px]">أيام مرحّلة</div><div className="font-bold text-[20px]">{preview.posted_days}</div></div>
+            <div><div className="text-slate-500 text-[13px]">حركات في الفترة</div><div className="font-bold text-[20px]">{preview.checkins}</div></div>
+            <div><div className="text-slate-500 text-[13px]">بصمات تنتظر السحب</div><div className="font-bold text-[20px]">{preview.unmatched_punches}</div></div>
+          </div>
+        ) : null}
+        {done && (
+          <p className="mt-4 text-center text-emerald-700 font-semibold">
+            تم: أُلغي ترحيل {done.cancelled_days} يوم وأُعيد سحب {done.recovered_punches} بصمة — حدّث صفحة التقارير لرؤية الحركات بعد إعادة المعالجة.
+          </p>
+        )}
+      </div>
 
       {/* Apex «تحديد الموظف» search dialog */}
       <EmployeePickerDialog
@@ -166,7 +128,7 @@ export function CancelTransactionsPage() {
         open={confirm}
         onOpenChange={setConfirm}
         title="إلغاء ترحيل الحركات"
-        description={`سيتم إلغاء ترحيل ${preview?.length ?? 0} حركة حضور من ${from} إلى ${to}. هل أنت متأكد؟`}
+        description={`سيتم إلغاء ترحيل الحركات وإعادة معالجتها لـ${who} من ${from} إلى ${to}. هل أنت متأكد؟`}
         confirmLabel="إلغاء الترحيل"
         cancelLabel="رجوع"
         loading={working}
