@@ -11,7 +11,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ReportPage } from '@/components/hr/report-page'
 import { ApexDialog } from '@/components/hr/apex/dialog'
 import { ApexPagination } from '@/components/hr/apex/pagination'
-import { ApexDatePicker, ApexTimePicker } from '@/components/hr/apex/date-picker'
+import { ApexDatePicker } from '@/components/hr/apex/date-picker'
+import { TimeInput24, isValidHHMM } from '@/components/hr/apex/time-input'
+
+/** «اضافة حركة» opens on the current time (client 2026-10-01) — adding a punch now needs no typing. */
+const nowHHMM = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
 import { ViewRecordDialog } from '@/components/hr/apex/view-record-dialog'
 import { VersionLogDialog } from '@/components/hr/apex/version-log-dialog'
 import { FieldInput } from '@/components/hr/field-input'
@@ -65,7 +69,7 @@ export function MovementsPage() {
 
   const openAdd = () => {
     setEditing(null); setShowPwd(false)
-    setForm({ employee: '', date: today(), time: '', log_type: 'IN', device: '', password: '' })
+    setForm({ employee: '', date: today(), time: nowHHMM(), log_type: 'IN', device: '', password: '' })
     setOpen(true)
   }
   const openEdit = (r: Row) => {
@@ -75,7 +79,7 @@ export function MovementsPage() {
   }
 
   const save = async () => {
-    if (!form.employee || !form.date || !/^\d{2}:\d{2}$/.test(form.time)) {
+    if (!form.employee || !form.date || !isValidHHMM(form.time)) {
       toast({ title: 'أكمل الحقول المطلوبة', description: 'الموظف والتاريخ والوقت (HH:mm)', variant: 'destructive' }); return
     }
     if (!form.password) { toast({ title: 'أدخل كلمة مرور المسؤول', variant: 'destructive' }); return }
@@ -134,7 +138,12 @@ export function MovementsPage() {
           <FieldInput field={EMPLOYEE_FIELD} value={form.employee} onChange={(v) => setForm((f) => ({ ...f, employee: v }))} />
         </div>
         <ApexDatePicker label="التاريخ" required value={form.date} onChange={(v) => setForm((f) => ({ ...f, date: v }))} />
-        <ApexTimePicker label="الوقت" required value={form.time} onChange={(v) => setForm((f) => ({ ...f, time: v }))} />
+        {/* Typed like the shifts editor (client 2026-10-01): digits, «:» added automatically —
+            no hour/minute dropdowns. Opens on the current time for a new punch. */}
+        <div>
+          <label className="block text-[13px] text-slate-700 mb-1">الوقت <span className="text-red-500">*</span></label>
+          <TimeInput24 value={form.time} onChange={(v) => setForm((f) => ({ ...f, time: v }))} ariaLabel="الوقت" className="w-full" />
+        </div>
         <div>
           <label className="block text-[13px] text-slate-700 mb-1">الجهاز</label>
           <select value={form.device} onChange={(e) => setForm((f) => ({ ...f, device: e.target.value }))} className={FIELD}>
