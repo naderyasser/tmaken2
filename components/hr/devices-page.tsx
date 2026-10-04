@@ -243,10 +243,10 @@ export function DevicesPage() {
       await frappeClient.call(`${ADMS}.request_device_resync`, {
         serial_number: deviceSerial(resyncDevice), from_stamp: stamp,
       })
-      toast({ title: 'تم إرسال طلب إعادة المزامنة', description: 'تم جدولة إعادة المزامنة؛ سيبدأ الجهاز الإرسال عند الاستطلاع القادم' })
+      toast({ title: 'تم إرسال طلب سحب البصمات', description: 'سيبدأ الجهاز إرسال البصمات السابقة عند اتصاله القادم' })
       setResyncDevice(null)
     } catch (err: any) {
-      toast({ title: 'فشل طلب إعادة المزامنة', description: admsErrorAr(err), variant: 'destructive' })
+      toast({ title: 'فشل طلب سحب البصمات', description: admsErrorAr(err), variant: 'destructive' })
     } finally {
       setResyncing(false)
     }
@@ -515,7 +515,7 @@ export function DevicesPage() {
                             {testingSerial === serial ? <Loader2 className="h-3.5 w-3.5 ml-2 animate-spin" /> : <Wifi className="h-3.5 w-3.5 ml-2" />}
                             اختبار الاتصال
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => openResync(d)}><RotateCcw className="h-3.5 w-3.5 ml-2" />إعادة مزامنة</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => openResync(d)}><RotateCcw className="h-3.5 w-3.5 ml-2" />سحب كل البصمات السابقة</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setLogDevice(d)}><Fingerprint className="h-3.5 w-3.5 ml-2" />سجل البصمات</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => setOffsetDevice({ serial, minutes: String(clock[serial]?.clock_offset_minutes ?? 0), note: '' })}>
                             <RotateCcw className="h-3.5 w-3.5 ml-2" />ضبط فرق الساعة
@@ -582,18 +582,21 @@ export function DevicesPage() {
             </div>
             <div className="space-y-1.5">
               <Label className="text-[13px] text-slate-600">الفرع<span className="text-red-500"> *</span></Label>
-              {/* Apex: type-to-filter autocomplete over the branch list. */}
-              <Input
+              {/* A real dropdown: a <datalist> prefilled with the current branch
+                  only ever suggested that same branch, so editing could never
+                  pick another one. */}
+              <select
+                aria-label="الفرع"
                 value={deviceForm?.location ?? ''}
                 onChange={(e) => setDeviceForm((f) => f && { ...f, location: e.target.value })}
-                list="device-branch-options"
-                autoComplete="off"
-                placeholder="الفرع"
-                className="text-right"
-              />
-              <datalist id="device-branch-options">
-                {branches.map((b) => <option key={b} value={b} />)}
-              </datalist>
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-right shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="">الفرع</option>
+                {deviceForm?.location && !branches.includes(deviceForm.location) && (
+                  <option value={deviceForm.location}>{deviceForm.location}</option>
+                )}
+                {branches.map((b) => <option key={b} value={b}>{b}</option>)}
+              </select>
             </div>
 
             {deviceForm && (
@@ -664,19 +667,19 @@ export function DevicesPage() {
       {/* ── Resync dialog ── */}
       <Dialog open={!!resyncDevice} onOpenChange={(o) => !o && setResyncDevice(null)}>
         <DialogContent dir="rtl" className="max-w-sm">
-          <DialogHeader><DialogTitle>إعادة مزامنة — {resyncDevice ? deviceSerial(resyncDevice) : ''}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>سحب البصمات السابقة — {resyncDevice ? deviceSerial(resyncDevice) : ''}</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2 text-[13px]">
             <label className="flex items-center gap-2 cursor-pointer">
               <input type="checkbox" checked={resyncAll} onChange={(e) => setResyncAll(e.target.checked)} className="h-4 w-4 accent-[var(--apex-blue)]" />
-              إعادة إرسال كل السجلات منذ بداية عمل الجهاز
+              كل البصمات المخزنة في الجهاز منذ بداية عمله
             </label>
             {!resyncAll && (
               <div className="space-y-1.5">
-                <Label className="text-[13px] text-slate-600">إعادة الإرسال من تاريخ</Label>
+                <Label className="text-[13px] text-slate-600">البصمات من تاريخ</Label>
                 <LocalizedDateInput value={resyncDate} onChange={setResyncDate} locale="ar" />
               </div>
             )}
-            <p className="text-[12px] text-slate-500">يجب أن يكون الجهاز متصلاً بالإنترنت ليستلم الأمر عند أول اتصال قادم.</p>
+            <p className="text-[12px] text-slate-500">يجب أن يكون الجهاز متصلاً بالإنترنت ليستلم الأمر عند أول اتصال قادم. قد يستغرق الجهاز الكبير عدة دقائق؛ البصمات المكررة تُتجاهل تلقائياً، وبصمات الأرقام غير المربوطة بموظف تظهر في «موظفين غير مسجلين» وتُحتسب فور ربطها.</p>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setResyncDevice(null)} disabled={resyncing}>إلغاء</Button>
