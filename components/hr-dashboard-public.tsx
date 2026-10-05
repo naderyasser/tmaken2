@@ -1,10 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { CalendarDays, Gift, AlertTriangle, CheckSquare, Umbrella, Loader2, Printer, Hourglass, Users, Fingerprint, MapPin, Radio } from 'lucide-react'
+import { CalendarDays, Gift, AlertTriangle, CheckSquare, Umbrella, CircleHelp, Loader2, Printer } from 'lucide-react'
 import {
-  PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
+  PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
 } from 'recharts'
 import { frappeClient, isAuthError } from '@/lib/api-client'
 import { frappeImageUrl } from '@/lib/utils'
@@ -15,10 +15,7 @@ import { APEX } from '@/lib/apex-colors'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 /**
- * لوحة تحكم الحضور. Client redesign 2026-10-05: same data as before (one
- * get_dashboard call, live punches) in a layout of our own — framed panels,
- * the employees ring on the left, the status tiles in the middle, branch
- * summary as segmented bars and the 10-day trend as smooth areas.
+ * لوحة تحكم الحضور — Apex /hr/dashboard, 1:1.
  *
  * One call (base_meena.api.hr_dashboard.get_dashboard, branch-scoped) feeds
  * every widget. Live: each processed punch arrives over Frappe socket.io as
@@ -66,7 +63,6 @@ const CARDS: { key: Bucket; label: string; icon: typeof CheckSquare; color: stri
   { key: 'weekly_off', label: 'عطله إسبوعية', icon: CalendarDays, color: '#808080', numberColor: '#808080' },
   { key: 'official_holiday', label: 'عطلات رسمية', icon: Gift, color: '#808080', numberColor: '#808080' },
   { key: 'on_leave', label: 'الاجازات', icon: Umbrella, color: '#2eaf7d', numberColor: '#2eaf7d' },
-  { key: 'waiting', label: 'في الانتظار', icon: Hourglass, color: '#e59a0b', numberColor: '#c27c00' },
 ]
 
 const EMPTY_TOTALS: Totals = { present: 0, absent: 0, on_leave: 0, official_holiday: 0, weekly_off: 0, waiting: 0, employees: 0 }
@@ -95,68 +91,50 @@ function printList(title: string, rows: ListRow[]) {
   w.document.close(); w.focus(); w.print()
 }
 
-/** Chart tooltip: series title, then "<category>: <n>". */
+/** Apex chart tooltip: series title, then "<category>: <n>". */
 function SeriesTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
+  const p = payload[0]
   return (
-    <div dir="rtl" className="rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-[12px] shadow-lg backdrop-blur">
-      <div className="mb-1 font-bold text-slate-700">{label}</div>
-      {payload.map((p: any) => (
-        <div key={p.dataKey} className="flex items-center gap-1.5 text-slate-600">
-          <span className="inline-block h-2 w-2 rounded-full" style={{ background: p.color || p.stroke }} />
-          {p.name}: <b className="text-slate-800">{p.value}</b>
-        </div>
-      ))}
+    <div dir="rtl" className="rounded border border-slate-200 bg-white px-3 py-2 text-[12px] shadow-md">
+      <div className="mb-1 flex items-center gap-1.5 font-bold text-slate-700">
+        <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: p.color || p.fill }} />{p.name}
+      </div>
+      <div className="text-slate-600">{label}: <b>{p.value}</b></div>
     </div>
   )
 }
 
-/** A framed panel: thin coloured top rule, title with an icon chip, optional side slot. */
-function Frame({ title, icon: Icon, side, children, className = '', testid }: {
-  title: string; icon: typeof Users; side?: ReactNode; children: ReactNode; className?: string; testid?: string
-}) {
+function Legend() {
   return (
-    <section data-testid={testid}
-      className={`relative flex min-w-0 flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_1px_2px_rgba(15,23,42,.04),0_8px_24px_-12px_rgba(41,96,182,.18)] ${className}`}>
-      <span aria-hidden className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-l from-[#2960b6] via-[#3d8bd9] to-[#2eaf7d]" />
-      <header className="flex items-center justify-between gap-3 px-5 pb-3 pt-5">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#2960b6]/10 text-[#2960b6]">
-            <Icon className="h-[18px] w-[18px]" aria-hidden />
-          </span>
-          <h2 className="truncate text-[17px] font-bold text-slate-800">{title}</h2>
-        </div>
-        {side}
-      </header>
-      <div className="flex min-h-0 flex-1 flex-col px-5 pb-5">{children}</div>
-    </section>
-  )
-}
-
-function SeriesKey() {
-  return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11.5px] text-slate-600">
+    <div className="mt-auto flex flex-wrap items-center justify-center gap-4 text-[11px] font-bold text-slate-600">
       {SERIES.map((s) => (
-        <span key={s.key} className="inline-flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />{s.label}
-        </span>
+        <div key={s.key} className="flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm" style={{ background: s.color }} /><span>{s.label}</span>
+        </div>
       ))}
     </div>
+  )
+}
+
+function BranchTick({ x, y, payload }: any) {
+  const v = String(payload?.value ?? '')
+  return (
+    <text x={x} y={y + 8} textAnchor="start" fontSize={10} fill={APEX.chartTick} transform={`rotate(-45 ${x} ${y + 8})`}>
+      {v}
+    </text>
   )
 }
 
 function DefaultAvatar() {
   return (
-    <svg viewBox="0 0 40 40" className="inline-block h-10 w-10" aria-hidden>
-      <circle cx="20" cy="20" r="20" fill="#e8effb" />
+    <svg viewBox="0 0 40 40" className="inline-block h-[50px] w-[50px]" aria-hidden>
+      <circle cx="20" cy="20" r="20" fill="#e2ebfb" />
       <circle cx="20" cy="15" r="7" fill="#2960b6" />
       <path d="M7 34c2-7 7-10 13-10s11 3 13 10a19 19 0 0 1-26 0z" fill="#2960b6" />
     </svg>
   )
 }
-
-const timeOf = (v: string | null) => (v ? v.slice(11, 19) : '')
-const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0)
 
 export function PublicHrDashboard() {
   const params = useSearchParams()
@@ -217,18 +195,15 @@ export function PublicHrDashboard() {
   }, [load])
 
   const totals = data?.totals ?? EMPTY_TOTALS
-  const off = totals.weekly_off + totals.official_holiday
-  const expected = Math.max(0, totals.employees - off - totals.on_leave)
-  const rate = pct(totals.present, expected)
-  const ring = useMemo(() => [
+  const donut = useMemo(() => [
     { name: 'حضور', value: totals.present, fill: APEX.chartPresent },
     { name: 'الغياب', value: totals.absent, fill: APEX.chartAbsent },
     { name: 'الاجازات', value: totals.on_leave, fill: APEX.chartLeave },
     { name: 'في الانتظار', value: totals.waiting, fill: WAITING },
-    { name: 'عطله إسبوعية', value: off, fill: WEEKLY },
-  ].filter((p) => p.value > 0), [totals, off])
+    { name: 'عطله إسبوعية', value: totals.weekly_off + totals.official_holiday, fill: WEEKLY },
+  ].filter((p) => p.value > 0), [totals])
   const branches = (data?.by_branch ?? []).map((b) => ({ ...b, weekly_off: b.weekly_off + b.official_holiday }))
-  const lastDays = (data?.last_days ?? []).map((d) => ({ ...d, label: d.date.slice(5).split('-').reverse().join('/'), weekly_off: d.weekly_off + d.official_holiday }))
+  const lastDays = (data?.last_days ?? []).map((d) => ({ ...d, weekly_off: d.weekly_off + d.official_holiday }))
   const movements = data?.movements ?? []
   const card = CARDS.find((c) => c.key === openCard)
   const cardRows = openCard ? (data?.lists?.[openCard] ?? []) : []
@@ -236,172 +211,139 @@ export function PublicHrDashboard() {
   if (error === 'auth') return <div className="p-4"><SessionRenew /></div>
 
   return (
-    <div className="min-h-full space-y-5 bg-[#f4f6fb] p-4 font-[family-name:var(--font-arabic)] md:p-6" dir="rtl" data-testid="hr-dashboard">
-      {/* ── Banner ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-l from-[#1f4f9e] via-[#2960b6] to-[#2f7fc4] px-6 py-5 text-white shadow-[0_12px_30px_-14px_rgba(31,79,158,.7)]">
-        <svg aria-hidden className="pointer-events-none absolute -left-10 -top-16 h-64 w-64 opacity-[.12]" viewBox="0 0 200 200">
-          <circle cx="100" cy="100" r="90" fill="none" stroke="white" strokeWidth="2" />
-          <circle cx="100" cy="100" r="62" fill="none" stroke="white" strokeWidth="2" />
-          <circle cx="100" cy="100" r="34" fill="none" stroke="white" strokeWidth="2" />
-        </svg>
-        <div className="relative flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-[13px] text-white/75">ملخص حضور اليوم</p>
-            <h1 className="mt-1 text-[22px] font-bold" data-testid="movements-title">
-              {data ? `حركات يوم ${data.day_name} ${data.date}` : 'حركات اليوم'}
-            </h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-white/10 px-4 py-2 text-center ring-1 ring-white/20">
-              <div className="text-[11px] text-white/75">نسبة الحضور</div>
-              <div className="text-[20px] font-bold tabular-nums">{loading && !data ? '…' : `${rate}%`}</div>
+    <div className="min-h-full space-y-4 bg-[var(--apex-bg)] p-4 font-[family-name:var(--font-arabic)]" dir="rtl" data-testid="hr-dashboard">
+      {/* ── Row 1: donut (right) · «ملخص حضور اليوم» (left) ── */}
+      <div className="flex flex-col gap-4 xl:flex-row">
+        <div className="flex w-full shrink-0 items-center justify-center rounded bg-white p-5 shadow-sm xl:w-[310px]">
+          <div className="relative h-44 w-44">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart role="img" aria-label="إجمالي الموظفين">
+                <Pie data={donut.length ? donut : [{ name: '—', value: 1, fill: APEX.chartGrid }]} dataKey="value"
+                  cx="50%" cy="50%" innerRadius={58} outerRadius={70} startAngle={90} endAngle={-270} stroke="none" isAnimationActive={false}>
+                  {(donut.length ? donut : [{ fill: APEX.chartGrid }]).map((p, i) => <Cell key={i} fill={p.fill} />)}
+                </Pie>
+                {donut.length > 0 && <Tooltip contentStyle={{ direction: 'rtl', borderRadius: 4, fontSize: 12 }} />}
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-[13px] text-slate-700">إجمالي الموظفين</span>
+              <span className="text-xl text-[var(--apex-blue)]" data-testid="total-employees">{loading ? '…' : totals.employees}</span>
             </div>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[12px] ring-1 ring-white/20"
-              title={live ? 'تحديث مباشر: متصل — تظهر كل بصمة فور تسجيلها' : 'تحديث مباشر غير متصل — يتم التحديث كل دقيقة'}>
-              <span className={`h-2 w-2 rounded-full ${live ? 'animate-pulse bg-emerald-300' : 'bg-white/50'}`} data-testid="live-dot" data-live={live ? '1' : '0'} />
-              {live ? 'مباشر' : 'كل دقيقة'}
-            </span>
           </div>
         </div>
-      </div>
-      {error === 'load' && <p className="text-center text-[12px] text-rose-600">تعذّر تحميل البيانات من الخادم</p>}
 
-      {/* ── Main row: movements (right) · status tiles (middle) · employees ring (left) ── */}
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-        <Frame title="حركات اليوم" icon={Fingerprint} className="xl:col-span-5"
-          side={<span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[12px] font-bold text-slate-600 tabular-nums">{movements.length}</span>}>
-          <div className="-mx-2 h-[430px] overflow-y-auto px-2" data-testid="movements">
-            {loading && !data && <div className="py-16 text-center text-slate-400"><Loader2 className="inline h-5 w-5 animate-spin" aria-hidden /></div>}
-            {!loading && movements.length === 0 && <div className="py-16 text-center text-[13px] text-slate-400">لا توجد حركات</div>}
-            <ul className="space-y-2">
-              {movements.map((m) => (
-                <li key={m.id} data-testid="movement-row" data-code={m.code}
-                  className={`flex items-center gap-3 rounded-xl border px-3 py-2 transition-colors duration-700 ${fresh.has(m.id) ? 'border-amber-300 bg-amber-50' : 'border-slate-100 bg-slate-50/60 hover:bg-slate-50'}`}>
-                  {m.image
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={frappeImageUrl(m.image)} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover ring-2 ring-white" />
-                    : <DefaultAvatar />}
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-[13.5px] font-bold text-slate-800" title={m.name}>{m.name}</span>
-                      <span className="shrink-0 rounded-md bg-white px-1.5 text-[11px] text-slate-500 ring-1 ring-slate-200 tabular-nums">{m.code}</span>
-                    </div>
-                    <div className="mt-0.5 flex items-center gap-1 truncate text-[12px] text-slate-500" title={m.location?.name}>
-                      <MapPin className="h-3 w-3 shrink-0" aria-hidden />{m.location?.name}
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-left">
-                    <div className="rounded-lg bg-[#2960b6]/10 px-2 py-1 text-[13px] font-bold text-[#2960b6] tabular-nums" dir="ltr">
-                      {timeOf(m.transaction_time)}
-                      {m.clock_skew && <span className="ms-1 text-amber-600" title="ساعة جهاز البصمة غير مضبوطة — الحركة محفوظة وستُصحَّح تلقائياً">⚠</span>}
-                    </div>
-                    <div className="mt-0.5 text-[10.5px] text-slate-400 tabular-nums" dir="ltr">{apexDateTime(m.transaction_time).slice(0, 10)}</div>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </Frame>
-
-        <Frame title="حالة الموظفين اليوم" icon={CheckSquare} className="xl:col-span-4">
-          <div className="grid flex-1 grid-cols-2 gap-3">
+        <div className="flex-1 rounded bg-[var(--apex-chart-panel-bg)] p-5 shadow-sm">
+          <h2 className="mb-5 text-center text-[24px] font-normal text-slate-800">ملخص حضور اليوم</h2>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {CARDS.map((c) => (
               <button key={c.key} type="button" onClick={() => setOpenCard(c.key)} aria-haspopup="dialog" data-testid={`card-${c.key}`}
-                className="group relative flex flex-col justify-between overflow-hidden rounded-xl border border-slate-100 bg-gradient-to-b from-white to-slate-50 p-4 text-right transition hover:-translate-y-0.5 hover:shadow-md">
-                <span aria-hidden className="absolute inset-y-3 right-0 w-1 rounded-l-full" style={{ background: c.color }} />
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg" style={{ background: `${c.color}1a`, color: c.color }}>
-                  <c.icon className="h-[18px] w-[18px]" aria-hidden />
+                className="flex h-[92px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-[5px] bg-white shadow-sm hover:shadow">
+                <span className="relative inline-flex h-7 w-7 items-center justify-center rounded">
+                  <span className="absolute inset-0 rounded opacity-15" style={{ background: c.color }} />
+                  <c.icon className="relative h-[18px] w-[18px]" style={{ color: c.color }} aria-hidden />
                 </span>
-                <span className="mt-3 text-[12.5px] text-slate-500">{c.label}</span>
-                {loading && !data ? <Skeleton className="mt-1 h-7 w-10" />
-                  : <span className="text-[26px] font-bold leading-tight tabular-nums" style={{ color: c.numberColor }}>{totals[c.key]}</span>}
+                <span className="text-[13px] text-slate-700">{c.label}</span>
+                {loading ? <Skeleton className="h-4 w-6" /> : <span className="text-[13px] font-bold" style={{ color: c.numberColor }}>{totals[c.key]}</span>}
               </button>
             ))}
           </div>
-        </Frame>
-
-        <Frame title="إجمالي الموظفين" icon={Users} className="xl:col-span-3">
-          <div className="flex flex-1 flex-col items-center justify-center">
-            <div className="relative h-52 w-52">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart role="img" aria-label="إجمالي الموظفين">
-                  <Pie data={ring.length ? ring : [{ name: '—', value: 1, fill: APEX.chartGrid }]} dataKey="value"
-                    cx="50%" cy="50%" innerRadius={70} outerRadius={92} startAngle={90} endAngle={-270}
-                    paddingAngle={ring.length > 1 ? 3 : 0} cornerRadius={8} stroke="none" isAnimationActive={false}>
-                    {(ring.length ? ring : [{ fill: APEX.chartGrid }]).map((p, i) => <Cell key={i} fill={p.fill} />)}
-                  </Pie>
-                  {ring.length > 0 && <Tooltip contentStyle={{ direction: 'rtl', borderRadius: 10, fontSize: 12 }} />}
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-[40px] font-bold leading-none text-slate-800 tabular-nums" data-testid="total-employees">{loading && !data ? '…' : totals.employees}</span>
-                <span className="mt-1 text-[12px] text-slate-500">موظف</span>
-              </div>
-            </div>
-            <div className="mt-4 w-full space-y-1.5">
-              {ring.map((p) => (
-                <div key={p.name} className="flex items-center justify-between text-[12.5px]">
-                  <span className="inline-flex items-center gap-1.5 text-slate-600"><span className="h-2 w-2 rounded-full" style={{ background: p.fill }} />{p.name}</span>
-                  <span className="font-bold text-slate-800 tabular-nums">{p.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Frame>
+        </div>
       </div>
 
-      {/* ── Branches (segmented bars) · last 10 days (smooth areas) ── */}
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
-        <Frame title="الحضور في الفروع" icon={MapPin} className="xl:col-span-5" testid="branch-chart">
-          <div className="flex-1 space-y-4">
-            {branches.length === 0 && <div className="py-10 text-center text-[13px] text-slate-400">لا توجد فروع</div>}
-            {branches.map((b) => (
-              <div key={b.branch}>
-                <div className="mb-1.5 flex items-center justify-between text-[13px]">
-                  <span className="truncate font-bold text-slate-700" title={b.branch}>{b.branch}</span>
-                  <span className="shrink-0 text-slate-500 tabular-nums"><b className="text-[#2960b6]">{b.present}</b> / {b.total}</span>
-                </div>
-                <div className="flex h-3 w-full overflow-hidden rounded-full bg-slate-100" role="img" aria-label={`${b.branch}: ${b.present} حضور من ${b.total}`}>
-                  {SERIES.map((s) => (b as any)[s.key] > 0 && (
-                    <span key={s.key} title={`${s.label}: ${(b as any)[s.key]}`} style={{ width: `${pct((b as any)[s.key], b.total)}%`, background: s.color }} className="h-full" />
-                  ))}
-                </div>
-              </div>
-            ))}
+      {/* ── Row 2: «حركات يوم …» (right) · «ملخص الحضور في الفروع» (left) ── */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="flex flex-col rounded bg-white px-4 pb-3 pt-5 shadow-sm">
+          <div className="mb-3 flex items-center justify-center gap-2">
+            <h2 className="text-[1.5rem] text-slate-800" data-testid="movements-title">
+              {data ? `حركات يوم ${data.day_name} ${data.date}` : 'حركات اليوم'}
+            </h2>
+            <span className="relative" title={live ? 'تحديث مباشر: متصل — تظهر كل بصمة فور تسجيلها' : 'تحديث مباشر غير متصل — يتم التحديث كل دقيقة'}>
+              <CircleHelp className="h-4 w-4 animate-pulse text-slate-400" aria-hidden />
+              <span className={`absolute -left-0.5 -top-0.5 h-1.5 w-1.5 rounded-full ${live ? 'bg-emerald-500' : 'bg-slate-300'}`} data-testid="live-dot" data-live={live ? '1' : '0'} />
+            </span>
           </div>
-          <div className="mt-5 border-t border-slate-100 pt-3"><SeriesKey /></div>
-        </Frame>
+          {error === 'load' && <p className="mb-2 text-center text-[12px] text-rose-600">تعذّر تحميل البيانات من الخادم</p>}
+          <div className="h-[330px] overflow-y-auto">
+            <table className="w-full table-fixed text-right text-[12.5px]">
+              <thead className="sticky top-0 bg-white">
+                <tr className="border-b-2 border-slate-300 text-slate-800">
+                  <th className="w-[70px] px-2 pb-2 font-bold">الصورة</th>
+                  <th className="w-24 px-2 pb-2 font-bold">كود الموظف</th>
+                  <th className="px-2 pb-2 font-bold">الاسم</th>
+                  <th className="w-40 px-2 pb-2 font-bold">الحركة</th>
+                  <th className="px-2 pb-2 font-bold">الموقع</th>
+                </tr>
+              </thead>
+              <tbody data-testid="movements">
+                {loading && !data && (
+                  <tr><td colSpan={5} className="py-10 text-center text-slate-400"><Loader2 className="inline h-4 w-4 animate-spin" aria-hidden /></td></tr>
+                )}
+                {!loading && movements.length === 0 && (
+                  <tr><td colSpan={5} className="py-10 text-center text-slate-400">لا توجد حركات</td></tr>
+                )}
+                {movements.map((m) => (
+                  <tr key={m.id} data-testid="movement-row" data-code={m.code}
+                    className={`h-[62px] border-b border-slate-200 transition-colors duration-700 ${fresh.has(m.id) ? 'bg-amber-100' : ''}`}>
+                    <td className="px-2">
+                      {m.image
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={frappeImageUrl(m.image)} alt="" className="h-[50px] w-[50px] rounded-full object-cover" />
+                        : <DefaultAvatar />}
+                    </td>
+                    <td className="px-2 text-slate-700">{m.code}</td>
+                    <td className="truncate px-2 text-slate-700" title={m.name}>{m.name}</td>
+                    <td className="whitespace-nowrap px-2 text-slate-700">
+                      {apexDateTime(m.transaction_time)}
+                      {m.clock_skew && (
+                        <span className="ms-1 align-middle text-amber-600" title="ساعة جهاز البصمة غير مضبوطة — الحركة محفوظة وستُصحَّح تلقائياً">⚠</span>
+                      )}
+                    </td>
+                    <td className="truncate px-2 text-slate-700" title={m.location?.name}>{m.location?.name}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
 
-        <Frame title="حركات اخر 10 ايام" icon={Radio} className="xl:col-span-7" testid="trend-chart">
-          <div className="h-[280px]">
-            {loading && !data ? <Skeleton className="h-full w-full" /> : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={lastDays} margin={{ right: 6, left: -22, top: 8, bottom: 0 }}>
-                  <defs>
-                    {SERIES.map((s) => (
-                      <linearGradient key={s.key} id={`g-${s.key}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={s.color} stopOpacity={0.28} />
-                        <stop offset="100%" stopColor={s.color} stopOpacity={0.02} />
-                      </linearGradient>
-                    ))}
-                  </defs>
-                  <CartesianGrid vertical={false} stroke={APEX.chartGrid} strokeDasharray="4 4" />
-                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: APEX.chartTick }} axisLine={false} tickLine={false} reversed />
-                  <YAxis tick={{ fontSize: 11, fill: APEX.chartTick }} axisLine={false} tickLine={false} allowDecimals={false} orientation="right" />
-                  <Tooltip content={<SeriesTooltip />} cursor={{ stroke: '#cbd5e1', strokeDasharray: '3 3' }} />
-                  {SERIES.map((s) => (
-                    <Area key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={s.color} strokeWidth={2.5}
-                      fill={`url(#g-${s.key})`} dot={false} activeDot={{ r: 4 }} isAnimationActive={false} />
-                  ))}
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
+        <div className="flex flex-col rounded bg-white px-4 pb-3 pt-5 shadow-sm">
+          <h2 className="mb-4 text-center text-[1.5rem] font-medium text-slate-800">ملخص الحضور في الفروع</h2>
+          <div className="mb-2 h-[360px]" data-testid="branch-chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={branches} barSize={46} margin={{ right: 8, left: -18, bottom: 0 }}>
+                <CartesianGrid vertical={false} stroke={APEX.chartGrid} />
+                <XAxis dataKey="branch" tick={<BranchTick />} interval={0} height={110} axisLine={{ stroke: APEX.chartAxisLine }} tickLine={false} />
+                <YAxis tick={{ fontSize: 10, fill: APEX.chartTick }} axisLine={false} tickLine={false} allowDecimals={false}
+                  domain={[0, Math.max(4, data?.max_value ?? 0)]} />
+                <Tooltip shared={false} cursor={false} content={<SeriesTooltip />} />
+                {SERIES.map((s) => <Bar key={s.key} dataKey={s.key} name={s.label} stackId="b" fill={s.color} isAnimationActive={false} />)}
+              </BarChart>
+            </ResponsiveContainer>
           </div>
-          <div className="mt-3 border-t border-slate-100 pt-3"><SeriesKey /></div>
-        </Frame>
+          <Legend />
+        </div>
       </div>
 
-      {/* ── «عرض <label>» drill-down ── */}
+      {/* ── Row 3: «حركات اخر 10 ايام» — grouped (clustered) columns ── */}
+      <div className="flex flex-col rounded bg-white px-4 pb-3 pt-5 shadow-sm">
+        <h2 className="mb-4 text-center text-[1.5rem] font-medium text-slate-800">حركات اخر 10 ايام</h2>
+        <div className="mb-2 h-[320px]" data-testid="trend-chart">
+          {loading && !data ? <Skeleton className="h-full w-full" /> : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={lastDays} barGap={2} barCategoryGap="18%" margin={{ right: 8, left: -18, bottom: 0 }}>
+                <CartesianGrid vertical={false} stroke={APEX.chartGrid} />
+                <XAxis dataKey="date" tick={{ fontSize: 10, fill: APEX.chartTick }} interval={0} axisLine={{ stroke: APEX.chartAxisLine }} tickLine={false} height={30} />
+                <YAxis tick={{ fontSize: 10, fill: APEX.chartTick }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip shared={false} cursor={false} content={<SeriesTooltip />} />
+                {SERIES.map((s) => <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color} isAnimationActive={false} />)}
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+        <Legend />
+      </div>
+
+      {/* ── «عرض <label>» drill-down (Apex AttendingLeaveDetalies) ── */}
       <Dialog open={openCard !== null} onOpenChange={(o) => { if (!o) setOpenCard(null) }}>
         <DialogContent className="theme-hr hr-dialog-lg" data-testid="card-dialog">
           <DialogHeader><DialogTitle className="text-center">عرض {card?.label}</DialogTitle></DialogHeader>
