@@ -139,6 +139,8 @@ function DefaultAvatar() {
 export function PublicHrDashboard() {
   const params = useSearchParams()
   const date = params?.get('date') || undefined
+  // the topbar «فرع:» filter scopes the whole dashboard (/hr?branch=…)
+  const branch = params?.get('branch') || undefined
   const [data, setData] = useState<Dashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<'auth' | 'load' | null>(null)
@@ -151,7 +153,7 @@ export function PublicHrDashboard() {
   const load = useCallback(async (quiet = false) => {
     if (!quiet) setLoading(true)
     try {
-      const res = await frappeClient.call<Dashboard>(METHOD, date ? { date } : {})
+      const res = await frappeClient.call<Dashboard>(METHOD, { ...(date ? { date } : {}), ...(branch ? { branch } : {}) })
       const payload = (res as any)?.message
       if (!payload?.totals) throw new Error('empty dashboard payload')
       dateRef.current = payload.date
@@ -163,7 +165,7 @@ export function PublicHrDashboard() {
     } finally {
       setLoading(false)
     }
-  }, [date])
+  }, [date, branch])
 
   useEffect(() => { load() }, [load])
 

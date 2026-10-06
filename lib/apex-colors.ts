@@ -14,17 +14,17 @@
  * match exactly, or the chart colors will drift from the rest of the theme.
  */
 export const APEX = {
-  chartPresent: '#497cff',
-  chartAbsent: '#dc3545',
-  chartLeave: '#34c75a',
+  chartPresent: '#6cc196',
+  chartAbsent: '#f0ae4f',
+  chartLeave: '#2c9c9a',
   chartTick: '#64748b',
   chartNeutralIcon: '#808080',
   chartAbsentIcon: '#ff0000',
-  chartPanelBg: '#f1f2f4',
+  chartPanelBg: '#f3f6f7',
   chartGrid: '#e2e8f0',
   chartAxisLine: '#cbd5e1',
-  chartBadgeBg: '#dbeafe',
-  chartBadgeText: '#2456a6',
+  chartBadgeBg: '#d9eeec',
+  chartBadgeText: '#1d4d56',
   chartSeriesBlue: '#3b82f6',
   chartSeriesGray: '#94a3b8',
   chartSeriesAmber: '#f59e0b',

@@ -18,8 +18,9 @@ const amiriNaskh = Amiri({ subsets: ['arabic'], variable: '--font-naskh', weight
 const notoKufiArabic = Noto_Kufi_Arabic({ subsets: ['arabic'], variable: '--font-kufi', weight: ['400', '500', '600', '700'] })
 
 export const metadata: Metadata = {
-  title: 'تمكين - Human Resources Management',
-  description: 'Modern HR management system powered by Frappe HRMS',
+  title: 'Masar Time — نظام الحضور والانصراف',
+  description: 'Masar Time — الحضور والانصراف والموارد البشرية',
+  icons: { icon: '/branding/masar/masar-favicon.png', apple: '/branding/masar/masar-icon.png' },
 }
 
 // Root layout = html/body/fonts only. The heavy client Providers (i18n dictionary +

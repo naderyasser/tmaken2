@@ -691,3 +691,41 @@ html[lang="ur"] button {
   color: inherit;
   opacity: 1;
 }
+/* ── Masar Time palette (2026-10-05) ──────────────────────────────────────
+   This copy (masar-frontend) re-skins the same HR shell: dark-teal sidebar
+   and topbar, light grey canvas, green / teal / orange status colours. It
+   overrides the Apex tokens above, so every page follows without per-page
+   edits. Masar-only — tamken3 keeps its own globals.css. */
+.theme-hr, body.theme-hr {
+  --masar-ink: #1d4d56;          /* sidebar / topbar */
+  --masar-ink-2: #245c66;        /* topbar, hovers */
+  --masar-ink-3: #2f7480;        /* active item */
+  --masar-green: #6cc196;        /* present */
+  --masar-teal: #2c9c9a;         /* registered / leave */
+  --masar-orange: #f0ae4f;       /* absent / other */
+  --apex-blue: var(--masar-ink);
+  --apex-blue-light: var(--masar-ink-2);
+  --apex-blue-accent: var(--masar-teal);
+  --apex-blue-deep: #163c43;
+  --apex-blue-hover: #1a454d;
+  --apex-blue-light-hover: #1f525b;
+  --apex-blue-border: #9cbcc0;
+  --apex-navy: #1d4d56;
+  --apex-active: var(--masar-ink-3);
+  --apex-active-text: #ffffff;
+  --apex-green: #2c9c9a;
+  --apex-green-dark: #24817f;
+  --apex-link: #24817f;
+  --apex-thead: #d6e4e6;
+  --apex-row-group: #cfe5e2;
+  --apex-canvas: #edf1f2;
+  --apex-bg: #edf1f2;
+  --apex-form-bar-bg: #eef3f4;
+  --apex-chart-present: #6cc196;
+  --apex-chart-absent: #f0ae4f;
+  --apex-chart-leave: #2c9c9a;
+  --apex-chart-panel-bg: #f3f6f7;
+  --apex-chart-badge-bg: #d9eeec;
+  --apex-chart-badge-text: #1d4d56;
+  --apex-amber: #f0ae4f;
+}

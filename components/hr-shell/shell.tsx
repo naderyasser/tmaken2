@@ -71,16 +71,18 @@ export function HrShell({ requireHR = true, children }: { requireHR?: boolean; c
         </Suspense>
 
         {/* Sidebar — full height, independent of the topbar */}
-        <Suspense fallback={<div className="hidden lg:block w-[272px] bg-[#2960b6] shrink-0" />}>
+        <Suspense fallback={<div className="hidden lg:block w-[250px] bg-[var(--masar-ink)] shrink-0" />}>
           <IconRail />
         </Suspense>
 
         {/* Remaining column: topbar (content-width only) then main */}
         <div className="flex flex-col flex-1 overflow-hidden">
-          <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} />
+          <Suspense fallback={<div className="h-[60px] shrink-0 bg-[var(--masar-ink-2)]" />}>
+            <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} />
+          </Suspense>
 
           {/* S8: page canvas #fbfbfb, content padding-top 10px */}
-          <main className="flex-1 overflow-y-auto bg-[var(--apex-canvas)] pt-[10px]">
+          <main className="flex-1 overflow-y-auto bg-[var(--apex-canvas)]">
             <PageEnter>{children}</PageEnter>
           </main>
         </div>
