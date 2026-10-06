@@ -74,7 +74,12 @@ function Module({ id }: { id: string }) {
 function HRContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [activeModule, setActiveModule] = useState<ModuleType>('dashboard')
+  // Start on the module the URL names — starting on 'dashboard' and switching
+  // after mount loaded (and threw away) the whole dashboard on every page.
+  const [activeModule, setActiveModule] = useState<ModuleType>(() => {
+    const m = searchParams.get('module')
+    return m && (VALID_MODULES.includes(m as ModuleType) || getReportConfig(m)) ? (m as ModuleType) : 'dashboard'
+  })
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null)
 
   // Sync activeModule with URL param
