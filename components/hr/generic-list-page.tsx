@@ -358,7 +358,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     // an empty field shows its display fallback (e.g. a country's built-in Arabic name)
     for (const f of fieldsFor(true)) initial[f.field] = toFormValue(f, row[f.field] || (f.fallbackField ? row[f.fallbackField] : row[f.field]))
     // a custom block's keys (Frappe Time values come back as HH:mm:ss)
-    for (const f of fieldsFor(true)) for (const k of f.payloadKeys ?? []) initial[k] = /^\d{1,2}:\d{2}:\d{2}/.test(String(row[k] ?? '')) ? String(row[k]).slice(0, 5) : row[k] ?? ''
+    for (const f of fieldsFor(true)) for (const k of f.payloadKeys ?? []) initial[k] = /^\d{1,2}:\d{2}:\d{2}/.test(String(row[k] ?? '')) ? String(row[k]).replace(/^(\d):/, '0$1:').slice(0, 5) : row[k] ?? ''
     setEditing(row)
     setForm(initial)
     setFieldErrors({})
