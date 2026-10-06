@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Link2, Loader2 } from 'lucide-react'
+import Link from 'next/link'
+import { Link2, Loader2, Pencil } from 'lucide-react'
 import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { Button } from '@/components/ui/button'
@@ -121,7 +122,18 @@ export function UnmappedPanel({ onMapped }: { onMapped?: () => void }) {
           <tbody>
             {rows.map((r) => (
               <tr key={`${r.device_serial}-${r.employee_device_id}`} className="border-b border-amber-100">
-                <td className="px-3 py-1.5 font-mono">{r.employee_device_id}</td>
+                <td className="px-3 py-1.5 font-mono">
+                  {/* client 2026-10-06: the PIN opens «تعريف الموظف» with كود الموظف (and the device's branch) filled */}
+                  <Link href={`/employee/new?device_id=${encodeURIComponent(r.employee_device_id)}&serial=${encodeURIComponent(r.device_serial || '')}`}
+                    className="font-bold text-[var(--apex-primary,#1d6fd8)] underline underline-offset-2 hover:opacity-80"
+                    title="تسجيل موظف بهذا الرقم">
+                    {r.employee_device_id}
+                  </Link>
+                  <Link href={`/employee/new?device_id=${encodeURIComponent(r.employee_device_id)}&serial=${encodeURIComponent(r.device_serial || '')}`}
+                    className="ms-2 inline-flex align-middle text-emerald-600 hover:text-emerald-700" aria-label={`تسجيل موظف برقم ${r.employee_device_id}`}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Link>
+                </td>
                 <td className="px-3 py-1.5 whitespace-nowrap">{r.device_serial}</td>
                 <td className="px-3 py-1.5 whitespace-nowrap">{formatDateTime(r.last_seen)}</td>
                 <td className="px-3 py-1.5">{r.punch_count}</td>

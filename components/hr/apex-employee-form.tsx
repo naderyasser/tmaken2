@@ -134,8 +134,19 @@ export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
   // «موظفين غير مسجلين» ✎ on an unlinked device PIN → /employee/new?device_id=<PIN>
   useEffect(() => {
     if (!isNew) return
-    const pin = new URLSearchParams(window.location.search).get('device_id')
+    const params = new URLSearchParams(window.location.search)
+    const pin = params.get('device_id')
     if (pin) setF((prev) => ({ ...prev, attendance_device_id: pin }))
+    // the device's «الفرع» (Biometric Device.location holds the Branch name) → الفرع
+    const serial = params.get('serial')
+    if (serial) frappeClient.get<any>('Biometric Device', serial).then((res: any) => {
+      const branch = res?.data?.location
+      if (branch) setF((prev) => ({
+        ...prev,
+        branch: prev.branch || branch,
+        custom_branch_access: prev.custom_branch_access || branch,  // صلاحية الموظف بالفروع = that branch
+      }))
+    }).catch(() => { /* device gone — the user picks the branch */ })
   }, [isNew])
 
   const load = useCallback(async () => {
