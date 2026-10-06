@@ -15,7 +15,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { FieldInput, toFormValue, toPayload } from '@/components/hr/field-input'
+import { FieldInput, prefetchLinkOptions, toFormValue, toPayload } from '@/components/hr/field-input'
 import type { FieldDef, ListModuleConfig } from '@/lib/hr-modules'
 import { VALUE_AR } from '@/lib/enums'
 import { ApexEmptyState, BoxIllustration } from '@/components/hr/apex-empty-state'
@@ -224,6 +224,8 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
   }, [config.doctype, config.method, config.methodArgs, config.fields, config.filters, config.orderBy, config.deriveFields, authLoading, isAuthenticated, toast])
 
   useEffect(() => { if (!authLoading) load() }, [load, authLoading])
+  // after the list itself, fetch the add form's pickers in the background
+  useEffect(() => { if (!authLoading && !loading) prefetchLinkOptions(formFields) }, [authLoading, loading, formFields])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()

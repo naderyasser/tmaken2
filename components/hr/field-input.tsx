@@ -19,25 +19,44 @@ const linkCache: Record<string, { value: string; label: string }[]> = {}
 /** Apex-style autocomplete over another doctype's records (Employee, Leave
  *  Type …): type to filter by name or code, pick from the list (Apex
  *  mat-autocomplete). Only a picked record is ever committed. */
-function LinkSelect({ field, value, onChange }: { field: FieldDef; value: any; onChange: (v: any) => void }) {
-  const key = `${field.link!.doctype}|${field.link!.titleField ?? ''}`
-  const [opts, setOpts] = useState(linkCache[key] ?? [])
-  const [query, setQuery] = useState('')
-  const [open, setOpen] = useState(false)
-  useEffect(() => {
-    if (linkCache[key]) { setOpts(linkCache[key]); return }
+const linkPending: Record<string, Promise<{ value: string; label: string }[]>> = {}
+const linkKey = (field: FieldDef) => `${field.link!.doctype}|${field.link!.titleField ?? ''}`
+
+/** One fetch per link list for the session, shared by every picker. */
+function loadLinkOptions(field: FieldDef) {
+  const key = linkKey(field)
+  if (linkCache[key]) return Promise.resolve(linkCache[key])
+  if (!linkPending[key]) {
     const title = field.link!.titleField
     const labelMap = field.link!.labelMap
-    frappeClient.getList<any>(field.link!.doctype, {
+    linkPending[key] = frappeClient.getList<any>(field.link!.doctype, {
       fields: title ? ['name', title] : ['name'], filters: field.link!.filters, order_by: `${title || 'name'} asc`, limit_page_length: 0,
     }).then((rows) => {
       linkCache[key] = rows.map((r) => ({
         value: r.name,
         label: labelMap ? (title && r[title]) || labelMap(r.name) : title && r[title] ? `${r[title]}${r[title] !== r.name ? ` (${r.name})` : ''}` : r.name,
       }))
-      setOpts(linkCache[key])
-    }).catch(() => setOpts([]))
-  }, [key, field.link])
+      return linkCache[key]
+    }).finally(() => { delete linkPending[key] })
+  }
+  return linkPending[key]
+}
+
+/** Warm the pickers' lists while the page is idle, so «إضافة» opens with them ready. */
+export function prefetchLinkOptions(fields: FieldDef[]) {
+  for (const f of fields) if (f.type === 'link' && f.link) loadLinkOptions(f).catch(() => {})
+}
+
+function LinkSelect({ field, value, onChange }: { field: FieldDef; value: any; onChange: (v: any) => void }) {
+  const key = linkKey(field)
+  const [opts, setOpts] = useState(linkCache[key] ?? [])
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  useEffect(() => {
+    let live = true
+    loadLinkOptions(field).then((o) => { if (live) setOpts(o) }).catch(() => { if (live) setOpts([]) })
+    return () => { live = false }
+  }, [key, field])
   const selected = opts.find((o) => o.value === value)
   const q = query.trim().toLowerCase()
   const shown = (q ? opts.filter((o) => o.label.toLowerCase().includes(q) || String(o.value).toLowerCase().includes(q)) : opts).slice(0, 100)
