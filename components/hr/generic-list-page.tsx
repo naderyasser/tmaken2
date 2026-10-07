@@ -164,7 +164,9 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
    *  it shows the full record, not just the table's narrower column set. */
   const viewFields = useMemo(() => config.fields.filter((f) => f.inTable !== false || f.inForm !== false), [config.fields])
 
-  const load = useCallback(async () => {
+  /** `silent` refetches without the skeleton — used after add/edit/delete so
+   *  the table stays on screen while the fresh rows arrive. */
+  const load = useCallback(async (silent = false) => {
     // No session yet — don't fire the request; <SessionRenew /> reopens it.
     if (!authLoading && !isAuthenticated) {
       setRows([])
@@ -172,7 +174,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
       setLoading(false)
       return
     }
-    setLoading(true)
+    if (!silent) setLoading(true)
     setLoadError(false)
     setAuthRequired(false)
     try {
@@ -273,7 +275,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
       }
       toast({ title: on ? `تم اعتماد ${ok} طلب` : `تم إلغاء ${ok} طلب` })
       setSelected(new Set())
-      load()
+      load(true)
       return
     }
     try {
@@ -285,7 +287,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
       toast({ title: 'فشلت العملية', description: e instanceof Error ? e.message : 'تعذّر الاتصال بالخادم', variant: 'destructive' })
     }
     setSelected(new Set())
-    load()
+    load(true)
   }
 
   /** Per-row تنشيط/إلغاء التنشيط (RowMenu, kind='employee'). */
@@ -296,7 +298,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
         doctype: config.doctype, names: [row.name], active: on,
       })
       toast({ title: on ? 'تم التنشيط' : 'تم إلغاء التنشيط' })
-      load()
+      load(true)
     } catch (e) {
       toast({ title: 'فشلت العملية', description: e instanceof Error ? e.message : 'تعذّر الاتصال بالخادم', variant: 'destructive' })
     }
@@ -315,7 +317,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
         ? (action === 'approve' ? 'الطلب معتمد مسبقاً' : 'الطلب مرفوض مسبقاً')
         : (action === 'approve' ? 'تم الاعتماد' : action === 'reject' ? 'تم الرفض' : 'تم الإلغاء')
       toast({ title })
-      load()
+      load(true)
     } catch (e) {
       toast({ title: 'فشلت العملية', description: e instanceof Error ? e.message : 'تعذّر الاتصال بالخادم', variant: 'destructive' })
     }
@@ -335,7 +337,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
     setBulkDelete(false)
     setSelected(new Set())
     toast({ title: `تم حذف ${ok}`, description: failed ? `تعذّر حذف ${failed}` : undefined, variant: failed ? 'destructive' : undefined })
-    load()
+    load(true)
   }
 
   /** Fields actually live on the dialog for the given mode — `createOnly`
@@ -429,7 +431,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
           : undefined,
       })
       setDialogOpen(false)
-      await load()
+      await load(true)
     } catch (e) {
       // A few core Frappe doctypes (Country among them) have renaming
       // disabled outright (`allow_rename: 0`) — a correct rejection, but its
@@ -454,7 +456,7 @@ export function GenericListPage({ config }: { config: ListModuleConfig }) {
       }
       toast({ title: 'تم الحذف' })
       setDeleteTarget(null)
-      await load()
+      await load(true)
     } catch (e) {
       // Close the dialog on failure too — left open, its «سيتم حذف السجل…»
       // text reads like a success message and hides the error toast.
