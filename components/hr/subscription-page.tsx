@@ -109,7 +109,10 @@ export function SubscriptionPage() {
   const packages = pkgInfo?.packages ?? []
   const activeKey = pkgInfo?.active_key ?? null
   const configured = !!pkgInfo?.configured
-  const upgradeTarget = packages.find((p) => p.key !== activeKey) ?? null
+  const upgradeTarget = configured ? packages.find((p) => p.key !== activeKey) ?? null : null
+  // No catalogue configured → list_packages still returns the current plan;
+  // renew/upgrade then log a request against it (request_change) for follow-up.
+  const activePkg = packages.find((p) => p.key === activeKey) ?? null
 
   const doRequest = async (pkg: Package, kind: 'renew' | 'upgrade') => {
     setRequesting(pkg.key)
@@ -161,9 +164,9 @@ export function SubscriptionPage() {
       <p className="text-[15px] text-slate-600">{v}</p>
     </div>
   )
-  const Usage = ({ label, used, max }: { label: string; used?: number; max?: number | null }) => {
+  const Usage = ({ label, used, max, empty }: { label: string; used?: number; max?: number | null; empty?: boolean }) => {
     const limited = max != null && max > 0
-    const pct = limited ? Math.min(100, ((used ?? 0) / (max as number)) * 100) : 100
+    const pct = empty ? 0 : limited ? Math.min(100, ((used ?? 0) / (max as number)) * 100) : 100
     return (
       <>
         <div className="md:col-span-2"><h3 className="text-[16px] font-bold text-slate-800">{label}</h3></div>
@@ -211,7 +214,7 @@ export function SubscriptionPage() {
         <hr className="my-5 border-slate-200" />
         <h2 className="text-[20px] font-bold text-slate-800 mb-4 text-right">الباقات الإضافية</h2>
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 text-right">
-          {sub?.extra_employees ? <Cell k="عدد الموظفين" v={sub.extra_employees} wide /> : <p className="md:col-span-12 text-slate-500 text-[14px]">لا توجد باقات إضافية</p>}
+          {sub?.extra_employees ? <Cell k="عدد الموظفين" v={sub.extra_employees} wide /> : null}
         </div>
       </Accordion>
 
@@ -226,18 +229,20 @@ export function SubscriptionPage() {
           <Usage label="عدد الفواتير" />
           <Usage label="عدد الموردين" />
           <Usage label="عدد الاصناف" />
+          {/* Apex shows this bar empty (0%) with «لا نهائي» */}
+          <Usage label="نقاط البيع اوفلاين" empty />
         </div>
       </Accordion>
 
       <div className="flex items-center justify-around mt-3">
         <div className="flex items-center gap-2">
-          {configured && activeKey ? (
-            <ActionButton pkg={packages.find((p) => p.key === activeKey)!} kind="renew" label="تجديد الإشتراك" />
+          {activePkg ? (
+            <ActionButton pkg={activePkg} kind="renew" label="تجديد الإشتراك" />
           ) : contactHref ? <ContactLink label="تجديد الإشتراك" /> : (
             <button type="button" disabled className="h-[40px] px-5 rounded bg-[var(--apex-bootstrap-blue)] text-white text-[15px] opacity-60">تجديد الإشتراك</button>
           )}
-          {configured && upgradeTarget ? (
-            <ActionButton pkg={upgradeTarget} kind="upgrade" label="ترقية الإشتراك" />
+          {upgradeTarget || activePkg ? (
+            <ActionButton pkg={(upgradeTarget || activePkg)!} kind="upgrade" label="ترقية الإشتراك" />
           ) : contactHref ? <ContactLink label="ترقية الإشتراك" /> : (
             <button type="button" disabled className="h-[40px] px-5 rounded bg-[var(--apex-bootstrap-blue)] text-white text-[15px] opacity-60">ترقية الإشتراك</button>
           )}

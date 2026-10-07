@@ -30,7 +30,8 @@ interface NestedSpec {
   midOpen: boolean
   /** Apex «الاجمالي»: no toggle column — the branch toggle sits in the first data column */
   noToggleColumn?: boolean
-  /** a «الإجمالي» row above each open employee's days (ساعات الدوام/التأخير/الإضافي/ساعات العمل) */
+  /** Apex «التفصيلي»: per-employee totals (ساعات الدوام/التأخير/الإضافي/ساعات العمل) sit in the
+   *  حضور/إنصراف head row, empty cells read «____», status is plain text */
   totals?: boolean
 }
 
@@ -129,19 +130,13 @@ function useToggles() {
   }
 }
 
-/** Client ask: each وردية's حضور/إنصراف sit together under its name, tinted per وردية and
- *  fenced off from the next one, so a month of punches reads period by period. */
-const SHIFT_TINT = ['bg-sky-50', 'bg-amber-50', 'bg-emerald-50', 'bg-violet-50']
-function shiftCls(key: string) {
-  const m = /^(shift|in|out)(\d)$/.exec(key)
-  if (!m) return ''
-  const tint = SHIFT_TINT[(Number(m[2]) - 1) % SHIFT_TINT.length]
-  if (m[1] === 'shift') return cn(tint, 'border-x-2 border-slate-400')
-  return cn(tint, m[1] === 'in' ? 'border-s-2 border-slate-400' : 'border-e-2 border-slate-400')
+/** Two-row head when some columns have حضور/إنصراف children (green/red). */
+/** Apex colours for the totals cells in the حضور/إنصراف head row */
+const TOTAL_CLS: Record<string, string> = {
+  duty: 'font-bold', late: 'font-bold text-red-600', extra: 'font-bold text-green-700', hours: 'font-bold text-[#006fea]',
 }
 
-/** Two-row head when some columns have حضور/إنصراف children (green/red). */
-function LeafHead({ cols, lead, pad, className }: { cols: Column[]; lead: number; pad: number; className?: string }) {
+function LeafHead({ cols, lead, pad, className, totals }: { cols: Column[]; lead: number; pad: number; className?: string; totals?: Record<string, string> }) {
   const nested = cols.some((c) => c.children?.length)
   const blank = (n: number, k: string) => Array.from({ length: n }, (_, i) => <th key={k + i} />)
   return (
@@ -151,7 +146,7 @@ function LeafHead({ cols, lead, pad, className }: { cols: Column[]; lead: number
         {cols.map((c, i) => (
           <th key={c.key} colSpan={c.children?.length || 1}
               className={cn('py-3 px-2 font-bold whitespace-nowrap', i === 0 && !nested ? 'text-right' : 'text-center',
-                c.key === 'in1' && 'text-green-700', c.key === 'out1' && 'text-red-600', shiftCls(c.key))}>
+                c.key === 'in1' && 'text-green-700', c.key === 'out1' && 'text-red-600')}>
             {c.label}
           </th>
         ))}
@@ -162,9 +157,9 @@ function LeafHead({ cols, lead, pad, className }: { cols: Column[]; lead: number
           {blank(lead, 'l2')}
           {cols.flatMap((c) => c.children?.length
             ? c.children.map((ch) => (
-                <th key={ch.key} className={cn('py-2 px-2 font-bold text-center', ch.key.startsWith('out') ? 'text-red-600' : 'text-green-700', shiftCls(ch.key))}>{ch.label}</th>
+                <th key={ch.key} className={cn('py-2 px-2 font-bold text-center', ch.key.startsWith('out') ? 'text-red-600' : 'text-green-700')}>{ch.label}</th>
               ))
-            : [<th key={c.key} />])}
+            : [<th key={c.key} className={cn('py-2 px-2 text-center whitespace-nowrap', TOTAL_CLS[c.key])}>{totals?.[c.key] ?? ''}</th>])}
           {blank(pad, 'p2')}
         </tr>
       )}
@@ -172,13 +167,21 @@ function LeafHead({ cols, lead, pad, className }: { cols: Column[]; lead: number
   )
 }
 
-function LeafRow({ r, cols, lead, pad }: { r: Record<string, any>; cols: Column[]; lead: number; pad: number }) {
+function LeafRow({ r, cols, lead, pad, apex }: { r: Record<string, any>; cols: Column[]; lead: number; pad: number; apex?: boolean }) {
+  // Apex: a day with no punches shows «____» in every time column, not 00:00
+  const noPunch = apex && !['in1', 'out1', 'in2', 'out2'].some((k) => r[k])
+  const cell = (key: string) => {
+    const v = fmtVal(key, r[key])
+    if (!apex || key === 'status') return v
+    if (noPunch && ['late', 'extra', 'hours', 'early'].includes(key)) return '____'
+    return v || '____'
+  }
   return (
     <tr className="border-b border-slate-200 bg-white hover:bg-slate-50">
       {Array.from({ length: lead }, (_, i) => <td key={'l' + i} />)}
       {cols.map((c, i) => (
-        <td key={c.key} className={cn('py-2.5 px-2 whitespace-nowrap', i === 0 ? 'text-right' : 'text-center', statusClass(c.key, r[c.key]), shiftCls(c.key))}>
-          {fmtVal(c.key, r[c.key])}
+        <td key={c.key} className={cn('py-2.5 px-2 whitespace-nowrap', i === 0 && !apex ? 'text-right' : 'text-center', !apex && statusClass(c.key, r[c.key]))}>
+          {cell(c.key)}
         </td>
       ))}
       {Array.from({ length: pad }, (_, i) => <td key={'p' + i} />)}
@@ -192,27 +195,16 @@ function hmToMin(v: any): number {
   return m ? Number(m[1]) * 60 + Number(m[2]) : 0
 }
 
-/** Per-employee totals for the period, in the leaf columns' own places. */
-function TotalsRow({ rows, cols, lead, pad }: { rows: Record<string, any>[]; cols: Column[]; lead: number; pad: number }) {
+/** Per-employee totals for the period, keyed by leaf column. */
+function totalsFor(rows: Record<string, any>[]): Record<string, string> {
   const sum = (f: (r: Record<string, any>) => number) => rows.reduce((s, r) => s + (f(r) || 0), 0)
-  const val: Record<string, string> = {
+  return {
     // required hours = working days only (not weekly off / holiday / leave)
     duty: hm(sum((r) => (r.kind === 'holiday' || r.kind === 'leave' ? 0 : hmToMin(r.duty)))),
     late: hm(sum((r) => Number(r.late))),
     extra: hm(sum((r) => Number(r.extra))),
     hours: hm(sum((r) => Number(r.hours)) * 60),
   }
-  return (
-    <tr className="border-b border-slate-300 bg-amber-50 font-bold text-slate-800" data-testid="report-totals">
-      {Array.from({ length: lead }, (_, i) => <td key={'l' + i} />)}
-      {cols.map((c, i) => (
-        <td key={c.key} className={cn('py-2.5 px-2 whitespace-nowrap', i === 0 ? 'text-right' : 'text-center', shiftCls(c.key))}>
-          {i === 0 ? 'الإجمالي' : val[c.key] ?? ''}
-        </td>
-      ))}
-      {Array.from({ length: pad }, (_, i) => <td key={'p' + i} />)}
-    </tr>
-  )
 }
 
 function groupBy(rows: Record<string, any>[], key: (r: Record<string, any>) => string) {
@@ -257,16 +249,16 @@ export function NestedReport({ data, spec }: { data: ReportData; spec: NestedSpe
             <td className="py-2 px-2 w-8"><ExpandBtn open={open} onClick={() => toggle(id)} /></td>
             {cells.map((c, i) => (
               <td key={c.label} colSpan={i === cells.length - 1 ? midWidth - cells.length + 1 : 1}
-                  className={cn('py-2 px-2 whitespace-nowrap', i === 0 ? 'text-right' : 'text-center')}>
-                <span className="font-bold">{c.label}:</span> {c.value}
+                  className="py-2 px-2 whitespace-nowrap text-right">
+                <span className="font-bold">{c.label} :</span> {c.value}
               </td>
             ))}
           </tr>
           {open && spec.header === 'inner' && (
-            <LeafHead cols={cols} lead={lead} pad={pad} className="bg-[var(--apex-thead)] text-slate-800" />
+            <LeafHead cols={cols} lead={lead} pad={pad} className="bg-[var(--apex-thead)] text-slate-800"
+                      totals={spec.totals ? totalsFor(rs) : undefined} />
           )}
-          {open && spec.totals && <TotalsRow rows={rs} cols={leafCols} lead={lead} pad={pad} />}
-          {open && rs.map((r, i) => <LeafRow key={id + i} r={r} cols={leafCols} lead={lead} pad={pad} />)}
+          {open && rs.map((r, i) => <LeafRow key={id + i} r={r} cols={leafCols} lead={lead} pad={pad} apex={spec.totals} />)}
         </Fragment>
       )
     })
