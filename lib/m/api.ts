@@ -40,7 +40,6 @@ export interface HomeData {
     image?: string | null
   }
   punch_enabled: boolean
-  location_group: string | null
   locations: AppLocation[]
   passkeys: number
   require_passkey: boolean

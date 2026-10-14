@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, Hash, Loader2, Lock } from 'lucide-react'
 
@@ -21,6 +21,13 @@ function LoginForm() {
   const [show, setShow] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  // one browser holds ONE session per site: signing in here ends an HR/admin
+  // session in the same browser (that is how «HR access required» happens)
+  const [deskSession, setDeskSession] = useState(false)
+  useEffect(() => {
+    const c = Object.fromEntries(document.cookie.split('; ').map((x) => x.split('=')))
+    setDeskSession(c.system_user === 'yes' && !!c.user_id && c.user_id !== 'Guest')
+  }, [])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,6 +63,12 @@ function LoginForm() {
         <form onSubmit={submit} noValidate className="mt-auto rounded-2xl border border-white/[.07] bg-[#163a41]/90 p-5 shadow-[0_30px_70px_-25px_rgba(0,0,0,.85)] backdrop-blur">
           <h1 className="mb-5 text-[20px] font-bold">تسجيل الدخول</h1>
 
+          {deskSession && (
+            <p className="mb-4 rounded-lg border border-[#f0ae4f]/40 bg-[#f0ae4f]/10 px-3 py-2.5 text-[13px] leading-relaxed text-[#ffd59a]">
+              أنت مسجّل الدخول حالياً بحساب إداري في هذا المتصفح. الدخول هنا سيُخرجك منه — للتجربة استخدم نافذة خاصة أو متصفحاً آخر.
+            </p>
+          )}
+
           <label className="mb-1.5 block text-[13px] text-white/70" htmlFor="m-user">رقم الموظف</label>
           <div className="relative mb-4">
             <Hash className={icon} />
@@ -63,11 +76,10 @@ function LoginForm() {
               id="m-user"
               inputMode="numeric"
               autoComplete="username"
-              dir="ltr"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="مثال: 1024"
-              className={`${field} text-right placeholder:text-right`}
+              className={`${field} tabular-nums`}
             />
           </div>
 

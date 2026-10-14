@@ -152,7 +152,7 @@ export default function MobileHomePage() {
         )}
         {noLocations && (
           <Notice tone="warn" icon={<MapPinOff className="h-5 w-5" />} title="لم يُحدد لك موقع عمل">
-            اطلب من الموارد البشرية ربطك بمجموعة مواقع حتى تتمكن من البصمة.
+            اطلب من الموارد البشرية تحديد موقع عملك حتى تتمكن من البصمة.
           </Notice>
         )}
         {data.punch_enabled && needsPasskey && (
@@ -203,7 +203,7 @@ export default function MobileHomePage() {
                 <p className="mt-0.5 text-[12.5px] text-[#6b8589]">
                   {fence?.nearest
                     ? `${fence.nearest.label} · النطاق ${formatDistance(fence.nearest.radius_m)}`
-                    : data.location_group || ''}
+                    : data.locations.map((l) => l.label).join('، ')}
                   {geo.fix ? ` · دقة ±${formatDistance(geo.fix.accuracy)}` : ''}
                 </p>
                 {geo.fix && geo.fix.accuracy > WEAK_ACCURACY_M && (

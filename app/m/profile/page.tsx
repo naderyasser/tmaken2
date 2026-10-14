@@ -46,7 +46,7 @@ export default function MobileProfilePage() {
         {data && (
           <Card>
             <Row icon={<Building2 className="h-[18px] w-[18px]" />} label="الفرع" value={data.employee.branch || '—'} />
-            <Row icon={<MapPin className="h-[18px] w-[18px]" />} label="مجموعة المواقع" value={data.location_group || 'غير محددة'} />
+            <Row icon={<MapPin className="h-[18px] w-[18px]" />} label="مواقع البصمة" value={data.locations.map((l) => l.label).join('، ') || 'غير محددة'} />
             <Row
               icon={<Fingerprint className="h-[18px] w-[18px]" />}
               label="البصمة من الجوال"

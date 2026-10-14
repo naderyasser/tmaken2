@@ -38,9 +38,8 @@ interface EmpRow {
   designation: string | null
   app_enabled: boolean
   punch_enabled: boolean
-  location_group: string | null
-  location_group_label: string | null
-  group_locations: number
+  locations: string[]
+  usable_locations: number
   has_account: boolean
   is_app_user: boolean
   passkeys: number
@@ -49,19 +48,18 @@ interface EmpRow {
 
 interface Overview {
   employees: EmpRow[]
-  groups: { name: string; label: string; locations: number }[]
+  locations: { name: string; label: string; usable: boolean }[]
   require_passkey: boolean
 }
 
 interface LocRow extends PickerLocation {
-  parent_location: string | null
   custom_name_en?: string | null
 }
 
 /**
  * «تطبيق الجوال» — HR settings for the employees' mobile check-in app (/m).
  * Edits the same tamken3 fields as the Apex employee form (تفعيل تطبيق الجوال,
- * طريقة الحضور ∋ تطبيق الجوال, مجموعة المواقع) and the same «المواقع» rows
+ * طريقة الحضور ∋ تطبيق الجوال), the employee's allowed «المواقع»
  * (pin + نطاق الموقع بالمتر), plus app passwords and registered phones.
  */
 export function MobileAppSettingsPage() {
@@ -129,7 +127,7 @@ function EmployeesTab() {
   const [data, setData] = useState<Overview | null>(null)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
-  const [group, setGroup] = useState('')
+  const [loc, setLoc] = useState('')
   const [only, setOnly] = useState<'' | 'enabled' | 'disabled'>('')
   const [saving, setSaving] = useState('')
   const [menu, setMenu] = useState<string | null>(null)
@@ -142,7 +140,7 @@ function EmployeesTab() {
       setData(await call<Overview>(`${APP}.hr_overview`))
       setError('')
     } catch (e: any) {
-      setError(e?.message || 'تعذّر التحميل')
+      setError(sessionHint(e))
     }
   }, [])
   useEffect(() => {
@@ -152,21 +150,21 @@ function EmployeesTab() {
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase()
     return (data?.employees || []).filter((r) => {
-      if (group === '__none' ? r.location_group : group && r.location_group !== group) return false
+      if (loc === '__none' ? r.locations.length : loc && !r.locations.includes(loc)) return false
       if (only === 'enabled' && !(r.app_enabled && r.punch_enabled)) return false
       if (only === 'disabled' && r.app_enabled && r.punch_enabled) return false
       if (!q) return true
       return r.employee_name.toLowerCase().includes(q) || String(r.number).includes(q) || r.employee.toLowerCase().includes(q)
     })
-  }, [data, search, group, only])
+  }, [data, search, loc, only])
 
   const stats = useMemo(() => {
     const e = data?.employees || []
-    const ready = e.filter((r) => r.app_enabled && r.punch_enabled && r.location_group && r.group_locations > 0 && r.has_account)
+    const ready = e.filter((r) => r.app_enabled && r.punch_enabled && r.usable_locations > 0 && r.has_account)
     return {
       enabled: e.filter((r) => r.app_enabled && r.punch_enabled).length,
       ready: ready.length,
-      noGroup: e.filter((r) => r.app_enabled && r.punch_enabled && (!r.location_group || r.group_locations === 0)).length,
+      noLoc: e.filter((r) => r.app_enabled && r.punch_enabled && r.usable_locations === 0).length,
       devices: e.reduce((s, r) => s + r.passkeys, 0),
     }
   }, [data])
@@ -178,7 +176,7 @@ function EmployeesTab() {
     try {
       await call(`${APP}.hr_save_employee`, { employee: row.employee, ...patch })
     } catch (e: any) {
-      toast({ title: 'لم يتم الحفظ', description: e?.message, variant: 'destructive' })
+      toast({ title: 'لم يتم الحفظ', description: sessionHint(e), variant: 'destructive' })
       load()
     } finally {
       setSaving('')
@@ -218,8 +216,8 @@ function EmployeesTab() {
     <div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4">
         <Kpi label="مفعّل لهم البصمة من الجوال" value={stats.enabled} />
-        <Kpi label="جاهزون للبصمة" hint="حساب + مجموعة مواقع" value={stats.ready} tone="green" />
-        <Kpi label="بدون موقع صالح" value={stats.noGroup} tone={stats.noGroup ? 'orange' : undefined} />
+        <Kpi label="جاهزون للبصمة" hint="حساب + موقع" value={stats.ready} tone="green" />
+        <Kpi label="بدون موقع صالح" value={stats.noLoc} tone={stats.noLoc ? 'orange' : undefined} />
         <Kpi label="أجهزة مسجّلة" value={stats.devices} />
       </div>
 
@@ -233,10 +231,10 @@ function EmployeesTab() {
             className="h-9 w-64 rounded border border-[var(--apex-border)] bg-white ps-8 pe-2 text-[13px] outline-none focus:border-[var(--apex-blue)]"
           />
         </div>
-        <select value={group} onChange={(e) => setGroup(e.target.value)} className="h-9 rounded border border-[var(--apex-border)] bg-white px-2 text-[13px] min-w-[170px]" aria-label="مجموعة المواقع">
-          <option value="">كل مجموعات المواقع</option>
-          <option value="__none">بدون مجموعة</option>
-          {data.groups.map((g) => <option key={g.name} value={g.name}>{g.label}</option>)}
+        <select value={loc} onChange={(e) => setLoc(e.target.value)} className="h-9 rounded border border-[var(--apex-border)] bg-white px-2 text-[13px] min-w-[170px]" aria-label="الموقع">
+          <option value="">كل المواقع</option>
+          <option value="__none">بدون موقع</option>
+          {data.locations.map((l) => <option key={l.name} value={l.name}>{l.label}</option>)}
         </select>
         <select value={only} onChange={(e) => setOnly(e.target.value as any)} className="h-9 rounded border border-[var(--apex-border)] bg-white px-2 text-[13px]" aria-label="الحالة">
           <option value="">كل الموظفين</option>
@@ -246,9 +244,6 @@ function EmployeesTab() {
         <div className="ms-auto flex gap-2 text-[12.5px]">
           <Link href="/hr?module=locations" className="rounded border border-[var(--apex-slate)] px-3 h-9 inline-flex items-center gap-1.5 font-bold text-[var(--apex-slate)] hover:bg-slate-50">
             <MapPin className="h-4 w-4" />المواقع
-          </Link>
-          <Link href="/hr?module=location-groups" className="rounded border border-[var(--apex-slate)] px-3 h-9 inline-flex items-center font-bold text-[var(--apex-slate)] hover:bg-slate-50">
-            مجموعات المواقع
           </Link>
         </div>
       </div>
@@ -261,7 +256,7 @@ function EmployeesTab() {
               <th className="px-3 font-bold whitespace-nowrap">الفرع</th>
               <th className="px-3 font-bold whitespace-nowrap text-center">تفعيل تطبيق الجوال</th>
               <th className="px-3 font-bold whitespace-nowrap text-center">البصمة من الجوال</th>
-              <th className="px-3 font-bold whitespace-nowrap">مجموعة المواقع</th>
+              <th className="px-3 font-bold whitespace-nowrap">مواقع البصمة</th>
               <th className="px-3 font-bold whitespace-nowrap">حساب التطبيق</th>
               <th className="px-3 font-bold whitespace-nowrap text-center">الأجهزة</th>
               <th className="px-3 font-bold whitespace-nowrap">آخر بصمة جوال</th>
@@ -298,27 +293,20 @@ function EmployeesTab() {
                   />
                 </td>
                 <td className="px-3">
-                  <select
-                    value={r.location_group || ''}
+                  <LocationsPicker
+                    value={r.locations}
+                    options={data.locations}
                     disabled={saving === r.employee}
-                    onChange={(e) => save(r, { location_group: e.target.value })}
-                    className={cn(
-                      'h-8 rounded border bg-white px-1.5 text-[12.5px] min-w-[150px]',
-                      r.punch_enabled && (!r.location_group || r.group_locations === 0) ? 'border-amber-400' : 'border-[var(--apex-border)]',
-                    )}
-                    aria-label={`مجموعة المواقع — ${r.employee_name}`}
-                  >
-                    <option value="">— بدون —</option>
-                    {data.groups.map((g) => (
-                      <option key={g.name} value={g.name}>{g.label}{g.locations ? '' : ' (بلا مواقع)'}</option>
-                    ))}
-                  </select>
+                    warn={r.punch_enabled && r.usable_locations === 0}
+                    label={`مواقع البصمة — ${r.employee_name}`}
+                    onChange={(names) => save(r, { locations: names })}
+                  />
                 </td>
                 <td className="px-3">
                   {r.has_account ? (
                     <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[11.5px] font-bold text-emerald-700">مفعّل</span>
                   ) : (
-                    <button type="button" onClick={() => setPwFor(r)} className="text-[12.5px] font-bold text-[var(--apex-blue)] hover:underline">
+                    <button type="button" onClick={() => setPwFor(r)} className="whitespace-nowrap text-[12.5px] font-bold text-[var(--apex-blue)] hover:underline">
                       إنشاء كلمة مرور
                     </button>
                   )}
@@ -380,11 +368,10 @@ function uiPatch(patch: Record<string, any>, d: Overview): Partial<EmpRow> {
   const out: Partial<EmpRow> = {}
   if ('app_enabled' in patch) out.app_enabled = !!patch.app_enabled
   if ('punch_enabled' in patch) out.punch_enabled = !!patch.punch_enabled
-  if ('location_group' in patch) {
-    const g = d.groups.find((x) => x.name === patch.location_group)
-    out.location_group = patch.location_group || null
-    out.location_group_label = g?.label || null
-    out.group_locations = g?.locations || 0
+  if ('locations' in patch) {
+    const names: string[] = patch.locations
+    out.locations = names
+    out.usable_locations = names.filter((n) => d.locations.find((l) => l.name === n)?.usable).length
   }
   return out
 }
@@ -475,20 +462,14 @@ function randomPassword() {
 function LocationsTab() {
   const { toast } = useToast()
   const [rows, setRows] = useState<LocRow[] | null>(null)
-  const [groups, setGroups] = useState<{ name: string; location_name: string }[]>([])
   const [error, setError] = useState('')
   const [edit, setEdit] = useState<Partial<LocRow> | null>(null)
 
   const load = useCallback(async () => {
     try {
-      const [l, g] = await Promise.all([
-        call<LocRow[]>(`${LOC}.list_locations`),
-        call<{ name: string; location_name: string }[]>(`${LOC}.get_location_groups`),
-      ])
-      setRows(l || [])
-      setGroups(g || [])
+      setRows((await call<LocRow[]>(`${LOC}.list_locations`)) || [])
     } catch (e: any) {
-      setError(e?.message || 'تعذّر التحميل')
+      setError(sessionHint(e))
     }
   }, [])
   useEffect(() => {
@@ -498,17 +479,15 @@ function LocationsTab() {
   if (error) return <p className="m-4 rounded bg-amber-50 border border-amber-200 px-3 py-2 text-[13px] text-amber-800">{error}</p>
   if (!rows) return <div className="py-16 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-[var(--apex-blue)]" /></div>
 
-  const groupLabel = (n: string | null) => groups.find((g) => g.name === n)?.location_name || '—'
-
   return (
     <div>
       <div className="flex items-center justify-between gap-2 p-4">
         <p className="text-[12.5px] text-slate-500">
-          يُقبل تسجيل الموظف من الجوال إذا كان داخل نطاق أي موقع <b>نشط</b> في مجموعة المواقع المرتبط بها.
+          يُقبل تسجيل الموظف من الجوال إذا كان داخل نطاق أحد مواقعه <b>النشطة</b> — تُحدَّد مواقع كل موظف من تبويب «الموظفون».
         </p>
         <button
           type="button"
-          onClick={() => setEdit({ custom_radius_m: 100, custom_status: 'Active', parent_location: groups[0]?.name || null })}
+          onClick={() => setEdit({ custom_radius_m: 100, custom_status: 'Active' })}
           className="rounded px-4 h-9 font-bold text-[13px] bg-[var(--apex-green)] text-white inline-flex items-center gap-1.5 shrink-0"
         >
           <Plus className="h-4 w-4" />اضافة موقع
@@ -519,7 +498,6 @@ function LocationsTab() {
           <thead>
             <tr className="bg-[var(--apex-thead)] text-[var(--apex-text)] border-y border-slate-300 h-11">
               <th className="px-3 font-bold">اسم الموقع</th>
-              <th className="px-3 font-bold">مجموعة المواقع</th>
               <th className="px-3 font-bold">الإحداثيات</th>
               <th className="px-3 font-bold">نطاق الموقع بالمتر</th>
               <th className="px-3 font-bold">الحالة</th>
@@ -527,13 +505,12 @@ function LocationsTab() {
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={6} className="py-10 text-center text-slate-400">لا توجد مواقع بعد — أضف أول موقع عمل</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={5} className="py-10 text-center text-slate-400">لا توجد مواقع بعد — أضف أول موقع عمل</td></tr>}
             {rows.map((r) => {
               const pinned = !!(r.latitude && r.longitude)
               return (
                 <tr key={r.name} className="border-b border-slate-200 h-12 hover:bg-slate-50/60">
                   <td className="px-3 font-bold text-slate-800">{r.location_name}</td>
-                  <td className="px-3 text-slate-600">{groupLabel(r.parent_location)}</td>
                   <td className="px-3 tabular-nums" dir="ltr">
                     {pinned ? (
                       <span className="text-slate-600">{Number(r.latitude).toFixed(5)}, {Number(r.longitude).toFixed(5)}</span>
@@ -562,7 +539,6 @@ function LocationsTab() {
 
       <LocationDialog
         value={edit}
-        groups={groups}
         others={(rows || []).filter((r) => r.name !== edit?.name)}
         onClose={() => setEdit(null)}
         onSaved={() => {
@@ -576,10 +552,9 @@ function LocationsTab() {
 }
 
 function LocationDialog({
-  value, groups, others, onClose, onSaved,
+  value, others, onClose, onSaved,
 }: {
   value: Partial<LocRow> | null
-  groups: { name: string; location_name: string }[]
   others: LocRow[]
   onClose: () => void
   onSaved: () => void
@@ -644,7 +619,6 @@ function LocationDialog({
       await call(`${LOC}.save_location`, {
         name: f.name || undefined,
         location_name: f.location_name.trim(),
-        parent_location: f.parent_location || '',
         latitude: pin.latitude,
         longitude: pin.longitude,
         custom_radius_m: radius,
@@ -653,7 +627,7 @@ function LocationDialog({
       })
       onSaved()
     } catch (e: any) {
-      setErr(e?.message || 'تعذّر الحفظ')
+      setErr(sessionHint(e))
     } finally {
       setBusy(false)
     }
@@ -672,13 +646,6 @@ function LocationDialog({
             <label className="block">
               <span className="mb-1 block font-bold text-slate-700">اسم الموقع *</span>
               <input value={f.location_name || ''} onChange={(e) => setF((p) => ({ ...p, location_name: e.target.value }))} className={input} />
-            </label>
-            <label className="block">
-              <span className="mb-1 block font-bold text-slate-700">مجموعة المواقع</span>
-              <select value={f.parent_location || ''} onChange={(e) => setF((p) => ({ ...p, parent_location: e.target.value || null }))} className={input}>
-                <option value="">— بدون —</option>
-                {groups.map((g) => <option key={g.name} value={g.name}>{g.location_name}</option>)}
-              </select>
             </label>
             <label className="block">
               <span className="mb-1 block font-bold text-slate-700">الإحداثيات (خط العرض، خط الطول)</span>
@@ -717,6 +684,83 @@ function LocationDialog({
 }
 
 // ── small bits ─────────────────────────────────────────────────────────────
+
+/** A 403 here almost always means this browser's session was replaced by an
+ *  employee signing in to «/m» — one browser holds one session per site. */
+function sessionHint(e: any): string {
+  const msg = e?.message || ''
+  if (e?.status === 403 || /HR access required|صلاحية الموارد البشرية/.test(msg)) {
+    return 'جلسة هذا المتصفح ليست لحساب إداري — غالباً بسبب تسجيل دخول موظف من تطبيق الجوال في نفس المتصفح. سجّل الدخول بحساب المدير مرة أخرى (واستخدم نافذة خاصة لتجربة التطبيق).'
+  }
+  return msg || 'حدث خطأ غير متوقع'
+}
+
+function LocationsPicker({
+  value, options, onChange, disabled, warn, label,
+}: {
+  value: string[]
+  options: { name: string; label: string; usable: boolean }[]
+  onChange: (names: string[]) => void
+  disabled?: boolean
+  warn?: boolean
+  label: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState<string[]>(value)
+  useEffect(() => setDraft(value), [value])
+  const labelOf = (n: string) => options.find((o) => o.name === n)?.label || n
+  const close = () => {
+    setOpen(false)
+    if (draft.join(',') !== value.join(',')) onChange(draft)
+  }
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => (open ? close() : setOpen(true))}
+        aria-label={label}
+        aria-expanded={open}
+        className={cn(
+          'flex h-8 min-w-[170px] max-w-[240px] items-center justify-between gap-2 rounded border bg-white px-2 text-[12.5px] disabled:opacity-60',
+          warn ? 'border-amber-400' : 'border-[var(--apex-border)]',
+        )}
+      >
+        <span className={cn('truncate', !value.length && 'text-slate-400')}>
+          {value.length ? value.map(labelOf).join('، ') : '— بدون —'}
+        </span>
+        <MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={close} />
+          <div className="absolute start-0 top-9 z-20 w-60 rounded border border-slate-200 bg-white py-1 text-[13px] shadow-lg">
+            {options.length === 0 && (
+              <p className="px-3 py-2 text-slate-500">لا توجد مواقع — أضفها من تبويب «المواقع ونطاقها»</p>
+            )}
+            {options.map((o) => (
+              <label key={o.name} className="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-slate-50">
+                <input
+                  type="checkbox"
+                  checked={draft.includes(o.name)}
+                  onChange={(e) => setDraft((d) => (e.target.checked ? [...d, o.name] : d.filter((x) => x !== o.name)))}
+                  className="h-4 w-4 accent-[var(--apex-blue-light)]"
+                />
+                <span className="flex-1">{o.label}</span>
+                {!o.usable && <span className="text-[11px] text-amber-600">غير مفعّل</span>}
+              </label>
+            ))}
+            {options.length > 0 && (
+              <div className="border-t border-slate-100 px-2 pt-1">
+                <button type="button" onClick={close} className="h-8 w-full rounded bg-[var(--apex-blue)] text-[12.5px] font-bold text-white">تم</button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
 
 function Kpi({ label, value, hint, tone }: { label: string; value: number; hint?: string; tone?: 'green' | 'orange' }) {
   return (
