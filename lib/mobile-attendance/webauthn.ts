@@ -198,7 +198,8 @@ export async function registerPasskey(deviceLabel?: string): Promise<RegisterRes
     public_key: bytesToB64url(publicKey),
     client_data_json: bytesToB64url(attResp.clientDataJSON),
     device_label: deviceLabel || undefined,
-    transports: transports && transports.length ? transports : undefined,
+    // the backend declares `transports: str` (stored as text) — a JSON array is rejected
+    transports: transports && transports.length ? transports.join(',') : undefined,
   })
 }
 

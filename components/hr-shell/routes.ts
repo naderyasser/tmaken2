@@ -5,7 +5,7 @@ import {
   ClipboardList, MapPin, UsersRound, Globe, Umbrella, FileText,
   Plus, FileMinus, RotateCcw, Send, BarChart3, ShieldCheck,
   UserCog, Activity, Cpu, SlidersHorizontal, MailOpen, Building,
-  CreditCard, Moon, Fingerprint, Upload, UserX, CheckSquare,
+  CreditCard, Moon, Fingerprint, Upload, UserX, CheckSquare, Smartphone,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { HR_REPORTS, REPORT_MODULE_PREFIX } from '@/lib/hr-reports'
@@ -47,7 +47,7 @@ export const SHELL_PREFIXES: string[] = [
   '/hr', '/hr-managers', '/requests', '/org-chart', '/me',
   '/employees', '/employee', '/employee-details', '/employee-report',
   '/attendance', '/auto-attendance', '/biometric', '/punch-sheet', '/branches', '/payroll',
-  '/shift-management', '/rotational-shifts', '/location-groups', '/location-tracking', '/radius-alerts', '/team', '/shifts',
+  '/shift-management', '/rotational-shifts', '/location-groups', '/location-tracking', '/radius-alerts', '/team', '/shifts', '/mobile-app',
 ]
 
 export function matchesShell(pathname: string): boolean {
@@ -292,6 +292,14 @@ export const RAIL_SECTIONS: RailSection[] = [
         href: '/hr?module=locations',
         match: mod('locations'),
         icon: MapPin,
+      },
+      {
+        id: 'mobile-app',
+        labelKey: 'nav.mobile_app',
+        label: 'تطبيق الجوال',
+        href: '/mobile-app',
+        match: route('/mobile-app'),
+        icon: Smartphone,
       },
       {
         id: 'devices',

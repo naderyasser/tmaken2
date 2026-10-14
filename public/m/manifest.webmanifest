@@ -1,0 +1,21 @@
+{
+  "id": "/m",
+  "name": "Masar Time — بصمة الجوال",
+  "short_name": "Masar Time",
+  "description": "تسجيل الحضور والانصراف من الجوال ضمن نطاق موقع العمل",
+  "start_url": "/m",
+  "scope": "/m",
+  "display": "standalone",
+  "orientation": "portrait",
+  "dir": "rtl",
+  "lang": "ar",
+  "theme_color": "#1d4d56",
+  "background_color": "#f3f6f6",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "/m/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/m/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/m/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/m/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

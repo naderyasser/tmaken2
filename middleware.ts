@@ -50,6 +50,15 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // «/m» — the employees' mobile check-in app signs in on its own screen
+  // (employee number + app password), never the HR /login or the walkthrough.
+  if (pathname === '/m' || pathname.startsWith('/m/')) {
+    if (pathname === '/m/login') return NextResponse.next()
+    const mSid = request.cookies.get('sid')?.value
+    if (mSid && mSid !== 'Guest') return NextResponse.next()
+    return NextResponse.redirect(new URL(`/m/login?redirect=${encodeURIComponent(pathname + search)}`, request.url))
+  }
+
   // The bare root collapses onto the HR dashboard. `/login` is handled above
   // (publicPaths) so it renders instead of being swept in here.
   if (pathname === '/') {
