@@ -59,7 +59,9 @@ def build_argv(job):
 	assert not job.get("admin_user") or re.fullmatch(r"[A-Za-z0-9._@-]{3,60}", job["admin_user"])
 	argv = ["bash", f"{LIB}/new-client.sh", "--site", job["site"], "--company", job["company"], "--abbr", job["abbr"],
 		"--brand", job["brand"], "--color", job["color"]]
-	for opt, key in (("--admin-user", "admin_user"), ("--tagline", "tagline"), ("--domain", "domain"), ("--plan", "plan"), ("--employees", "employees"), ("--months", "months")):
+	for k in ("rate", "setup_fee"):
+		assert re.fullmatch(r"(\d{1,6}(\.\d{1,2})?)?", job.get(k, ""))
+	for opt, key in (("--rate", "rate"), ("--setup-fee", "setup_fee"), ("--admin-user", "admin_user"), ("--tagline", "tagline"), ("--domain", "domain"), ("--plan", "plan"), ("--employees", "employees"), ("--months", "months")):
 		if job.get(key):
 			argv += [opt, job[key]]
 	logo = job.get("logo")
