@@ -48,7 +48,7 @@ grep -rqs "server_name .*\b$DOMAIN;" /etc/nginx/conf.d/ && die "$DOMAIN is alrea
 ADMIN_PASS=${ADMIN_PASS:-$(openssl rand -base64 12 | tr -d '/+=' | cut -c1-12)}
 
 as_fu() { sudo -u frappeuser --preserve-env=RP,AP bash -c "cd $BENCH_DIR && $1"; }
-step() { echo "── $*"; }
+step() { echo "── $*   [$(date +%T)]"; }
 
 step "1/7 template backup"
 as_fu "$BENCH --site $TEMPLATE backup >/dev/null"
@@ -104,7 +104,9 @@ sed -e "s/__HOST__/$DOMAIN/g" -e "s/__SITE__/$SITE/g" -e "s/__PORT__/$FRONT_PORT
 nginx -t -q 2>/dev/null && systemctl reload nginx || die "nginx rejected the https vhost ($CONF)"
 
 step "7/7 check"
-code=$(curl -s -o /dev/null -w "%{http_code}" --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/login" || true)
+code=$(python3 -c 'import sys,urllib.request as u
+try: print(u.urlopen("https://"+sys.argv[1]+"/login",timeout=30).status)
+except Exception as e: print(getattr(e,"code","no answer"))' "$DOMAIN")
 echo "$(date -Is) created $SITE ($DOMAIN) company=«$COMPANY» brand=«$BRAND»" >> "$LOG"
 cat <<OUT
 

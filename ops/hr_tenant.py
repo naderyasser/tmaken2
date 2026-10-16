@@ -32,6 +32,31 @@ def _docs_like(pattern):
 	return out
 
 
+def _bulk_suffix_rename(old_suffix, new_suffix):
+	"""` - OLD` → ` - NEW` on every docname and every Link pointing at it, in a
+	few UPDATEs per doctype. rename_doc did the same one document at a time
+	(~100 accounts × a scan of every link field ≈ 2.5 min); on a fresh template
+	copy there are no transactions, so plain SQL over names + links is exact."""
+	from frappe.model.rename_doc import get_link_fields
+
+	cut = len(old_suffix)
+	args = {"pat": f"%{old_suffix}", "new": new_suffix}
+
+	def swap(col):
+		return f"CONCAT(LEFT(`{col}`, CHAR_LENGTH(`{col}`) - {cut}), %(new)s)"
+
+	for dt in sorted({dt for dt, _ in _docs_like(f"%{old_suffix}")}):
+		frappe.db.sql(f"update `tab{dt}` set name = {swap('name')} where name like %(pat)s", args)
+		for lf in get_link_fields(dt):
+			if lf.get("issingle"):
+				frappe.db.sql(f"update tabSingles set value = {swap('value')} where doctype = %(dt)s and field = %(f)s and value like %(pat)s",
+					{**args, "dt": lf["parent"], "f": lf["fieldname"]})
+			elif frappe.db.has_column(lf["parent"], lf["fieldname"]):
+				frappe.db.sql(f"update `tab{lf['parent']}` set `{lf['fieldname']}` = {swap(lf['fieldname'])} where `{lf['fieldname']}` like %(pat)s", args)
+	frappe.db.sql(f"update tabDefaultValue set defvalue = {swap('defvalue')} where defvalue like %(pat)s", args)
+	frappe.clear_cache()
+
+
 def rename_company(new_name, new_abbr):
 	old = frappe.get_all("Company", pluck="name")
 	assert len(old) == 1, f"template must hold exactly one company, found {old}"
@@ -44,9 +69,7 @@ def rename_company(new_name, new_abbr):
 	if frappe.get_meta("Company").has_field("custom__company_name_in_arabic__"):
 		frappe.db.set_value("Company", new_name, "custom__company_name_in_arabic__", new_name)
 	if new_abbr != old_abbr:
-		suffix = f" - {old_abbr}"
-		for dt, name in _docs_like(f"%{suffix}"):
-			frappe.rename_doc(dt, name, name[: -len(suffix)] + f" - {new_abbr}", force=True)
+		_bulk_suffix_rename(f" - {old_abbr}", f" - {new_abbr}")
 	if new_name != old:
 		# docs named after the company (root cost center, EWA policy, approval rules)
 		for dt, name in _docs_like(f"%{old}%"):
@@ -77,6 +100,12 @@ def clean_template(args):
 	frappe.db.set_single_value("Auto Attendance Settings", {"enabled": 0, "scope": "All"})
 	frappe.db.sql("delete from `tabAuto Attendance Employee` where parenttype='Auto Attendance Settings'")
 	frappe.db.set_single_value("Website Settings", "app_name", "")
+	# only ERPNext's standard warehouse tree; the rest were test/van leftovers of older tenants
+	abbr = frappe.db.get_value("Company", frappe.get_all("Company", pluck="name")[0], "abbr")
+	keep = {f"{w} - {abbr}" for w in ("جميع المخازن", "مخازن", "التقدم في العمل", "السلع تامة الصنع", "البضائع في العبور")}
+	for wh in frappe.get_all("Warehouse", pluck="name"):
+		if wh not in keep:
+			frappe.db.sql("delete from tabWarehouse where name=%s", wh)
 	old = rename_company(args.get("company", "شركة العميل"), args.get("abbr", "CL"))
 	_forget_history()
 	frappe.db.commit()
