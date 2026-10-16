@@ -51,8 +51,8 @@ def build_argv(job):
 		assert SITE_RE.match(job["site"])
 		return ["bash", f"{LIB}/remove-client.sh", "--site", job["site"], "--yes"]
 	assert SITE_RE.match(job["site"]) and ABBR_RE.match(job["abbr"]) and COLOR_RE.match(job["color"])
-	assert text_ok(job["company"], 120) and job["company"].strip() and text_ok(job["brand"], 40) and job["brand"].strip()
-	for k, n in (("tagline", 60), ("plan", 60)):
+	assert text_ok(job["company"], 120) and job["company"].strip() and text_ok(job["brand"], 120) and job["brand"].strip()
+	for k, n in (("tagline", 120), ("plan", 60)):
 		assert text_ok(job.get(k, ""), n)
 	assert not job.get("domain") or DOMAIN_RE.match(job["domain"])
 	assert NUM_RE.match(job.get("employees", "")) and NUM_RE.match(job.get("months", ""))
