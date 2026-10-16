@@ -1,5 +1,6 @@
 'use client'
 
+import { useTenantBrand } from '@/components/tenant-brand-provider'
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Eye, EyeOff, Hash, Loader2, Lock } from 'lucide-react'
@@ -15,6 +16,7 @@ export default function MobileLoginPage() {
 }
 
 function LoginForm() {
+  const brand = useTenantBrand()
   const params = useSearchParams()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -57,7 +59,7 @@ function LoginForm() {
       <FingerprintBackdrop />
 
       <div className="relative z-10 flex flex-1 flex-col">
-        <img src="/branding/masar/masar-logo-white.png" alt="Masar Time" className="mx-auto mt-6 h-[64px] w-auto" />
+        <img src={brand.logoWhite} alt={brand.name} className="mx-auto mt-6 h-[64px] max-w-full w-auto object-contain" />
         <p className="mt-3 text-center text-[14px] text-white/60">بصمة الحضور والانصراف من جوالك</p>
 
         <form onSubmit={submit} noValidate className="mt-auto rounded-2xl border border-white/[.07] bg-[#163a41]/90 p-5 shadow-[0_30px_70px_-25px_rgba(0,0,0,.85)] backdrop-blur">
@@ -124,7 +126,7 @@ function LoginForm() {
           </p>
         </form>
 
-        <p className="mt-6 text-center text-[11.5px] text-white/30">© {new Date().getFullYear()} Masar Time</p>
+        <p className="mt-6 text-center text-[11.5px] text-white/30">© {new Date().getFullYear()} {brand.name}</p>
       </div>
     </div>
   )

@@ -32,10 +32,12 @@ declare global {
 
 let scriptPromise: Promise<void> | null = null
 
-/** Frappe site name: NEXT_PUBLIC_FRAPPE_SITE, else the first hostname label
- *  (tenant subdomains are named after their site: tamken3.base.meena.sa → tamken3). */
+/** Frappe site name: the root layout's <meta name="frappe-site"> (resolved per
+ *  request — one frontend serves many clients), else NEXT_PUBLIC_FRAPPE_SITE,
+ *  else the first hostname label (tamken3.base.meena.sa → tamken3). */
 function siteName(): string {
-  return process.env.NEXT_PUBLIC_FRAPPE_SITE || window.location.hostname.split('.')[0]
+  const meta = document.querySelector('meta[name="frappe-site"]')?.getAttribute('content')
+  return meta || process.env.NEXT_PUBLIC_FRAPPE_SITE || window.location.hostname.split('.')[0]
 }
 let socket: any = null
 

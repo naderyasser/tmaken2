@@ -1,17 +1,18 @@
 import type { Metadata, Viewport } from 'next'
 
 import { MobileShell } from '@/components/m/mobile-shell'
+import { getTenantBrand } from '@/lib/tenant-brand'
 
-export const metadata: Metadata = {
-  title: 'Masar Time — بصمة الجوال',
-  description: 'تسجيل الحضور والانصراف من الجوال',
-  manifest: '/m/manifest.webmanifest',
-  icons: {
-    icon: '/m/icon-192.png',
-    apple: '/m/apple-touch-icon.png',
-  },
-  appleWebApp: { capable: true, title: 'Masar Time', statusBarStyle: 'black-translucent' },
-  robots: { index: false, follow: false },
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getTenantBrand()
+  return {
+    title: `${brand.name} — بصمة الجوال`,
+    description: 'تسجيل الحضور والانصراف من الجوال',
+    manifest: '/m/manifest.webmanifest',
+    icons: { icon: `${brand.pwaIconBase}/icon-192.png`, apple: brand.appleIcon },
+    appleWebApp: { capable: true, title: brand.name, statusBarStyle: 'black-translucent' },
+    robots: { index: false, follow: false },
+  }
 }
 
 export const viewport: Viewport = {

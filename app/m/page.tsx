@@ -1,5 +1,6 @@
 'use client'
 
+import { useTenantBrand } from '@/components/tenant-brand-provider'
 import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -27,6 +28,7 @@ type Sheet =
   | null
 
 export default function MobileHomePage() {
+  const brand = useTenantBrand()
   const { data, error, loading, reload } = useHome()
   const geo = useGeoWatch(!!data?.punch_enabled)
   // the clock and «worked» time follow the server (Riyadh) clock, not the phone's
@@ -106,7 +108,7 @@ export default function MobileHomePage() {
       <header className="relative overflow-hidden bg-gradient-to-b from-[#1d4d56] to-[#163d44] px-5 pb-16 pt-[max(18px,env(safe-area-inset-top))] text-white">
         <div aria-hidden className="absolute -left-20 -top-24 h-64 w-64 rounded-full bg-[#2c9c9a]/20 blur-2xl" />
         <div className="relative flex items-center justify-between">
-          <img src="/branding/masar/masar-logo-white.png" alt="Masar Time" className="h-[26px] w-auto" />
+          <img src={brand.logoWhite} alt={brand.name} className="h-[26px] max-w-[60%] w-auto object-contain" />
           <Avatar name={data.employee.employee_name} image={data.employee.image} />
         </div>
         <div className="relative mt-5">

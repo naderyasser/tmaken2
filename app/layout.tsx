@@ -2,6 +2,9 @@ import React from "react"
 import type { Metadata } from 'next'
 import { Inter, IBM_Plex_Sans_Arabic, Noto_Nastaliq_Urdu, Amiri, Noto_Kufi_Arabic } from 'next/font/google'
 
+import { TenantBrandProvider } from '@/components/tenant-brand-provider'
+import { getTenantBrand } from '@/lib/tenant-brand'
+
 import './globals.css'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
@@ -17,16 +20,19 @@ const amiriNaskh = Amiri({ subsets: ['arabic'], variable: '--font-naskh', weight
 // ONLY; applied via `.theme-hr` in globals.css so no other tenant/vertical is touched.
 const notoKufiArabic = Noto_Kufi_Arabic({ subsets: ['arabic'], variable: '--font-kufi', weight: ['400', '500', '600', '700'] })
 
-export const metadata: Metadata = {
-  title: 'Masar Time — نظام الحضور والانصراف',
-  description: 'Masar Time — الحضور والانصراف والموارد البشرية',
-  icons: { icon: '/branding/masar/masar-favicon.png', apple: '/branding/masar/masar-icon.png' },
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getTenantBrand()
+  return {
+    title: `${brand.name} — نظام الحضور والانصراف`,
+    description: `${brand.name} — الحضور والانصراف والموارد البشرية`,
+    icons: { icon: brand.favicon, apple: brand.appleIcon },
+  }
 }
 
 // Root layout = html/body/fonts only. The heavy client Providers (i18n dictionary +
 // frappeClient) and the Radix Toaster live in app/(erp)/layout.tsx so they ship to the
 // back-office routes but NOT to the public storefront (app/store/**).
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
@@ -37,10 +43,15 @@ export default function RootLayout({
   // and .dir to follow the active UI locale — ar→rtl, en→ltr — flipping the whole
   // layout, not just text alignment. suppressHydrationWarning permits that rewrite.
   // (See i18n-html-lang-dir.test.tsx for the locked behavior.)
+  const brand = await getTenantBrand()
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>
+      <head>
+        {/* realtime joins the socket.io namespace of this client's Frappe site */}
+        {brand.site && <meta name="frappe-site" content={brand.site} />}
+      </head>
       <body className={`${inter.variable} ${ibmPlexArabic.variable} ${notoNastaliqUrdu.variable} ${amiriNaskh.variable} ${notoKufiArabic.variable}`} suppressHydrationWarning>
-        {children}
+        <TenantBrandProvider brand={brand}>{children}</TenantBrandProvider>
       </body>
     </html>
   )

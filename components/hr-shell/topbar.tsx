@@ -1,5 +1,6 @@
 'use client'
 
+import { useTenantBrand } from '@/components/tenant-brand-provider'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
@@ -32,6 +33,7 @@ function flatten(items: RailItem[]): RailItem[] {
 }
 
 export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
+  const brand = useTenantBrand()
   const { t } = useI18n()
   const { user } = useAuth()
   const router = useRouter()
@@ -141,7 +143,7 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
 
         {/* system */}
         <div className="hidden shrink-0 items-center gap-1.5 text-[14px] font-bold xl:flex">
-          مسار تايم - النظام الذكي
+          {brand.tagline}
           <ChevronDown className="h-4 w-4 opacity-70" />
         </div>
       </div>

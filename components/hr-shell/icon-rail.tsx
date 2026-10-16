@@ -1,5 +1,6 @@
 'use client'
 
+import { useTenantBrand } from '@/components/tenant-brand-provider'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
@@ -16,6 +17,7 @@ import { RAIL_SECTIONS, type RailItem, type RailSection } from './routes'
  * one holding the current page starts open. Menu search lives in the topbar.
  */
 export function IconRail() {
+  const brand = useTenantBrand()
   const { t } = useI18n()
   const { isHRUser, isManager, isAuthenticated, myEmployee } = useAuth()
   const isEmployee = isAuthenticated && !isHRUser && !isManager
@@ -50,9 +52,9 @@ export function IconRail() {
 
   return (
     <aside className="hidden lg:flex flex-col w-[250px] shrink-0 bg-[var(--masar-ink)] text-white h-full overflow-hidden" dir="rtl">
-      <Link href="/hr" className="flex h-[92px] shrink-0 items-center justify-center border-b border-white/10 px-6" aria-label="Masar Time">
+      <Link href="/hr" className="flex h-[92px] shrink-0 items-center justify-center border-b border-white/10 px-6" aria-label={brand.name}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/branding/masar/masar-logo-white.png" alt="masar TIME" className="h-[54px] w-auto object-contain" />
+        <img src={brand.logoWhite} alt={brand.name} className="h-[54px] max-w-full w-auto object-contain" />
       </Link>
 
       <nav className="flex-1 overflow-y-auto py-3">
@@ -96,7 +98,7 @@ export function IconRail() {
 
       <div className="shrink-0 border-t border-white/10 px-5 py-3 text-[11.5px] leading-6 text-white/70">
         <div>آخر تحديث: <span className="text-white/90">{updated}</span></div>
-        <div>Masar Time {process.env.NEXT_PUBLIC_APP_VERSION || ''}</div>
+        <div>{brand.name} {process.env.NEXT_PUBLIC_APP_VERSION || ''}</div>
       </div>
     </aside>
   )

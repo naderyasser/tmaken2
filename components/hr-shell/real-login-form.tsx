@@ -1,5 +1,6 @@
 'use client'
 
+import { useTenantBrand } from '@/components/tenant-brand-provider'
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
@@ -39,6 +40,7 @@ const TXT = {
  * the walkthrough session opens automatically (lib/public-access.ts).
  */
 export function RealLoginForm() {
+  const brand = useTenantBrand()
   const { login, error, isLoading, isAuthenticated } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -108,7 +110,7 @@ export function RealLoginForm() {
       {/* photo — left, like the mockup, whatever the language */}
       <div className="relative hidden w-[44%] shrink-0 overflow-hidden lg:block">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/branding/masar/login-photo.webp" alt="" className="absolute inset-0 h-full w-full object-cover object-[30%_center]" />
+        <img src={brand.loginPhoto} alt="" className="absolute inset-0 h-full w-full object-cover object-[30%_center]" />
         <div aria-hidden className="absolute inset-y-0 right-0 w-40 bg-gradient-to-r from-transparent to-[#0f2a2f]" />
       </div>
 
@@ -121,7 +123,7 @@ export function RealLoginForm() {
 
         <div className="relative w-full max-w-[440px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/branding/masar/masar-logo-white.png" alt="masar TIME" className="mx-auto h-[86px] w-auto" />
+          <img src={brand.logoWhite} alt={brand.name} className="mx-auto h-[86px] max-w-full w-auto object-contain" />
           <h1 className="mb-6 mt-5 text-center text-[26px] font-bold text-white/95">{t.title}</h1>
 
           <form onSubmit={handleSubmit} data-testid="login-form"
@@ -174,7 +176,7 @@ export function RealLoginForm() {
               {t.signup}
             </a>
           </form>
-          <p className="mt-6 text-center text-[11.5px] text-white/30">© {new Date().getFullYear()} Masar Time</p>
+          <p className="mt-6 text-center text-[11.5px] text-white/30">© {new Date().getFullYear()} {brand.name}</p>
         </div>
       </div>
     </div>
