@@ -5,11 +5,14 @@
 #
 #   ops/new-client.sh --site acme --company "شركة أكمي للتجارة" --abbr AC --brand "Acme HR" \
 #       [--tagline "أكمي - نظام الحضور"] [--logo /path/logo-white.png] [--color "#1d4d56"] \
-#       [--domain hr.acme.com] [--admin-pass '...'] \
+#       [--domain hr.acme.com] [--admin-user name] [--admin-pass '...'] \
+#   (the password can also come in the env as HR_ADMIN_PASS — the panel does that,
+#    so it never shows in the process list)
 #       [--plan "باقة ..." --employees 80 --months 6]
 #
-# --domain defaults to <site>.base.meena.sa (already wildcard-DNS'd to this box);
-# a custom domain must point here before running. The logo should be light/white
+# Every client is reachable on the shared entry https://masar.base.meena.sa with
+# its site name as the «رمز الشركة» (company code). --domain additionally gives
+# it its own host (vhost + certificate); that domain must point here first. The logo should be light/white
 # with a transparent background: it sits on the dark sidebar. Without --logo a
 # wordmark of --brand is drawn.
 set -euo pipefail
@@ -22,12 +25,12 @@ TEMPLATE=hr-template
 FRONT_PORT=3003
 LOG=$BENCH_DIR/logs/hr-clients.log
 
-SITE= COMPANY= ABBR= BRAND= TAGLINE= LOGO= COLOR="#1d4d56" DOMAIN= ADMIN_PASS= PLAN= EMPLOYEES= MONTHS=
+SITE= COMPANY= ABBR= BRAND= TAGLINE= LOGO= COLOR="#1d4d56" DOMAIN= ADMIN_USER= ADMIN_PASS=${HR_ADMIN_PASS:-} PLAN= EMPLOYEES= MONTHS=
 while [[ $# -gt 0 ]]; do
   case $1 in
     --site) SITE=$2;; --company) COMPANY=$2;; --abbr) ABBR=$2;; --brand) BRAND=$2;;
     --tagline) TAGLINE=$2;; --logo) LOGO=$2;; --color) COLOR=$2;; --domain) DOMAIN=$2;;
-    --admin-pass) ADMIN_PASS=$2;; --plan) PLAN=$2;; --employees) EMPLOYEES=$2;; --months) MONTHS=$2;;
+    --admin-user) ADMIN_USER=$2;; --admin-pass) ADMIN_PASS=$2;; --plan) PLAN=$2;; --employees) EMPLOYEES=$2;; --months) MONTHS=$2;;
     *) echo "unknown option $1" >&2; exit 2;;
   esac
   shift 2
@@ -40,11 +43,13 @@ die() { echo "✗ $*" >&2; exit 1; }
 [[ $ABBR =~ ^[A-Za-z0-9]{1,6}$ ]] || die "--abbr: 1-6 latin letters/digits"
 [[ $COLOR =~ ^#[0-9a-fA-F]{6}$ ]] || die "--color: #rrggbb"
 [[ -z $LOGO || -f $LOGO ]] || die "--logo file not found"
-DOMAIN=${DOMAIN:-$SITE.base.meena.sa}
+ENTRY=masar.base.meena.sa
 CONF=/etc/nginx/conf.d/$SITE.conf
 test -e "$BENCH_DIR/sites/$SITE" && die "site $SITE already exists"
 test -e "$CONF" && die "$CONF already exists"
-grep -rqs "server_name .*\b$DOMAIN;" /etc/nginx/conf.d/ && die "$DOMAIN is already served by another vhost"
+[[ -z $DOMAIN ]] || ! grep -rqs "server_name .*\b$DOMAIN;" /etc/nginx/conf.d/ || die "$DOMAIN is already served by another vhost"
+[[ -z $ADMIN_USER || $ADMIN_USER =~ ^[A-Za-z0-9._@-]{3,60}$ ]] || die "--admin-user: 3-60 latin letters/digits/._@-"
+[[ -z $ADMIN_PASS || $ADMIN_PASS =~ ^[^[:space:]]{8,64}$ ]] || die "--admin-pass: 8-64 characters, no spaces"
 ADMIN_PASS=${ADMIN_PASS:-$(openssl rand -base64 12 | tr -d '/+=' | cut -c1-12)}
 
 as_fu() { sudo -u frappeuser --preserve-env=RP,AP bash -c "cd $BENCH_DIR && $1"; }
@@ -57,7 +62,7 @@ DUMP=$(find $BENCH_DIR/sites/$TEMPLATE/private/backups -name '*-database.sql.gz'
 
 step "2/7 site $SITE (from $(basename "$DUMP"))"
 export RP=$(python3 -c "import json;print(json.load(open('$BENCH_DIR/sites/common_site_config.json'))['db_root_password'])")
-export AP=$ADMIN_PASS
+export AP=$ADMIN_PASS AU=$ADMIN_USER
 as_fu "$BENCH new-site $SITE --mariadb-root-password \"\$RP\" --admin-password \"\$AP\" >/dev/null"
 as_fu "$BENCH --site $SITE restore $DUMP --mariadb-root-password \"\$RP\" >/dev/null"
 
@@ -76,7 +81,8 @@ for k, v in src.items():
     conf[k] = v
 brand = json.loads(brand)
 brand["tagline"] = tagline or brand["name"]
-conf.update({"tenant_brand": brand, "tamken_mobile_app": 1, "host_name": f"https://{domain}", "hr_client": {"created_on": str(datetime.date.today()), "domain": domain, "company": company}})
+conf.update({"tenant_brand": brand, "tamken_mobile_app": 1, "host_name": f"https://{domain or 'masar.base.meena.sa'}",
+             "hr_client": {"created_on": str(datetime.date.today()), "domain": domain, "company": company}})
 if plan:
     today = datetime.date.today()
     m = int(months or 12)
@@ -90,28 +96,38 @@ PY
 
 step "4/7 migrate + company/admin"
 as_fu "$BENCH --site $SITE migrate >/dev/null"
-sudo -u frappeuser --preserve-env=AP bash -c "cd $BENCH_DIR/sites && $PY $OPS/hr_tenant.py $SITE setup-client \"\$(python3 -c 'import json,os,sys;print(json.dumps({\"company\":sys.argv[1],\"abbr\":sys.argv[2],\"brand_name\":sys.argv[3],\"admin_password\":os.environ[\"AP\"]},ensure_ascii=False))' \"$COMPANY\" \"$ABBR\" \"$BRAND\")\""
+sudo -u frappeuser --preserve-env=AP,AU bash -c "cd $BENCH_DIR/sites && $PY $OPS/hr_tenant.py $SITE setup-client \"\$(python3 -c 'import json,os,sys;print(json.dumps({\"company\":sys.argv[1],\"abbr\":sys.argv[2],\"brand_name\":sys.argv[3],\"admin_password\":os.environ[\"AP\"],\"admin_user\":os.environ.get(\"AU\",\"\")},ensure_ascii=False))' \"$COMPANY\" \"$ABBR\" \"$BRAND\")\""
 as_fu "$BENCH --site $SITE enable-scheduler >/dev/null"
 
-step "5/7 nginx :80 + certificate for $DOMAIN"
-sed -e "s/__HOST__/$DOMAIN/g" -e "s/__SITE__/$SITE/g" -e "s/__PORT__/$FRONT_PORT/g" "$OPS/nginx-client-http.conf.tpl" > "$CONF"
-nginx -t -q 2>/dev/null && systemctl reload nginx || { rm -f "$CONF"; die "nginx rejected the :80 vhost"; }
-certbot certonly --webroot -w /var/www/html -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email -q \
-  || { rm -f "$CONF"; systemctl reload nginx; die "certificate failed — does $DOMAIN point to this server?"; }
+step "5/7 company code «$SITE» on $ENTRY"
+bash "$OPS/sync-company-map.sh"
 
-step "6/7 nginx https"
-sed -e "s/__HOST__/$DOMAIN/g" -e "s/__SITE__/$SITE/g" -e "s/__PORT__/$FRONT_PORT/g" "$OPS/nginx-client.conf.tpl" > "$CONF"
-nginx -t -q 2>/dev/null && systemctl reload nginx || die "nginx rejected the https vhost ($CONF)"
+if [[ -n $DOMAIN ]]; then
+  step "6/7 own domain $DOMAIN (vhost + certificate)"
+  sed -e "s/__HOST__/$DOMAIN/g" -e "s/__SITE__/$SITE/g" -e "s/__PORT__/$FRONT_PORT/g" "$OPS/nginx-client-http.conf.tpl" > "$CONF"
+  nginx -t -q 2>/dev/null && systemctl reload nginx || { rm -f "$CONF"; die "nginx rejected the :80 vhost"; }
+  certbot certonly --webroot -w /var/www/html -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email -q \
+    || { rm -f "$CONF"; systemctl reload nginx; die "certificate failed — does $DOMAIN point to this server?"; }
+  sed -e "s/__HOST__/$DOMAIN/g" -e "s/__SITE__/$SITE/g" -e "s/__PORT__/$FRONT_PORT/g" "$OPS/nginx-client.conf.tpl" > "$CONF"
+  nginx -t -q 2>/dev/null && systemctl reload nginx || die "nginx rejected the https vhost ($CONF)"
+else
+  step "6/7 no own domain (shared entry only)"
+fi
 
 step "7/7 check"
+# the entry must now answer with THIS company's sign-in page when given its code
 code=$(python3 -c 'import sys,urllib.request as u
-try: print(u.urlopen("https://"+sys.argv[1]+"/login",timeout=30).status)
-except Exception as e: print(getattr(e,"code","no answer"))' "$DOMAIN")
-echo "$(date -Is) created $SITE ($DOMAIN) company=«$COMPANY» brand=«$BRAND»" >> "$LOG"
+r=u.Request("https://"+sys.argv[1]+"/login",headers={"Cookie":"mt_company="+sys.argv[2]})
+try:
+  b=u.urlopen(r,timeout=30).read().decode()
+  print("200" if ("content=\""+sys.argv[2]+"\"") in b else "wrong-company")
+except Exception as e: print(getattr(e,"code","no answer"))' "$ENTRY" "$SITE")
+echo "$(date -Is) created $SITE (code on $ENTRY${DOMAIN:+, own domain $DOMAIN}) company=«$COMPANY» brand=«$BRAND»" >> "$LOG"
 cat <<OUT
 
 ✓ $BRAND is live            (login page answered HTTP $code)
-  HR system   https://$DOMAIN
-  mobile app  https://$DOMAIN/m
-  login       Administrator / $ADMIN_PASS
+  HR system   https://${DOMAIN:-$ENTRY}
+  company     $SITE
+  mobile app  https://${DOMAIN:-$ENTRY}/m
+  login       ${ADMIN_USER:-Administrator} / $ADMIN_PASS
 OUT

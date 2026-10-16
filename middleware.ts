@@ -5,7 +5,7 @@ import { AUTO_PARAM, HOME_PATH, walkthroughLoginUrl } from '@/lib/public-access'
 
 // Routes that never need a session (API proxies, public share pages, and the
 // one real sign-in screen at /login — components/hr-shell/real-login-form.tsx).
-const publicPaths = ['/login', '/update-password', '/onboarding', '/proposal', '/letter-verify', '/api/', '/sales-brand', '/sales-rep-manifest', '/tamkeen-go-manifest']
+const publicPaths = ['/login', '/company-select', '/update-password', '/onboarding', '/proposal', '/letter-verify', '/api/', '/sales-brand', '/sales-rep-manifest', '/tamkeen-go-manifest']
 
 /**
  * Every page requires a real Frappe session by default — a session-less page

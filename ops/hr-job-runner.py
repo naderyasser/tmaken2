@@ -56,9 +56,10 @@ def build_argv(job):
 		assert text_ok(job.get(k, ""), n)
 	assert not job.get("domain") or DOMAIN_RE.match(job["domain"])
 	assert NUM_RE.match(job.get("employees", "")) and NUM_RE.match(job.get("months", ""))
+	assert not job.get("admin_user") or re.fullmatch(r"[A-Za-z0-9._@-]{3,60}", job["admin_user"])
 	argv = ["bash", f"{LIB}/new-client.sh", "--site", job["site"], "--company", job["company"], "--abbr", job["abbr"],
 		"--brand", job["brand"], "--color", job["color"]]
-	for opt, key in (("--tagline", "tagline"), ("--domain", "domain"), ("--plan", "plan"), ("--employees", "employees"), ("--months", "months")):
+	for opt, key in (("--admin-user", "admin_user"), ("--tagline", "tagline"), ("--domain", "domain"), ("--plan", "plan"), ("--employees", "employees"), ("--months", "months")):
 		if job.get(key):
 			argv += [opt, job[key]]
 	logo = job.get("logo")
@@ -77,7 +78,12 @@ def run(job_id, path):
 		os.replace(path, done)
 		write_status(job_id, {"state": "failed", "error": f"bad job file: {e}"})
 		return
-	os.replace(path, done)
+	admin_pass = job.pop("admin_password", "") or ""
+	# the done copy never keeps a typed password; O_NOFOLLOW: the spool is writable by the web user
+	fd = os.open(done, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o640)
+	with os.fdopen(fd, "w") as f:
+		json.dump(job, f, ensure_ascii=False)
+	os.remove(path)
 	action = job.get("action", "create")
 	write_status(job_id, {"state": "running", "action": action, "site": job.get("site"), "started": time.time()})
 	try:
@@ -90,16 +96,20 @@ def run(job_id, path):
 		os.chown(log, 0, FRAPPEUSER_GID)
 		os.chmod(log, 0o640)
 		try:
-			rc = subprocess.run(argv, stdout=out, stderr=subprocess.STDOUT, timeout=1800, cwd="/").returncode
+			env = {**os.environ, "HR_ADMIN_PASS": admin_pass} if admin_pass else None
+			rc = subprocess.run(argv, stdout=out, stderr=subprocess.STDOUT, timeout=1800, cwd="/", env=env).returncode
 		except subprocess.TimeoutExpired:
 			rc = -1
 	text = open(log).read()
 	status = {"state": "done" if rc == 0 else "failed", "action": action, "site": job["site"], "finished": time.time()}
 	if action == "create" and rc == 0:
-		m = re.search(r"login\s+Administrator / (\S+)", text)
-		status["admin_password"] = m.group(1) if m else None
-		m = re.search(r"HR system\s+(\S+)", text)
+		m = re.search(r"^\s+login\s+(\S+) / (\S+)$", text, re.M)
+		status["admin_user"] = m.group(1) if m else "Administrator"
+		status["admin_password"] = m.group(2) if m else None
+		m = re.search(r"^\s+HR system\s+(\S+)$", text, re.M)
 		status["url"] = m.group(1) if m else None
+		m = re.search(r"^\s+company\s+(\S+)$", text, re.M)
+		status["code"] = m.group(1) if m else job["site"]
 		# the password stays in the status file only; strip it from the log
 		if status["admin_password"]:
 			open(log, "w").write(text.replace(status["admin_password"], "••••••"))

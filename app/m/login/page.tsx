@@ -3,7 +3,7 @@
 import { useTenantBrand } from '@/components/tenant-brand-provider'
 import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Eye, EyeOff, Hash, Loader2, Lock } from 'lucide-react'
+import { Building2, Eye, EyeOff, Hash, Loader2, Lock } from 'lucide-react'
 
 import { errorText, mcall } from '@/lib/m/api'
 
@@ -18,6 +18,8 @@ export default function MobileLoginPage() {
 function LoginForm() {
   const brand = useTenantBrand()
   const params = useSearchParams()
+  // shared entry (masar.base.meena.sa): the employee names their company first
+  const [company, setCompany] = useState(brand.entry ? brand.site : '')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [show, setShow] = useState(false)
@@ -39,6 +41,15 @@ function LoginForm() {
     }
     setBusy(true)
     setError('')
+    const code = company.trim().toLowerCase()
+    if (brand.entry && code !== brand.site) {
+      const r = await fetch('/company-select', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) })
+      if (!r.ok) {
+        setError('رمز الشركة غير صحيح')
+        setBusy(false)
+        return
+      }
+    }
     try {
       await mcall('login', { username: username.trim(), password })
       const next = params.get('redirect') || '/m'
@@ -69,6 +80,17 @@ function LoginForm() {
             <p className="mb-4 rounded-lg border border-[#f0ae4f]/40 bg-[#f0ae4f]/10 px-3 py-2.5 text-[13px] leading-relaxed text-[#ffd59a]">
               أنت مسجّل الدخول حالياً بحساب إداري في هذا المتصفح. الدخول هنا سيُخرجك منه — للتجربة استخدم نافذة خاصة أو متصفحاً آخر.
             </p>
+          )}
+
+          {brand.entry && (
+            <>
+              <label className="mb-1.5 block text-[13px] text-white/70" htmlFor="m-company">رمز الشركة</label>
+              <div className="relative mb-4">
+                <Building2 className={icon} />
+                <input id="m-company" value={company} onChange={(e) => setCompany(e.target.value)} autoCapitalize="none" autoCorrect="off"
+                  spellCheck={false} placeholder="مثال: acme" className={field} />
+              </div>
+            </>
           )}
 
           <label className="mb-1.5 block text-[13px] text-white/70" htmlFor="m-user">رقم الموظف</label>

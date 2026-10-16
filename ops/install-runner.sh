@@ -8,7 +8,7 @@ SRC=$(dirname "$(readlink -f "$0")")
 LIB=/usr/local/lib/hr-clients
 SPOOL=/home/frappeuser/frappe-dev/hr-client-jobs
 install -d -o root -g root -m 755 $LIB
-for f in new-client.sh remove-client.sh hr_tenant.py brand_assets.py hr-job-runner.py nginx-client.conf.tpl nginx-client-http.conf.tpl; do
+for f in new-client.sh remove-client.sh sync-company-map.sh hr_tenant.py brand_assets.py hr-job-runner.py nginx-client.conf.tpl nginx-client-http.conf.tpl; do
   install -o root -g root -m 644 "$SRC/$f" "$LIB/$f"
 done
 install -d -o root -g frappeuser -m 750 /var/lib/hr-clients /var/lib/hr-clients/status

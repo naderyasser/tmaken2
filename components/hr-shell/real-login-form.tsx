@@ -15,7 +15,7 @@ const LANG_KEY = 'masar_login_lang'
 type Lang = 'ar' | 'en'
 const TXT = {
   ar: {
-    title: 'تسجيل الدخول', db: 'اسم قاعدة البيانات', user: 'البريد الإلكتروني أو اسم المستخدم', pass: 'كلمة المرور',
+    title: 'تسجيل الدخول', db: 'اسم قاعدة البيانات', company: 'رمز الشركة', badCompany: 'رمز الشركة غير صحيح', user: 'البريد الإلكتروني أو اسم المستخدم', pass: 'كلمة المرور',
     remember: 'تذكرني', forgot: 'هل نسيت كلمة المرور؟', sending: 'جارٍ الإرسال…', submit: 'تسجيل الدخول',
     signup: 'إنشاء حساب جديد', show: 'إظهار كلمة المرور', hide: 'إخفاء كلمة المرور',
     needUser: 'أدخل البريد الإلكتروني أو اسم المستخدم أولاً', notAllowed: 'لا يمكن إعادة تعيين كلمة مرور هذا الحساب',
@@ -23,7 +23,7 @@ const TXT = {
     sendFail: 'تعذّر إرسال رابط إعادة التعيين', other: 'English',
   },
   en: {
-    title: 'Sign in', db: 'Database name', user: 'Email or username', pass: 'Password',
+    title: 'Sign in', db: 'Database name', company: 'Company code', badCompany: 'Unknown company code', user: 'Email or username', pass: 'Password',
     remember: 'Remember me', forgot: 'Forgot your password?', sending: 'Sending…', submit: 'Sign in',
     signup: 'Create new account', show: 'Show password', hide: 'Hide password',
     needUser: 'Enter your email or username first', notAllowed: "This account's password can't be reset",
@@ -50,6 +50,8 @@ export function RealLoginForm() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [dbName, setDbName] = useState('')
+  const [companyError, setCompanyError] = useState('')
+  const [companyChanged, setCompanyChanged] = useState(false)
   const [remember, setRemember] = useState(true)
   const [resetting, setResetting] = useState(false)
   // Only a sign-in made on this page moves on to the dashboard — an older
@@ -59,7 +61,7 @@ export function RealLoginForm() {
   const dir = lang === 'ar' ? 'rtl' : 'ltr'
 
   useEffect(() => {
-    setDbName(window.location.hostname.split('.')[0])
+    setDbName(brand.entry ? brand.site : window.location.hostname.split('.')[0])
     try {
       const r = window.localStorage.getItem(REMEMBER_KEY); if (r !== null) setRemember(r === '1')
       const l = window.localStorage.getItem(LANG_KEY); if (l === 'en' || l === 'ar') setLang(l)
@@ -96,10 +98,25 @@ export function RealLoginForm() {
   useEffect(() => {
     if (!isAuthenticated || !submitted) return
     const redirect = searchParams.get('redirect')
-    router.replace(redirect && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/hr')
-  }, [isAuthenticated, submitted, router, searchParams])
+    const to = redirect && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/hr'
+    // another company was picked: the page still carries the previous company's
+    // brand, so load the app fresh instead of a client-side hop
+    if (companyChanged) window.location.replace(to)
+    else router.replace(to)
+  }, [isAuthenticated, submitted, router, searchParams, companyChanged])
 
-  const handleSubmit = async (e: React.FormEvent) => { e.preventDefault(); setSubmitted(true); await login(username, password) }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCompanyError('')
+    const code = dbName.trim().toLowerCase()
+    if (brand.entry && code !== brand.site) {
+      const r = await fetch('/company-select', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) })
+      if (!r.ok) { setCompanyError(t.badCompany); return }
+      setCompanyChanged(true)
+    }
+    setSubmitted(true)
+    await login(username, password)
+  }
 
 
   const field = 'h-12 w-full rounded-lg border border-[#2c9c9a]/70 bg-[#0d2328] ps-11 pe-4 text-[14.5px] text-white placeholder:text-white/40 outline-none transition focus:border-[#7fd1a8] focus:ring-2 focus:ring-[#6cc196]/25'
@@ -134,11 +151,21 @@ export function RealLoginForm() {
               </div>
             )}
             <div className="space-y-3.5">
-              <label className="relative block" title={t.db}>
-                <span className="sr-only">{t.db}</span>
-                <Database className={icon} />
-                <input value={dbName} readOnly aria-readonly aria-label={t.db} className={`${field} cursor-default text-white/75`} dir="ltr" />
-              </label>
+              {brand.entry ? (
+                <label className="relative block" title={t.company}>
+                  <span className="sr-only">{t.company}</span>
+                  <Database className={icon} />
+                  <input value={dbName} onChange={(e) => setDbName(e.target.value)} required aria-label={t.company} placeholder={t.company}
+                    autoCapitalize="none" autoCorrect="off" spellCheck={false} className={field} dir="ltr" />
+                </label>
+              ) : (
+                <label className="relative block" title={t.db}>
+                  <span className="sr-only">{t.db}</span>
+                  <Database className={icon} />
+                  <input value={dbName} readOnly aria-readonly aria-label={t.db} className={`${field} cursor-default text-white/75`} dir="ltr" />
+                </label>
+              )}
+              {companyError && <p role="alert" className="text-[13px] text-red-200">{companyError}</p>}
               <label className="relative block">
                 <span className="sr-only">{t.user}</span>
                 <User className={icon} />

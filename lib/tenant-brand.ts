@@ -13,6 +13,9 @@ import { headers } from 'next/headers'
  */
 export interface TenantBrand {
   site: string
+  /** Served on the shared entry (masar.base.meena.sa): the sign-in screens let
+   *  the visitor type a company code (nginx picks the site from that cookie). */
+  entry: boolean
   /** Product name in titles, the sidebar footer and «©» lines. */
   name: string
   /** Line next to the user menu in the topbar. */
@@ -31,7 +34,7 @@ export interface TenantBrand {
 const SITES_DIR = process.env.FRAPPE_SITES_DIR || '/home/frappeuser/frappe-dev/sites'
 const SITE_RE = /^[a-z0-9][a-z0-9-]*(\.[a-z0-9-]+)*$/
 
-const DEFAULT_BRAND: Omit<TenantBrand, 'site'> = {
+const DEFAULT_BRAND: Omit<TenantBrand, 'site' | 'entry'> = {
   name: 'Masar Time',
   tagline: 'مسار تايم - النظام الذكي',
   logoWhite: '/branding/masar/masar-logo-white.png',
@@ -53,7 +56,8 @@ export async function currentSite(): Promise<string> {
 /** Uncached on purpose: a brand edit in site_config goes live without a rebuild. */
 export async function getTenantBrand(): Promise<TenantBrand> {
   const site = await currentSite()
-  const brand: TenantBrand = { site, ...DEFAULT_BRAND }
+  const entry = (await headers()).get('x-masar-entry') === '1'
+  const brand: TenantBrand = { ...DEFAULT_BRAND, site, entry }
   if (!site) return brand
   try {
     const conf = JSON.parse(readFileSync(join(SITES_DIR, site, 'site_config.json'), 'utf-8'))
@@ -68,3 +72,20 @@ export async function getTenantBrand(): Promise<TenantBrand> {
   }
   return brand
 }
+
+export const COMPANY_COOKIE = 'mt_company'
+
+/** A company code the shared entry may switch to: the default demo site or a
+ *  client made by ops/new-client.sh (its site_config carries `hr_client`). */
+export function isCompanyCode(code: string): boolean {
+  if (!/^[a-z][a-z0-9-]{1,30}$/.test(code)) return false
+  if (code === ENTRY_DEFAULT_SITE) return true
+  try {
+    const conf = JSON.parse(readFileSync(join(SITES_DIR, code, 'site_config.json'), 'utf-8'))
+    return !!conf.hr_client
+  } catch {
+    return false
+  }
+}
+
+export const ENTRY_DEFAULT_SITE = 'masar'

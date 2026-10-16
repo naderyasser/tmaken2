@@ -112,6 +112,28 @@ def clean_template(args):
 	print("template clean; company was", old)
 
 
+def _make_admin(login, password):
+	"""The operator's own admin login for this client: a System User with every
+	desk role. A bare name becomes the username (sign-in by username is switched
+	on) with a placeholder e-mail on the site."""
+	from frappe.utils.password import update_password
+
+	email = login if "@" in login else f"{login}@{frappe.local.site}.local"
+	user = frappe.get_doc({
+		"doctype": "User", "email": email, "first_name": "مدير النظام", "user_type": "System User",
+		"send_welcome_email": 0, "username": None if "@" in login else login,
+	})
+	user.flags.no_welcome_mail = True
+	skip = {"Administrator", "Guest", "All", "Desk User"}
+	for role in frappe.get_all("Role", filters={"disabled": 0, "desk_access": 1}, pluck="name"):
+		if role not in skip:
+			user.append("roles", {"role": role})
+	user.insert(ignore_permissions=True)
+	update_password(email, password)
+	if "@" not in login:
+		frappe.db.set_single_value("System Settings", "allow_login_using_user_name", 1)
+
+
 def setup_client(args):
 	if frappe.db.count("Employee"):
 		sys.exit("refusing: this site already has employees — setup-client only runs on a fresh template copy")
@@ -124,6 +146,8 @@ def setup_client(args):
 		frappe.db.set_single_value("Copilot Settings", "system_prompt", prompt.replace("تمكين", brand))
 	from frappe.utils.password import update_password
 	update_password("Administrator", args["admin_password"])
+	if args.get("admin_user"):
+		_make_admin(args["admin_user"], args["admin_password"])
 	_forget_history()
 	frappe.db.commit()
 	print(f"client ready: {args['company']} ({args['abbr']}) in {time.time() - t:.0f}s")
