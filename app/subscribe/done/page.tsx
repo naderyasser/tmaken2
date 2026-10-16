@@ -7,6 +7,7 @@ import { Check, Copy, CreditCard, Loader2, Mail, XCircle } from 'lucide-react'
 
 import { HelpWidget } from '@/components/landing/help-widget'
 import { sar } from '@/components/landing/pricing'
+import { CONTACT } from '@/lib/site-contact'
 import { ORDER_BOOK_KEY } from '@/lib/store-api'
 
 /** Order follow-up: payment → copy being built → ready (login details). */
@@ -105,6 +106,11 @@ function OrderStatus() {
               سيتواصل معك فريقنا لإتمام الدفع، وتُنشأ نسختك فور تأكيده — وستجدها على هذه الصفحة.
             </p>
             <p className="mt-4 text-center text-[13px] text-[#7b9396]">رقم الطلب: <span dir="ltr">{s.order}</span></p>
+            <div className="mt-5 flex flex-wrap justify-center gap-2 text-[14px]">
+              <a href={`${CONTACT.whatsappHref}?text=${encodeURIComponent('طلب اشتراك Masar Time رقم ' + s.order)}`} target="_blank" rel="noopener"
+                className="rounded-xl bg-[#1f9d55] px-4 py-2.5 font-bold text-white hover:bg-[#188a49]">تواصل معنا على واتساب</a>
+              <a href={CONTACT.phoneHref} className="rounded-xl border border-[#dbe5e6] px-4 py-2.5 font-bold" dir="ltr">{CONTACT.phoneDisplay}</a>
+            </div>
           </Card>
         )}
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { HelpWidget } from '@/components/landing/help-widget'
 import { useState, useEffect, Suspense, type ReactNode } from 'react'
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
@@ -90,6 +91,9 @@ export function HrShell({ requireHR = true, children }: { requireHR?: boolean; c
         <Suspense fallback={null}>
           <MobileNav open={mobileNavOpen} onOpenChange={setMobileNavOpen} />
         </Suspense>
+
+        {/* «تحتاج مساعدة؟» — chat / call-back with the Masar team (opened from the sidebar) */}
+        <HelpWidget embedded />
       </HrGuard>
     </div>
   )

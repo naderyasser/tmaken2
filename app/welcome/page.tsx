@@ -6,6 +6,7 @@ import {
 
 import { HelpWidget } from '@/components/landing/help-widget'
 import { Pricing } from '@/components/landing/pricing'
+import { CONTACT } from '@/lib/site-contact'
 import { storeCall, type PackageInfo } from '@/lib/store-api'
 
 /**
@@ -33,8 +34,8 @@ const FEATURES = [
 
 const STEPS = [
   { n: '1', title: 'اختر باقتك', text: 'حسب عدد موظفيك، أو ابدأ بالتجربة المجانية.' },
-  { n: '2', title: 'ادفع أونلاين', text: 'مدى أو فيزا أو ماستركارد أو Apple Pay عبر بوابة دفع آمنة.' },
-  { n: '3', title: 'نسختك جاهزة خلال دقائق', text: 'بقاعدة بيانات مستقلة لشركتك، وتدخل برمز شركتك مباشرة.' },
+  { n: '2', title: 'أرسل طلبك', text: 'يتواصل معك فريقنا لتأكيد الطلب وإتمام الدفع بالتحويل البنكي.' },
+  { n: '3', title: 'نسختك جاهزة خلال دقائق', text: 'فور تأكيد الدفع تُنشأ نسختك بقاعدة بيانات مستقلة، وتدخل برمز شركتك مباشرة.' },
 ]
 
 const FAQ = [
@@ -63,6 +64,7 @@ export default async function WelcomePage() {
             <a href="#faq" className="hover:text-white">الأسئلة الشائعة</a>
           </nav>
           <div className="ms-auto flex items-center gap-2">
+            <a href={CONTACT.phoneHref} className="hidden text-[14px] text-white/80 hover:text-white lg:block" dir="ltr">{CONTACT.phoneDisplay}</a>
             <Link href="/login" className="h-9 whitespace-nowrap rounded-lg px-2 text-[13.5px] leading-9 text-white/85 hover:text-white sm:px-3 sm:text-[14px]">تسجيل الدخول</Link>
             <Link href="/subscribe?package=trial" className="h-9 whitespace-nowrap rounded-lg bg-[#6cc196] px-3 text-[13.5px] font-bold leading-9 text-[#0f2a2f] hover:bg-[#7fd1a8] sm:px-4 sm:text-[14px]">جرّب مجاناً</Link>
           </div>
@@ -192,8 +194,13 @@ export default async function WelcomePage() {
           <a href="#pricing" className="flex h-12 items-center rounded-xl border border-white/25 px-6 text-[16px] font-bold hover:bg-white/10">اختر باقتك</a>
         </div>
       </section>
-      <footer className="bg-[#0f2a2f] py-6 text-center text-[12.5px] text-white/45">
-        © {new Date().getFullYear()} Masar Time — نظام الحضور والانصراف والموارد البشرية
+      <footer className="bg-[#0f2a2f] py-8 text-center text-[13px] text-white/60">
+        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+          <a href={CONTACT.phoneHref} className="hover:text-white" dir="ltr">{CONTACT.phoneDisplay}</a>
+          <a href={CONTACT.whatsappHref} target="_blank" rel="noopener" className="hover:text-white">واتساب</a>
+          <a href={`mailto:${CONTACT.email}`} className="hover:text-white" dir="ltr">{CONTACT.email}</a>
+        </div>
+        <p className="mt-4 text-[12.5px] text-white/40">© {new Date().getFullYear()} Masar Time — نظام الحضور والانصراف والموارد البشرية</p>
       </footer>
       <HelpWidget />
     </div>

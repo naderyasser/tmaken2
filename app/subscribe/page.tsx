@@ -241,7 +241,7 @@ function SubscribeForm() {
             </button>
             {pkg !== 'trial' && (
               <p className="mt-3 text-center text-[12px] leading-5 text-[#7b9396]">
-                {info?.online_payment ? 'الدفع عبر بوابة آمنة: مدى، فيزا، ماستركارد، Apple Pay' : 'سنتواصل معك لإتمام الدفع، وتُنشأ نسختك فور تأكيده'}
+                {info?.online_payment ? 'الدفع عبر بوابة آمنة: مدى، فيزا، ماستركارد، Apple Pay' : 'يتواصل معك فريقنا لإتمام الدفع بالتحويل البنكي، وتُنشأ نسختك فور تأكيده'}
               </p>
             )}
           </div>

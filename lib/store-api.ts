@@ -7,7 +7,8 @@
 const BACKEND = process.env.FRAPPE_INTERNAL_URL || 'http://127.0.0.1:8000'
 const STORE_SITE = 'fc.local'
 
-export const STORE_METHODS = ['get_packages', 'check_code', 'start_order', 'order_status', 'support_options', 'request_call', 'chat_send', 'chat_poll'] as const
+export const STORE_METHODS = ['get_packages', 'check_code', 'start_order', 'order_status', 'support_options', 'request_call', 'chat_send', 'chat_poll', 'team_status', 'chat_typing'] as const
+// (the help widget goes through /support-api, which works on every host)
 export type StoreMethod = (typeof STORE_METHODS)[number]
 
 export interface Package {

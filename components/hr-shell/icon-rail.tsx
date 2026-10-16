@@ -1,10 +1,11 @@
 'use client'
 
 import { useTenantBrand } from '@/components/tenant-brand-provider'
+import { openHelp } from '@/components/landing/help-widget'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, MessageCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/auth-context'
@@ -96,7 +97,15 @@ export function IconRail() {
         })}
       </nav>
 
-      <div className="shrink-0 border-t border-white/10 px-5 py-3 text-[11.5px] leading-6 text-white/70">
+      {/* fixed at the bottom of the sidebar (the nav above scrolls) */}
+      <div className="shrink-0 border-t border-white/10 px-3 pt-3">
+        <button type="button" onClick={openHelp} data-testid="sidebar-help"
+          className="flex w-full items-center gap-2.5 rounded-lg bg-white/10 px-4 py-2.5 text-[14px] font-bold text-white transition hover:bg-white/[.16]">
+          <MessageCircle className="h-[18px] w-[18px] text-[var(--masar-green)]" aria-hidden />
+          تحتاج مساعدة؟
+        </button>
+      </div>
+      <div className="shrink-0 px-5 py-3 text-[11.5px] leading-6 text-white/70">
         <div>آخر تحديث: <span className="text-white/90">{updated}</span></div>
         <div>{brand.name} {process.env.NEXT_PUBLIC_APP_VERSION || ''}</div>
       </div>
