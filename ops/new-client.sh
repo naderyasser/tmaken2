@@ -63,9 +63,9 @@ as_fu "$BENCH --site $SITE restore $DUMP --mariadb-root-password \"\$RP\" >/dev/
 
 step "3/7 brand files + site_config"
 BRAND_JSON=$(sudo -u frappeuser $PY "$OPS/brand_assets.py" "$SITE" "$BRAND" "$COLOR" "$LOGO")
-sudo -u frappeuser python3 - "$BENCH_DIR/sites" "$TEMPLATE" "$SITE" "$DOMAIN" "$BRAND_JSON" "$TAGLINE" "$PLAN" "$EMPLOYEES" "$MONTHS" <<'PY'
+sudo -u frappeuser python3 - "$BENCH_DIR/sites" "$TEMPLATE" "$SITE" "$DOMAIN" "$BRAND_JSON" "$TAGLINE" "$PLAN" "$EMPLOYEES" "$MONTHS" "$COMPANY" <<'PY'
 import json, sys, datetime
-sites, tpl, site, domain, brand, tagline, plan, emps, months = sys.argv[1:]
+sites, tpl, site, domain, brand, tagline, plan, emps, months, company = sys.argv[1:]
 src = json.load(open(f"{sites}/{tpl}/site_config.json"))
 p = f"{sites}/{site}/site_config.json"
 conf = json.load(open(p))
@@ -76,7 +76,7 @@ for k, v in src.items():
     conf[k] = v
 brand = json.loads(brand)
 brand["tagline"] = tagline or brand["name"]
-conf.update({"tenant_brand": brand, "tamken_mobile_app": 1, "host_name": f"https://{domain}", "hr_client": {"created_on": str(datetime.date.today()), "domain": domain}})
+conf.update({"tenant_brand": brand, "tamken_mobile_app": 1, "host_name": f"https://{domain}", "hr_client": {"created_on": str(datetime.date.today()), "domain": domain, "company": company}})
 if plan:
     today = datetime.date.today()
     m = int(months or 12)
