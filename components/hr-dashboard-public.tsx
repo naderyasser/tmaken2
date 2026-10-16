@@ -10,7 +10,7 @@ import { frappeClient, isAuthError } from '@/lib/api-client'
 import { frappeImageUrl } from '@/lib/utils'
 import { subscribeRealtime } from '@/lib/frappe-realtime'
 import { SessionRenew } from '@/components/login-page'
-import { SubscriptionCard } from '@/components/hr/subscription-card'
+import { SubscriptionTile } from '@/components/hr/subscription-card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { APEX } from '@/lib/apex-colors'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -235,11 +235,10 @@ export function PublicHrDashboard() {
           </div>
         </div>
 
-        <SubscriptionCard />
-
         <div className="flex-1 rounded bg-[var(--apex-chart-panel-bg)] p-5 shadow-sm">
           <h2 className="mb-5 text-center text-[24px] font-normal text-slate-800">ملخص حضور اليوم</h2>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+            <SubscriptionTile />
             {CARDS.map((c) => (
               <button key={c.key} type="button" onClick={() => setOpenCard(c.key)} aria-haspopup="dialog" data-testid={`card-${c.key}`}
                 className="flex h-[92px] min-w-0 flex-col items-center justify-center gap-1.5 rounded-[5px] bg-white shadow-sm hover:shadow">
