@@ -10,6 +10,7 @@ import { frappeClient, isAuthError } from '@/lib/api-client'
 import { frappeImageUrl } from '@/lib/utils'
 import { subscribeRealtime } from '@/lib/frappe-realtime'
 import { SessionRenew } from '@/components/login-page'
+import { SubscriptionCard } from '@/components/hr/subscription-card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { APEX } from '@/lib/apex-colors'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -233,6 +234,8 @@ export function PublicHrDashboard() {
             </div>
           </div>
         </div>
+
+        <SubscriptionCard />
 
         <div className="flex-1 rounded bg-[var(--apex-chart-panel-bg)] p-5 shadow-sm">
           <h2 className="mb-5 text-center text-[24px] font-normal text-slate-800">ملخص حضور اليوم</h2>

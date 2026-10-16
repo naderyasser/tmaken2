@@ -41,6 +41,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.rewrite(url)
   }
 
+  // Shared entry (masar.base.meena.sa): the product's public landing + self-service
+  // subscribe pages. Only there — on a client's own domain they don't exist.
+  const onEntry = request.headers.get('x-masar-entry') === '1'
+  if (pathname === '/welcome' || pathname === '/subscribe' || pathname.startsWith('/subscribe/')) {
+    return onEntry ? NextResponse.next() : NextResponse.redirect(new URL('/', request.url))
+  }
+  if (pathname === '/' && onEntry) {
+    const s = request.cookies.get('sid')?.value
+    if (!s || s === 'Guest') return NextResponse.rewrite(new URL('/welcome', request.url))
+  }
+
   // Static files, Next internals, API proxies and public share pages pass through.
   if (
     pathname.startsWith('/_next') ||
