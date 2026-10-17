@@ -85,8 +85,10 @@ export function HelpWidget({ embedded = false }: { embedded?: boolean }) {
     return () => clearInterval(t)
   }, [open, view, embedded])
 
+  // translate="no": Chrome's page translation swaps these text nodes for <font>s,
+  // and React then crashed («client-side exception») the moment the window opened.
   return (
-    <div dir="rtl" className={`fixed bottom-4 z-50 flex flex-col items-end gap-3 ${embedded ? 'right-4 lg:right-[266px]' : 'right-4'}`} style={{ fontFamily: 'var(--font-kufi), var(--font-arabic), system-ui, sans-serif' }}>
+    <div dir="rtl" translate="no" className={`notranslate fixed bottom-4 z-50 flex flex-col items-end gap-3 ${embedded ? 'right-4 lg:right-[266px]' : 'right-4'}`} style={{ fontFamily: 'var(--font-kufi), var(--font-arabic), system-ui, sans-serif' }}>
       {open && (
         <div role="dialog" aria-label="تحتاج مساعدة؟"
           className="flex max-h-[min(620px,calc(100dvh-110px))] w-[min(370px,calc(100vw-32px))] flex-col overflow-hidden rounded-2xl border border-[#dbe5e6] bg-white shadow-[0_30px_80px_-30px_rgba(15,42,47,.55)]">
