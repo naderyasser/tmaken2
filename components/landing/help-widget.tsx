@@ -261,7 +261,11 @@ function Chat({ onOnline, onAssistant, onRead }: { onOnline: (v: boolean) => voi
     const t = setInterval(() => { if (document.visibilityState === 'visible' && !sending.current) poll() }, 2000)
     return () => clearInterval(t)
   }, [poll])
-  useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [msgs, teamTyping])
+  // braces matter: newer Chrome's scrollIntoView returns a Promise, and an effect
+  // that returns a non-function makes React call it on unmount («i is not a function»)
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'end' })
+  }, [msgs, teamTyping])
 
   const typing = (v: string) => {
     setText(v)
