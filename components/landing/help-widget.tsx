@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowRight, CheckCircle2, Loader2, MessageCircle, PhoneCall, Send, X } from 'lucide-react'
 
 import { CONTACT } from '@/lib/site-contact'
@@ -53,6 +53,53 @@ export function openHelp() {
  * the window sits beside the sidebar, and messages carry the client's site.
  */
 export function HelpWidget({ embedded = false }: { embedded?: boolean }) {
+  useEffect(() => {
+    const onError = (e: ErrorEvent) => reportClientError('window', e.error || e.message)
+    const onRejection = (e: PromiseRejectionEvent) => reportClientError('promise', e.reason)
+    window.addEventListener('error', onError)
+    window.addEventListener('unhandledrejection', onRejection)
+    return () => {
+      window.removeEventListener('error', onError)
+      window.removeEventListener('unhandledrejection', onRejection)
+    }
+  }, [])
+  return (
+    <WidgetBoundary>
+      <HelpWidgetInner embedded={embedded} />
+    </WidgetBoundary>
+  )
+}
+
+/** Sends a browser-side error to the server log (journal of the frontend unit). */
+function reportClientError(where: string, err: unknown) {
+  try {
+    const e = err instanceof Error ? err : new Error(String(err))
+    const body = JSON.stringify({ where, message: e.message, stack: (e.stack || '').slice(0, 3000), url: location.href, ua: navigator.userAgent, lang: document.documentElement.lang, translated: !!document.querySelector('html.translated-ltr, html.translated-rtl, font') })
+    navigator.sendBeacon?.('/support-api/client_error', new Blob([body], { type: 'application/json' })) ||
+      fetch('/support-api/client_error', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true }).catch(() => {})
+  } catch { /* never let reporting break the page */ }
+}
+
+/**
+ * A crash inside the widget (e.g. a browser extension rewriting its DOM) must not
+ * take the whole page down with «Application error». Report it, then remount the
+ * widget fresh (closed); give up after a few failures so it can't loop.
+ */
+class WidgetBoundary extends Component<{ children: ReactNode }, { failed: boolean; key: number }> {
+  state = { failed: false, key: 0 }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  componentDidCatch(error: unknown) {
+    reportClientError('widget', error)
+    if (this.state.key < 3) setTimeout(() => this.setState((s) => ({ failed: false, key: s.key + 1 })), 0)
+  }
+  render() {
+    return this.state.failed ? null : <div key={this.state.key} className="contents">{this.props.children}</div>
+  }
+}
+
+function HelpWidgetInner({ embedded }: { embedded: boolean }) {
   IN_APP = embedded
   const [open, setOpen] = useState(false)
   const [view, setView] = useState<View>('menu')
