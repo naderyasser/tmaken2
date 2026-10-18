@@ -6,8 +6,9 @@ import { ArrowRight, CheckCircle2, Loader2, MessageCircle, PhoneCall, Send, X } 
 import { CONTACT } from '@/lib/site-contact'
 
 /**
- * «تحتاج مساعدة؟» — bottom-right corner of the public pages: live chat with the
- * team (answered from the operator panel) or a call-back request.
+ * «تحتاج مساعدة؟» — bottom-right corner of the public pages: chat answered by
+ * the AI assistant (`assistant` from the backend; the team can still reply from
+ * the operator panel) or a call-back request.
  * Backend: site_creator.hr_store (request_call / chat_send / chat_poll).
  */
 type View = 'menu' | 'chat' | 'call' | 'sent'
@@ -57,6 +58,7 @@ export function HelpWidget({ embedded = false }: { embedded?: boolean }) {
   const [view, setView] = useState<View>('menu')
   const [unread, setUnread] = useState(0)
   const [online, setOnline] = useState<boolean | null>(null)
+  const [assistant, setAssistant] = useState(false)
   const markRead = useCallback(() => setUnread(0), [])
 
   useEffect(() => {
@@ -72,11 +74,14 @@ export function HelpWidget({ embedded = false }: { embedded?: boolean }) {
       const c = savedChat()
       try {
         if (c) {
-          const r = await call<{ messages: Msg[]; team_online: boolean }>('chat_poll', { chat: c.id, token: c.token })
+          const r = await call<{ messages: Msg[]; team_online: boolean; assistant?: boolean }>('chat_poll', { chat: c.id, token: c.token })
           setOnline(r.team_online)
+          setAssistant(!!r.assistant)
           setUnread(r.messages.filter((m) => m.from === 'team' && m.at > lastSeen()).length)
         } else {
-          setOnline((await call<{ team_online: boolean }>('team_status')).team_online)
+          const r = await call<{ team_online: boolean; assistant?: boolean }>('team_status')
+          setOnline(r.team_online)
+          setAssistant(!!r.assistant)
         }
       } catch { /* offline: keep the last state */ }
     }
@@ -97,11 +102,11 @@ export function HelpWidget({ embedded = false }: { embedded?: boolean }) {
               <button type="button" onClick={() => setView('menu')} aria-label="رجوع" className="rounded p-1 hover:bg-white/10"><ArrowRight className="h-4 w-4" /></button>
             )}
             <div className="flex-1">
-              <b className="block text-[15px]">{view === 'chat' ? 'محادثة مع فريقنا' : view === 'call' ? 'اطلب مكالمة' : 'تحتاج مساعدة؟'}</b>
+              <b className="block text-[15px]">{view === 'chat' ? (assistant ? 'مساعد مسار الذكي' : 'محادثة مع فريقنا') : view === 'call' ? 'اطلب مكالمة' : 'تحتاج مساعدة؟'}</b>
               {view === 'chat' && online !== null && (
                 <span className="flex items-center gap-1.5 text-[12px] text-white/70" data-testid="team-status">
                   <span className={`h-2 w-2 rounded-full ${online ? 'bg-[#6cc196]' : 'bg-white/40'}`} />
-                  {online ? 'متصلون الآن' : 'غير متصلين حالياً'}
+                  {assistant ? 'يرد فوراً على مدار الساعة' : online ? 'متصلون الآن' : 'غير متصلين حالياً'}
                 </span>
               )}
             </div>
@@ -113,8 +118,8 @@ export function HelpWidget({ embedded = false }: { embedded?: boolean }) {
               <button type="button" onClick={() => setView('chat')} className="flex w-full items-center gap-3 rounded-xl bg-[#24817f] px-4 py-3 text-start text-white hover:bg-[#1d6b69]">
                 <MessageCircle className="h-5 w-5 shrink-0" />
                 <span className="flex-1">
-                  <span className="block text-[15px] font-bold">محادثة مباشرة مع فريقنا</span>
-                  {online !== null && <span className="text-[12px] text-white/75">{online ? 'متصلون الآن — نرد خلال دقائق' : 'اترك رسالتك ونرد عليك'}</span>}
+                  <span className="block text-[15px] font-bold">{assistant ? 'اسأل مساعد مسار الذكي' : 'محادثة مباشرة مع فريقنا'}</span>
+                  {online !== null && <span className="text-[12px] text-white/75">{assistant ? 'إجابات فورية عن الباقات والأجهزة والنظام' : online ? 'متصلون الآن — نرد خلال دقائق' : 'اترك رسالتك ونرد عليك'}</span>}
                 </span>
                 {online && <span className="h-2.5 w-2.5 rounded-full bg-[#6cc196] ring-2 ring-white/40" />}
                 {unread > 0 && <span className="rounded-full bg-[#f0ae4f] px-2 text-[12px] font-bold text-[#3b2a09]">{unread}</span>}
@@ -131,7 +136,7 @@ export function HelpWidget({ embedded = false }: { embedded?: boolean }) {
               </div>
             </div>
           )}
-          {view === 'chat' && <Chat onOnline={setOnline} onRead={markRead} />}
+          {view === 'chat' && <Chat onOnline={setOnline} onAssistant={setAssistant} onRead={markRead} />}
           {view === 'call' && <CallForm onSent={() => setView('sent')} />}
           {view === 'sent' && (
             <div className="p-6 text-center">
@@ -163,7 +168,7 @@ function WhatsAppIcon() {
   )
 }
 
-function Chat({ onOnline, onRead }: { onOnline: (v: boolean) => void; onRead: () => void }) {
+function Chat({ onOnline, onAssistant, onRead }: { onOnline: (v: boolean) => void; onAssistant: (v: boolean) => void; onRead: () => void }) {
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [text, setText] = useState('')
   const [name, setName] = useState('')
@@ -172,35 +177,41 @@ function Chat({ onOnline, onRead }: { onOnline: (v: boolean) => void; onRead: ()
   const [teamTyping, setTeamTyping] = useState(false)
   const [online, setOnline] = useState<boolean | null>(null)
   const [seenAt, setSeenAt] = useState(0)
+  const [assistant, setAssistant] = useState(false)
   const end = useRef<HTMLDivElement>(null)
   const chat = useRef(savedChat())
   const lastTyping = useRef(0)
+  const sending = useRef(false)
 
-  const apply = useCallback((r: { messages: Msg[]; team_online: boolean; team_typing: boolean; seen_at: number }) => {
+  const apply = useCallback((r: { messages: Msg[]; team_online: boolean; team_typing: boolean; seen_at: number; assistant?: boolean }) => {
     setMsgs(r.messages)
+    setAssistant(!!r.assistant)
+    onAssistant(!!r.assistant)
     setTeamTyping(r.team_typing)
     setOnline(r.team_online)
     onOnline(r.team_online)
     setSeenAt(r.seen_at || 0)
     try { localStorage.setItem(SEEN_KEY, String(Date.now() / 1000)) } catch { /* ignore */ }
     onRead()
-  }, [onOnline, onRead])
+  }, [onOnline, onAssistant, onRead])
 
   const poll = useCallback(async () => {
     try {
       if (chat.current) apply(await call('chat_poll', { chat: chat.current.id, token: chat.current.token }))
       else {
-        const r = await call<{ team_online: boolean }>('team_status')
+        const r = await call<{ team_online: boolean; assistant?: boolean }>('team_status')
         setOnline(r.team_online)
         onOnline(r.team_online)
+        setAssistant(!!r.assistant)
+        onAssistant(!!r.assistant)
       }
     } catch { /* a lost conversation just starts over on the next message */ }
-  }, [apply, onOnline])
+  }, [apply, onOnline, onAssistant])
 
   // live: every 2 s while the chat is on screen (and the tab is visible)
   useEffect(() => {
     poll()
-    const t = setInterval(() => { if (document.visibilityState === 'visible') poll() }, 2000)
+    const t = setInterval(() => { if (document.visibilityState === 'visible' && !sending.current) poll() }, 2000)
     return () => clearInterval(t)
   }, [poll])
   useEffect(() => end.current?.scrollIntoView({ block: 'end' }), [msgs, teamTyping])
@@ -216,22 +227,30 @@ function Chat({ onOnline, onRead }: { onOnline: (v: boolean) => void; onRead: ()
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!text.trim()) return
+    if (!text.trim() || busy) return
+    const sent = text
+    sending.current = true
     setBusy(true)
     setError('')
+    setText('')
+    setMsgs((m) => [...m, { from: 'visitor', text: sent, at: Date.now() / 1000 }])
+    if (assistant) setTeamTyping(true)
     try {
       const r = await call<{ id: string; token?: string; messages: Msg[]; team_online: boolean; team_typing: boolean; seen_at: number }>('chat_send', {
-        chat: chat.current?.id, token: chat.current?.token, text, name,
+        chat: chat.current?.id, token: chat.current?.token, text: sent, name,
       })
       if (r.token) {
         chat.current = { id: r.id, token: r.token }
         try { localStorage.setItem(CHAT_KEY, JSON.stringify(chat.current)) } catch { /* ignore */ }
       }
       apply(r)
-      setText('')
     } catch (err) {
+      setMsgs((m) => m.slice(0, -1))
+      setText(sent)
+      setTeamTyping(false)
       setError(err instanceof Error ? err.message : 'تعذّر الإرسال')
     } finally {
+      sending.current = false
       setBusy(false)
     }
   }
@@ -242,11 +261,15 @@ function Chat({ onOnline, onRead }: { onOnline: (v: boolean) => void; onRead: ()
   return (
     <div className="flex flex-col">
       <div className="h-[min(300px,42dvh)] space-y-2 overflow-y-auto bg-[#f4f8f8] p-3" aria-live="polite">
-        <Bubble from="team" text={online === false
+        <Bubble from="team" text={assistant
+          ? (IN_APP
+            ? 'أهلاً بك! أنا مساعد مسار الذكي — اسألني عن أي شيء في النظام: الدوامات، أجهزة البصمة، التقارير، الطلبات…'
+            : 'أهلاً بك! أنا مساعد مسار الذكي — اسألني عن الباقات والأسعار وأجهزة البصمة وطريقة الاشتراك، وأرد عليك فوراً.')
+          : online === false
           ? 'أهلاً بك! فريقنا غير متصل الآن — اترك رسالتك وسنرد عليك هنا فور عودتنا، أو راسلنا على واتساب.'
           : 'أهلاً بك! اكتب سؤالك وسيرد عليك أحد أعضاء فريقنا هنا مباشرة.'} />
         {msgs.map((m, i) => <Bubble key={i} from={m.from} text={m.text} />)}
-        {lastMine && waitingReply && (
+        {!assistant && lastMine && waitingReply && (
           <p className="text-start text-[11.5px] text-[#7b9396]" data-testid="seen">{seenAt >= lastMine.at ? 'تمت القراءة ✓✓' : 'تم الإرسال ✓'}</p>
         )}
         {teamTyping && (
@@ -258,7 +281,13 @@ function Chat({ onOnline, onRead }: { onOnline: (v: boolean) => void; onRead: ()
         )}
         <div ref={end} />
       </div>
-      {online === false && (
+      {assistant && (
+        <a href={CONTACT.whatsappHref} target="_blank" rel="noopener" data-testid="human-handoff"
+          className="flex items-center justify-center gap-2 border-t border-[#eef3f3] py-2 text-[12.5px] text-[#5b7a7f] hover:text-[#1f9d55]">
+          <WhatsAppIcon /> تفضّل التحدث مع موظف؟ راسلنا على واتساب
+        </a>
+      )}
+      {!assistant && online === false && (
         <a href={CONTACT.whatsappHref} target="_blank" rel="noopener"
           className="flex items-center justify-center gap-2 border-t border-[#eef3f3] bg-[#effaf3] py-2 text-[13px] font-bold text-[#1f9d55]">
           <WhatsAppIcon /> راسلنا على واتساب الآن
