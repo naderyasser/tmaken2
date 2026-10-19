@@ -81,10 +81,10 @@ export function Pricing({ packages }: { packages: Record<string, Package> }) {
             </div>
           </div>
           <div className="flex gap-2" role="group" aria-label="مدة الاشتراك">
-            {[1, 2, 3].map((y) => (
+            {[0.5, 1, 2, 3].map((y) => (
               <button key={y} type="button" onClick={() => setYears(y)}
                 className={`h-10 rounded-lg px-4 text-[14px] font-bold ${years === y ? 'bg-[#163d44] text-white' : 'bg-[#eef3f3] text-[#2c4a50]'}`}>
-                {y === 1 ? 'سنة' : y === 2 ? 'سنتان' : '3 سنوات'}
+                {y === 0.5 ? '6 شهور' : y === 1 ? 'سنة' : y === 2 ? 'سنتان' : '3 سنوات'}
               </button>
             ))}
           </div>

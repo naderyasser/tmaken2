@@ -20,8 +20,11 @@ export interface TenantBrand {
   name: string
   /** Line next to the user menu in the topbar. */
   tagline: string
-  /** Logo drawn on the dark-teal sidebar, sign-in and mobile header. */
+  /** Logo drawn on the dark-teal sidebar, sign-in and mobile header — the
+   *  product's own (Masar), clients keep it. */
   logoWhite: string
+  /** The client company's logo, shown on a white chip in the topbar ('' = none). */
+  companyLogo: string
   favicon: string
   /** 180px home-screen icon (iOS). */
   appleIcon: string
@@ -38,6 +41,7 @@ const DEFAULT_BRAND: Omit<TenantBrand, 'site' | 'entry'> = {
   name: 'Masar Time',
   tagline: 'مسار تايم - النظام الذكي',
   logoWhite: '/branding/masar/masar-logo-white.png',
+  companyLogo: '',
   favicon: '/branding/masar/masar-favicon.png',
   appleIcon: '/m/apple-touch-icon.png',
   pwaIconBase: '/m',

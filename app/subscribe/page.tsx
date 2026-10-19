@@ -42,7 +42,7 @@ function SubscribeForm() {
   const [info, setInfo] = useState<PackageInfo | null>(null)
   const [pkg, setPkg] = useState(ORDER.includes(q.get('package') || '') ? q.get('package')! : 'silver')
   const [employees, setEmployees] = useState(Math.max(1, Number(q.get('employees')) || 10))
-  const [years, setYears] = useState(Math.min(3, Math.max(1, Number(q.get('years')) || 1)))
+  const [years, setYears] = useState(Number(q.get('years')) === 0.5 ? 0.5 : Math.min(3, Math.max(1, Number(q.get('years')) || 1)))
   const [f, setF] = useState({ company: '', site: '', contact_name: '', email: '', phone: '', admin_user: '', admin_password: '' })
   const [code, setCode] = useState<'idle' | 'checking' | 'ok' | 'taken' | 'invalid'>('idle')
   const [busy, setBusy] = useState(false)
@@ -147,10 +147,10 @@ function SubscribeForm() {
                 <div>
                   <span className={label}>مدة الاشتراك</span>
                   <div className="flex gap-2">
-                    {[1, 2, 3].map((y) => (
+                    {[0.5, 1, 2, 3].map((y) => (
                       <button type="button" key={y} onClick={() => setYears(y)}
                         className={`h-11 flex-1 rounded-xl text-[14px] font-bold ${years === y ? 'bg-[#163d44] text-white' : 'bg-[#eef3f3]'}`}>
-                        {y === 1 ? 'سنة' : y === 2 ? 'سنتان' : '3 سنوات'}
+                        {y === 0.5 ? '6 شهور' : y === 1 ? 'سنة' : y === 2 ? 'سنتان' : '3 سنوات'}
                       </button>
                     ))}
                   </div>
@@ -225,7 +225,7 @@ function SubscribeForm() {
                 <div className="flex justify-between"><dt className="text-[#5b7a7f]">الموظفون</dt><dd className="font-bold tabular-nums">{employees}</dd></div>
                 {price && (
                   <>
-                    <div className="flex justify-between"><dt className="text-[#5b7a7f]">الاشتراك ({years === 1 ? 'سنة' : years === 2 ? 'سنتان' : '3 سنوات'})</dt><dd className="tabular-nums">{sar(price.annual * years)}</dd></div>
+                    <div className="flex justify-between"><dt className="text-[#5b7a7f]">الاشتراك ({years === 0.5 ? '6 شهور' : years === 1 ? 'سنة' : years === 2 ? 'سنتان' : '3 سنوات'})</dt><dd className="tabular-nums">{sar(price.annual * years)}</dd></div>
                     <div className="flex justify-between"><dt className="text-[#5b7a7f]">رسوم التأسيس</dt><dd className="tabular-nums">{sar(p.setup)}</dd></div>
                     <div className="flex justify-between border-t border-[#eef3f3] pt-3 text-[16px]"><dt className="font-bold">الإجمالي</dt><dd className="font-extrabold text-[#24817f] tabular-nums">{sar(price.total)}</dd></div>
                     <p className="text-[12px] text-[#7b9396]">شامل ضريبة القيمة المضافة</p>

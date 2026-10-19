@@ -90,7 +90,7 @@ if plan:
     m = int(months or 12)
     y, mo = divmod(today.month - 1 + m, 12)
     end = datetime.date(today.year + y, mo + 1, min(today.day, calendar.monthrange(today.year + y, mo + 1)[1]))
-    period = {1: "شهر", 12: "سنة", 24: "سنتين"}.get(m) or (f"{m // 12} سنين" if m % 12 == 0 else f"{m} شهر")
+    period = {1: "شهر", 6: "6 شهور", 12: "سنة", 24: "سنتين"}.get(m) or (f"{m // 12} سنين" if m % 12 == 0 else f"{m} شهر")
     conf.update({"subscription_plan": plan, "subscription_period": period, "subscription_started_on": str(today),
                  "subscription_expires_on": str(end)})
     if emps:

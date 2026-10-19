@@ -2,11 +2,11 @@
 Brand files for one client, written to sites/<site>/public/files/brand/ (nginx
 serves them at /files/brand/ on the client's host):
 
-  logo-white.png   sidebar / sign-in / mobile header (drawn on dark teal)
+  company-logo.png the client's logo for the topbar chip (only with --logo)
   favicon.png, apple-touch-icon.png, icon-192/512.png, maskable-192/512.png
 
-With --logo the client's own logo is used; without it a wordmark of the brand
-name is drawn (white on transparent) and the icons carry its first letter.
+With --logo the client's own logo is used for the icons too; without it the
+icons carry the brand's first letter.
 Prints the `tenant_brand` JSON for site_config.
 
   python brand_assets.py <site> <brand name> <theme #hex> [logo.png]
@@ -79,9 +79,12 @@ def main():
 		mark = mark.crop(mark.getbbox() or (0, 0, mark.width, mark.height))
 	else:
 		mark = wordmark(name)
-	lw = mark.copy()
-	lw.thumbnail((900, 240), Image.LANCZOS)  # never upscaled: a small logo stays crisp
-	lw.save(os.path.join(out, "logo-white.png"))
+	# the sidebar keeps the Masar logo; the client's own logo goes on a white
+	# chip in the topbar (no logo → the topbar shows the company name only)
+	if logo:
+		lw = mark.copy()
+		lw.thumbnail((600, 160), Image.LANCZOS)  # never upscaled: a small logo stays crisp
+		lw.save(os.path.join(out, "company-logo.png"))
 
 	# icons: the client logo as-is; without one, the brand's first letter
 	glyph = mark if logo else wordmark(name.strip()[0])
@@ -92,14 +95,16 @@ def main():
 	]:
 		icon(size, theme, glyph, pad).save(os.path.join(out, fname))
 
-	print(json.dumps({
+	brand = {
 		"name": name,
-		"logoWhite": "/files/brand/logo-white.png",
 		"favicon": "/files/brand/favicon.png",
 		"appleIcon": "/files/brand/apple-touch-icon.png",
 		"pwaIconBase": "/files/brand",
 		"themeColor": theme,
-	}, ensure_ascii=False))
+	}
+	if logo:
+		brand["companyLogo"] = "/files/brand/company-logo.png"
+	print(json.dumps(brand, ensure_ascii=False))
 
 
 if __name__ == "__main__":

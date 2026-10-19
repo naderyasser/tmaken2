@@ -141,11 +141,17 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
           </div>
         )}
 
-        {/* system */}
+        {/* system + the client's own logo (the sidebar keeps the Masar logo) */}
         <div className="hidden shrink-0 items-center gap-1.5 text-[14px] font-bold xl:flex">
           {brand.tagline}
           <ChevronDown className="h-4 w-4 opacity-70" />
         </div>
+        {brand.companyLogo && (
+          <span className="flex h-10 shrink-0 items-center rounded-md bg-white px-2 shadow-sm" title={brand.tagline}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={brand.companyLogo} alt={brand.tagline} className="h-8 max-w-[90px] w-auto object-contain md:max-w-[140px]" />
+          </span>
+        )}
       </div>
 
       <div className="hidden">{TOPBAR_ACTIONS.map((Action, i) => <Action key={i} />)}</div>
