@@ -1,14 +1,13 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { LogOut, Home, LayoutDashboard, ChevronDown, ChevronUp, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/auth-context'
-import { useBrand } from '@/hooks/use-brand'
+import { useTenantBrand } from '@/components/tenant-brand-provider'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { RAIL_SECTIONS } from './routes'
 
@@ -19,7 +18,7 @@ import { RAIL_SECTIONS } from './routes'
 export function MobileNav({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const { t, isRTL } = useI18n()
   const { logout, myEmployee } = useAuth()
-  const brand = useBrand()
+  const brand = useTenantBrand()
   const pathname = usePathname() || ''
   const searchParams = useSearchParams()
   const moduleParam = searchParams.get('module')
@@ -48,23 +47,14 @@ export function MobileNav({ open, onOpenChange }: { open: boolean; onOpenChange:
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side={isRTL ? 'right' : 'left'}
-        className="w-[272px] sm:max-w-[272px] p-0 flex flex-col bg-[var(--apex-blue)] text-white border-0"
+        className="w-[272px] sm:max-w-[272px] p-0 flex flex-col bg-[var(--masar-ink)] text-white border-0"
         dir="rtl"
       >
-        <SheetHeader className="h-[55px] px-4 flex-row items-center gap-2.5 border-b border-white/15 text-start shrink-0">
-          <Image
-            src={brand.logo || '/logo.jpeg'}
-            alt={brand.appName || 'Tamkeen'}
-            width={32}
-            height={32}
-            className="rounded object-cover shrink-0 bg-white"
-          />
-          <div className="leading-tight">
-            <SheetTitle className="text-[15px] font-semibold text-white">
-              {brand.appName || t('app.name')}
-            </SheetTitle>
-            <p className="text-[11px] text-white/75">{brand.tagline || t('app.subtitle')}</p>
-          </div>
+        {/* same Masar logo as the desktop rail */}
+        <SheetHeader className="h-[72px] px-4 flex-row items-center justify-center border-b border-white/15 shrink-0">
+          <SheetTitle className="sr-only">{brand.name}</SheetTitle>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={brand.logoWhite} alt={brand.name} className="h-[42px] max-w-full w-auto object-contain" />
         </SheetHeader>
 
         {/* Search */}
@@ -172,7 +162,7 @@ export function MobileNav({ open, onOpenChange }: { open: boolean; onOpenChange:
             <span>{t('nav.logout')}</span>
           </button>
           <div className="pt-2 h-11 text-center">
-            <span className="text-[12px] text-white">مينا للحلول التقنية {process.env.NEXT_PUBLIC_APP_VERSION || 'v1.0.11'}</span>
+            <span className="text-[12px] text-white">{brand.name} {process.env.NEXT_PUBLIC_APP_VERSION || ''}</span>
           </div>
         </div>
       </SheetContent>
