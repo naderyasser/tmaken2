@@ -46,7 +46,17 @@ export interface HomeData {
   today: Punch[]
   next_log_type: 'IN' | 'OUT'
   shift: { name: string | null; start: string | null; end: string | null } | null
+  tracking: TrackingState
   server_time: string
+}
+
+/** «تتبع الموقع» between check-in and check-out (HR switches it on, the employee agrees). */
+export interface TrackingState {
+  tracking_enabled: boolean
+  tracking_consent: boolean
+  tracking_interval: number // minutes
+  active: boolean // enabled + consent + an open IN
+  since: string | null
 }
 
 export interface PunchResult {

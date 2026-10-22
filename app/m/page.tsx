@@ -5,13 +5,14 @@ import dynamic from 'next/dynamic'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle, CheckCircle2, Clock3, Crosshair, Fingerprint, Loader2, LocateFixed,
-  LogIn, MapPin, MapPinOff, RefreshCw, ShieldCheck,
+  LogIn, MapPin, MapPinOff, Navigation, RefreshCw, ShieldCheck,
 } from 'lucide-react'
 
 import { useGeoWatch, useHome } from '@/components/m/use-home'
+import { useTracking } from '@/components/m/use-tracking'
 import {
   duration, errorText, evaluateFence, formatDistance, hhmm, longDate, mcall, newClientRef,
-  parseServerTime, workedMinutes, type PunchResult,
+  parseServerTime, workedMinutes, type HomeData, type PunchResult,
 } from '@/lib/m/api'
 import { assertPasskey, getPunchChallenge, isPasskeySupported, registerPasskey } from '@/lib/mobile-attendance/webauthn'
 
@@ -31,6 +32,9 @@ export default function MobileHomePage() {
   const brand = useTenantBrand()
   const { data, error, loading, reload } = useHome()
   const geo = useGeoWatch(!!data?.punch_enabled)
+  const tracker = useTracking(data?.tracking, (t) => {
+    if (t.active !== data?.tracking?.active) reload()
+  })
   // the clock and «worked» time follow the server (Riyadh) clock, not the phone's
   const offset = useMemo(() => (data ? parseServerTime(data.server_time).getTime() - Date.now() : 0), [data])
   const now = useNow(offset)
@@ -145,6 +149,10 @@ export default function MobileHomePage() {
             )}
           </div>
         </section>
+
+        {data.tracking?.tracking_enabled && (
+          <TrackingCard tracking={data.tracking} lastSent={tracker.lastSent} pending={tracker.pending} onChanged={reload} />
+        )}
 
         {/* ── blockers ─────────────────────────────────────── */}
         {!data.punch_enabled && (
@@ -330,6 +338,78 @@ function PunchButton({ isIn, disabled, busy, onClick }: { isIn: boolean; disable
         <span className="text-[16px] font-bold">{isIn ? 'تسجيل حضور' : 'تسجيل انصراف'}</span>
       </span>
     </button>
+  )
+}
+
+function sentAgo(at: number) {
+  const mins = Math.floor((Date.now() - at) / 60000)
+  return mins < 1 ? 'الآن' : `منذ ${mins} د`
+}
+
+function TrackingCard({ tracking, lastSent, pending, onChanged }: {
+  tracking: HomeData['tracking']
+  lastSent: number | null
+  pending: number
+  onChanged: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const every = tracking.tracking_interval === 1 ? 'كل دقيقة' : `كل ${tracking.tracking_interval} دقائق`
+
+  if (!tracking.tracking_consent) {
+    const agree = async () => {
+      setBusy(true)
+      setErr('')
+      try {
+        await mcall('tracking_consent', { agree: 1 })
+        onChanged()
+      } catch (e) {
+        setErr(errorText(e))
+      } finally {
+        setBusy(false)
+      }
+    }
+    return (
+      <section className="rounded-2xl border border-[#2c9c9a]/30 bg-[#e6f4f2] p-4">
+        <div className="flex gap-3">
+          <Navigation className="mt-0.5 h-6 w-6 shrink-0 text-[#24817f]" />
+          <div>
+            <p className="text-[15px] font-bold text-[#1d4d56]">تتبع الموقع أثناء الدوام</p>
+            <p className="mt-1 text-[13px] leading-relaxed text-[#46676c]">
+              فعّلت الموارد البشرية تتبع موقعك من وقت تسجيل الحضور حتى الانصراف فقط، {every}. لا يُرسل أي موقع خارج الدوام.
+            </p>
+          </div>
+        </div>
+        {err && <p className="mt-2 text-[13px] text-[#a1621a]">{err}</p>}
+        <button
+          onClick={agree}
+          disabled={busy}
+          className="mt-3 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#24817f] text-[15px] font-bold text-white disabled:opacity-60"
+        >
+          {busy ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
+          أوافق
+        </button>
+      </section>
+    )
+  }
+
+  return (
+    <section className="flex items-center gap-3 rounded-2xl bg-white p-4 shadow-[0_10px_30px_-18px_rgba(15,42,47,.45)]">
+      <span className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tracking.active ? 'bg-[#e3f4ec] text-[#2f9e6f]' : 'bg-[#eef3f3] text-[#5b7a7f]'}`}>
+        <Navigation className="h-5 w-5" />
+        {tracking.active && <span className="absolute -end-0.5 -top-0.5 h-2.5 w-2.5 animate-pulse rounded-full bg-[#2f9e6f] ring-2 ring-white" />}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[14.5px] font-bold">{tracking.active ? 'تتبع الموقع يعمل' : 'تتبع الموقع متوقف'}</p>
+        <p className="mt-0.5 text-[12.5px] leading-relaxed text-[#6b8589]">
+          {tracking.active
+            ? `يُرسل موقعك ${every} حتى الانصراف — أبقِ التطبيق مفتوحاً`
+            : 'يبدأ تلقائياً عند تسجيل الحضور ويتوقف عند الانصراف'}
+          {tracking.active && lastSent ? ` · آخر إرسال ${sentAgo(lastSent)}` : ''}
+          {pending > 0 ? ` · ${pending} بانتظار الاتصال` : ''}
+        </p>
+      </div>
+    </section>
   )
 }
 

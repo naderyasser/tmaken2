@@ -24,6 +24,12 @@ const LocationPickerMap = dynamic(() => import('@/components/hr/mobile-app/locat
 
 const APP = 'base_meena.mobile_attendance.tamken_app'
 const LOC = 'base_meena.api.hr_locations'
+const TRACK_INTERVALS = [1, 2, 5, 10, 15, 30]
+
+const TrackingTab = dynamic(() => import('@/components/hr/mobile-app/tracking-tab'), {
+  ssr: false,
+  loading: () => <div className="py-16 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto text-[var(--apex-blue)]" /></div>,
+})
 
 async function call<T = any>(method: string, args?: Record<string, any>): Promise<T> {
   const r = await frappeClient.call<T>(method, args)
@@ -44,6 +50,9 @@ interface EmpRow {
   is_app_user: boolean
   passkeys: number
   last_app_punch: string | null
+  tracking_enabled: boolean
+  tracking_consent: boolean
+  tracking_interval: number
 }
 
 interface Overview {
@@ -63,7 +72,7 @@ interface LocRow extends PickerLocation {
  * (pin + نطاق الموقع بالمتر), plus app passwords and registered phones.
  */
 export function MobileAppSettingsPage() {
-  const [tab, setTab] = useState<'employees' | 'locations'>('employees')
+  const [tab, setTab] = useState<'employees' | 'locations' | 'tracking'>('employees')
   const [origin, setOrigin] = useState('')
   useEffect(() => setOrigin(window.location.origin), [])
   const appUrl = `${origin}/m`
@@ -100,7 +109,7 @@ export function MobileAppSettingsPage() {
 
       <div className="bg-white rounded shadow-sm border border-slate-200/60">
         <div className="flex border-b border-slate-200 px-2">
-          {([['employees', 'الموظفون'], ['locations', 'المواقع ونطاقها']] as const).map(([id, label]) => (
+          {([['employees', 'الموظفون'], ['locations', 'المواقع ونطاقها'], ['tracking', 'تتبع الموقع']] as const).map(([id, label]) => (
             <button
               key={id}
               type="button"
@@ -112,7 +121,7 @@ export function MobileAppSettingsPage() {
             </button>
           ))}
         </div>
-        {tab === 'employees' ? <EmployeesTab /> : <LocationsTab />}
+        {tab === 'employees' ? <EmployeesTab /> : tab === 'locations' ? <LocationsTab /> : <TrackingTab />}
       </div>
     </div>
   )
@@ -257,6 +266,7 @@ function EmployeesTab() {
               <th className="px-3 font-bold whitespace-nowrap text-center">تفعيل تطبيق الجوال</th>
               <th className="px-3 font-bold whitespace-nowrap text-center">البصمة من الجوال</th>
               <th className="px-3 font-bold whitespace-nowrap">مواقع البصمة</th>
+              <th className="px-3 font-bold whitespace-nowrap">تتبع الموقع أثناء الدوام</th>
               <th className="px-3 font-bold whitespace-nowrap">حساب التطبيق</th>
               <th className="px-3 font-bold whitespace-nowrap text-center">الأجهزة</th>
               <th className="px-3 font-bold whitespace-nowrap">آخر بصمة جوال</th>
@@ -265,7 +275,7 @@ function EmployeesTab() {
           </thead>
           <tbody>
             {rows.length === 0 && (
-              <tr><td colSpan={9} className="py-10 text-center text-slate-400">لا يوجد موظفون مطابقون</td></tr>
+              <tr><td colSpan={10} className="py-10 text-center text-slate-400">لا يوجد موظفون مطابقون</td></tr>
             )}
             {rows.map((r) => (
               <tr key={r.employee} className="border-b border-slate-200 hover:bg-slate-50/60 h-12">
@@ -301,6 +311,35 @@ function EmployeesTab() {
                     label={`مواقع البصمة — ${r.employee_name}`}
                     onChange={(names) => save(r, { locations: names })}
                   />
+                </td>
+                <td className="px-3">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      dir="ltr"
+                      checked={r.tracking_enabled}
+                      disabled={saving === r.employee}
+                      onCheckedChange={(v) => save(r, { tracking_enabled: v ? 1 : 0 })}
+                      aria-label={`تتبع الموقع — ${r.employee_name}`}
+                    />
+                    {r.tracking_enabled && (
+                      <>
+                        <select
+                          value={r.tracking_interval}
+                          disabled={saving === r.employee}
+                          onChange={(e) => save(r, { tracking_interval: Number(e.target.value) })}
+                          className="h-8 rounded border border-[var(--apex-border)] bg-white px-1 text-[12.5px]"
+                          aria-label={`فترة التتبع — ${r.employee_name}`}
+                        >
+                          {TRACK_INTERVALS.map((m) => <option key={m} value={m}>كل {m} د</option>)}
+                        </select>
+                        {!r.tracking_consent && (
+                          <span title="يوافق الموظف من التطبيق قبل بدء التتبع" className="whitespace-nowrap rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+                            بانتظار موافقته
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </td>
                 <td className="px-3">
                   {r.has_account ? (
@@ -368,6 +407,8 @@ function uiPatch(patch: Record<string, any>, d: Overview): Partial<EmpRow> {
   const out: Partial<EmpRow> = {}
   if ('app_enabled' in patch) out.app_enabled = !!patch.app_enabled
   if ('punch_enabled' in patch) out.punch_enabled = !!patch.punch_enabled
+  if ('tracking_enabled' in patch) out.tracking_enabled = !!patch.tracking_enabled
+  if ('tracking_interval' in patch) out.tracking_interval = patch.tracking_interval
   if ('locations' in patch) {
     const names: string[] = patch.locations
     out.locations = names
