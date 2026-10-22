@@ -130,7 +130,7 @@ export default function TrackingTab() {
         .filter((r) => r.last && r.status !== 'consent')
         .map((r) => ({
           id: r.employee,
-          label: r.employee_name.split(' ').slice(0, 2).join(' '),
+          label: r.employee_name.split(' ').filter((w) => w.length > 1).slice(0, 2).join(' '),
           latitude: r.last!.latitude,
           longitude: r.last!.longitude,
           tone: r.status === 'live' ? 'live' : r.status === 'stale' ? 'stale' : 'off',

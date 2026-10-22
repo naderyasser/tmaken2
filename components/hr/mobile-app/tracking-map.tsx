@@ -130,7 +130,7 @@ export default function TrackingMap({ pins, onPin, trail, stops, punches, locati
 
     const key = JSON.stringify([pins?.map((p) => p.id), trail?.[0]?.t, trail?.length ? trail[0].session : '', punches?.length, locations?.length])
     if (framed.current !== key && pts.length) {
-      m.fitBounds(L.latLngBounds(pts), { padding: [36, 36], maxZoom: 16 })
+      m.fitBounds(L.latLngBounds(pts), { padding: [36, 36], maxZoom: pins?.length ? 13 : 16 })
       framed.current = key
     }
   }, [pins, trail, stops, punches, locations])
