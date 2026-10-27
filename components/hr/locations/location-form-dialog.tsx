@@ -6,6 +6,7 @@ import { frappeClient } from '@/lib/api-client'
 import { useToast } from '@/hooks/use-toast'
 import { arabizeError } from '@/lib/frappe-error'
 import { ApexDialog } from '@/components/hr/apex/dialog'
+import PlaceSearch from './place-search'
 import {
   DEFAULT_LAT, DEFAULT_LNG, DEFAULT_RADIUS_M,
   type LocationGroupOption, type LocationRow,
@@ -113,6 +114,15 @@ export function LocationFormDialog({
             </label>
           ))}
         </div>
+      </div>
+      <div className="col-span-2">
+        <label className="block text-[13px] text-slate-700 mb-1">ابحث عن مكان</label>
+        <PlaceSearch
+          onPick={(h) => {
+            setLat(Number(h.lat.toFixed(6))); setLng(Number(h.lon.toFixed(6)))
+            if (h.detail && !nameAr.trim()) setNameAr(h.label)
+          }}
+        />
       </div>
       <div className="col-span-2">
         <GeofenceMapPicker
