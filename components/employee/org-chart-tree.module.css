@@ -1,0 +1,108 @@
+/*
+ * Org-chart tree connector geometry.
+ *
+ * Pure CSS elbows drawn with ::before/::after on the classic nested <ul>/<li>
+ * structure — auto-reflows on expand/collapse with zero JS layout math. Colours
+ * come from the ambient theme tokens (teal under `.theme-hr`, blue elsewhere),
+ * and every offset is a logical property so the whole tree mirrors under `dir="rtl"`.
+ */
+
+.tree {
+  --conn: hsl(var(--primary) / 0.32);
+  --gap: 34px;
+  display: inline-block;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree ul {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding-top: var(--gap);
+  list-style: none;
+  margin: 0;
+}
+
+/* every child cell */
+.tree li {
+  position: relative;
+  padding: var(--gap) 20px 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* horizontal bar halves (::before toward centre, ::after away) + the drop stub */
+.tree li::before,
+.tree li::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  inset-inline-end: 50%;
+  width: 50%;
+  height: var(--gap);
+  border-top: 2px solid var(--conn);
+}
+.tree li::after {
+  inset-inline-end: auto;
+  inset-inline-start: 50%;
+  border-inline-start: 2px solid var(--conn);
+}
+
+/* a lone child needs only a straight vertical drop, no horizontal bar */
+.tree li:only-child::before,
+.tree li:only-child::after {
+  display: none;
+}
+.tree li:only-child {
+  padding-top: var(--gap);
+}
+.tree li:only-child::after {
+  display: block;
+  inset-inline-start: 50%;
+  width: 0;
+  border-top: 0;
+  border-inline-start: 2px solid var(--conn);
+}
+
+/* trim the bar so it starts/ends under the first/last sibling, with a soft elbow */
+.tree li:first-child::before,
+.tree li:last-child::after {
+  border: 0 none;
+}
+.tree li:last-child::before {
+  inset-inline-end: 50%;
+  border-inline-end: 2px solid var(--conn);
+  border-start-end-radius: 8px;
+}
+.tree li:first-child::after {
+  border-start-start-radius: 8px;
+}
+
+/* the stem that drops from a parent card into its children's bar */
+.tree ul::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  inset-inline-start: 50%;
+  width: 0;
+  height: var(--gap);
+  border-inline-start: 2px solid var(--conn);
+}
+/* the outermost <ul> holds the single root and has no parent above it */
+.tree.rootUl {
+  padding-top: 0;
+}
+.tree.rootUl::before {
+  display: none;
+}
+/* the root card itself: never draw a connector above it (beats the only-child rule) */
+.tree.rootUl > li {
+  padding-top: 0;
+}
+.tree.rootUl > li::before,
+.tree.rootUl > li::after {
+  display: none;
+}

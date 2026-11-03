@@ -1,0 +1,11 @@
+import { chromium } from '@playwright/test'
+const browser = await chromium.launch()
+const page = await (await browser.newContext({ viewport: { width: 1512, height: 900 }, locale: 'ar' })).newPage()
+await page.goto('https://tamkeen-v2.base.meena.sa/hr', { waitUntil: 'networkidle', timeout: 60000 })
+await page.waitForTimeout(1500)
+const asides = await page.locator('aside').count()
+const info = await page.evaluate(() => [...document.querySelectorAll('aside')].map(a => ({cls: a.className, w: a.getBoundingClientRect().width, h: a.getBoundingClientRect().height, x: a.getBoundingClientRect().x, visible: getComputedStyle(a).display !== 'none'})))
+console.log('aside count:', asides)
+console.log(JSON.stringify(info, null, 1))
+await page.screenshot({ path: 'e2e-audit/apex/ours/dup-check.png', fullPage: false })
+await browser.close()

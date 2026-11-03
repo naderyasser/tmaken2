@@ -1,0 +1,100 @@
+/* ===========================================================================
+   egarsys design-system tokens, SCOPED to `.egarsys-scope`.
+
+   The platform runs Tailwind v3 (HSL-triplet CSS vars); egarsys runs Tailwind
+   v4 (OKLCH). To render the ported egarsys screens pixel-faithfully WITHOUT
+   touching the platform's own tokens, we re-declare every semantic token that
+   the platform's `tailwind.config.ts` maps (`primary`, `card`, `sidebar-*`,
+   `chart-*`, `--radius`, …) — but only *inside* `.egarsys-scope`, so the
+   cascade keeps every other platform page untouched.
+
+   Values are egarsys's OKLCH tokens converted to sRGB→HSL triplets so the
+   platform's `hsl(var(--token))` color definitions resolve to egarsys colors.
+
+   Dark mode is LOCAL: the ported app shell adds `dark egarsys-dark` to an inner
+   wrapper (never to <html>), so `dark:` utilities fire and the dark token block
+   below overrides the inherited light tokens for that subtree only.
+   =========================================================================== */
+
+.egarsys-scope {
+    --radius: 0.75rem;
+
+    --background: 48 24% 98%;
+    --foreground: 148 100% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 140 100% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 140 100% 4%;
+    --primary: 153 100% 25%;
+    --primary-foreground: 137 20% 99%;
+    --secondary: 137 44% 94%;
+    --secondary-foreground: 150 48% 10%;
+    --muted: 44 31% 94%;
+    --muted-foreground: 146 11% 37%;
+    --accent: 145 46% 90%;
+    --accent-foreground: 150 48% 10%;
+    --destructive: 357 100% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 52 22% 85%;
+    --input: 52 22% 85%;
+    --ring: 153 100% 25%;
+    --gold: 43 74% 46%;
+    --gold-foreground: 137 20% 99%;
+    --chart-1: 153 100% 25%;
+    --chart-2: 175 100% 29%;
+    --chart-3: 43 74% 46%;
+    --chart-4: 44 100% 50%;
+    --chart-5: 36 100% 50%;
+    --sidebar-background: 144 46% 97%;
+    --sidebar-foreground: 140 100% 4%;
+    --sidebar-primary: 153 100% 25%;
+    --sidebar-primary-foreground: 137 20% 99%;
+    --sidebar-accent: 145 46% 90%;
+    --sidebar-accent-foreground: 150 48% 10%;
+    --sidebar-border: 137 21% 87%;
+    --sidebar-ring: 153 100% 25%;
+}
+
+.egarsys-scope .egarsys-dark,
+.egarsys-scope.dark {
+    --background: 219 54% 3%;
+    --foreground: 215 47% 98%;
+    --card: 215 37% 6%;
+    --card-foreground: 215 47% 98%;
+    --popover: 215 37% 6%;
+    --popover-foreground: 215 47% 98%;
+    --primary: 155 100% 34%;
+    --primary-foreground: 215 47% 98%;
+    --secondary: 214 21% 11%;
+    --secondary-foreground: 215 47% 98%;
+    --muted: 214 24% 9%;
+    --muted-foreground: 215 7% 57%;
+    --accent: 214 21% 11%;
+    --accent-foreground: 215 47% 98%;
+    --destructive: 2 85% 56%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 18% 13%;
+    --input: 214 18% 13%;
+    --ring: 155 100% 34%;
+    --gold: 42 73% 55%;
+    --gold-foreground: 219 54% 3%;
+    --chart-1: 155 100% 34%;
+    --chart-2: 178 100% 38%;
+    --chart-3: 42 73% 55%;
+    --chart-4: 267 100% 72%;
+    --chart-5: 354 100% 65%;
+    --sidebar-background: 217 46% 4%;
+    --sidebar-foreground: 215 47% 98%;
+    --sidebar-primary: 155 100% 34%;
+    --sidebar-primary-foreground: 137 20% 99%;
+    --sidebar-accent: 214 21% 11%;
+    --sidebar-accent-foreground: 215 47% 98%;
+    --sidebar-border: 214 18% 13%;
+    --sidebar-ring: 155 100% 34%;
+}
+
+/* egarsys uses a warm system sans; the platform's Arabic font stack already
+   matches closely. Keep the scope on the platform Arabic font for RTL parity. */
+.egarsys-scope {
+    color: hsl(var(--foreground));
+}

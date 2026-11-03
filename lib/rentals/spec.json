@@ -1,0 +1,1936 @@
+{
+ "Owner": {
+  "doctype": "Rental Owner",
+  "fields": [
+   {
+    "prisma": "userId",
+    "fieldname": "user_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "companyId",
+    "fieldname": "company_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "name",
+    "fieldname": "name_val",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "nationalId",
+    "fieldname": "national_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "phone",
+    "fieldname": "phone",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "email",
+    "fieldname": "email",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "address",
+    "fieldname": "address",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "vatNumber",
+    "fieldname": "vat_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "iban",
+    "fieldname": "iban",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "bankAccount",
+    "fieldname": "bank_account",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "createdAt",
+    "fieldname": "created_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "updatedAt",
+    "fieldname": "updated_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   }
+  ]
+ },
+ "Property": {
+  "doctype": "Rental Property",
+  "fields": [
+   {
+    "prisma": "internalId",
+    "fieldname": "internal_id",
+    "type": "Int",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "deedNumber",
+    "fieldname": "deed_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "deedDate",
+    "fieldname": "deed_date",
+    "type": "DateTime",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "shopNumber",
+    "fieldname": "shop_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "ownerId",
+    "fieldname": "owner_id",
+    "type": "String",
+    "required": true,
+    "link": "Rental Owner"
+   },
+   {
+    "prisma": "companyId",
+    "fieldname": "company_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "title",
+    "fieldname": "title",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "titleAr",
+    "fieldname": "title_ar",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "propertyType",
+    "fieldname": "property_type",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "status",
+    "fieldname": "status",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "description",
+    "fieldname": "description",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "address",
+    "fieldname": "address",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "city",
+    "fieldname": "city",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "district",
+    "fieldname": "district",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "latitude",
+    "fieldname": "latitude",
+    "type": "Float",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "longitude",
+    "fieldname": "longitude",
+    "type": "Float",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "googleMapsUrl",
+    "fieldname": "google_maps_url",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "area",
+    "fieldname": "area",
+    "type": "Float",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "bedrooms",
+    "fieldname": "bedrooms",
+    "type": "Int",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "bathrooms",
+    "fieldname": "bathrooms",
+    "type": "Int",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "floor",
+    "fieldname": "floor",
+    "type": "Int",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "yearBuilt",
+    "fieldname": "year_built",
+    "type": "Int",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "rentPrice",
+    "fieldname": "rent_price",
+    "type": "Float",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "totalUnits",
+    "fieldname": "total_units",
+    "type": "Int",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "createdAt",
+    "fieldname": "created_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "updatedAt",
+    "fieldname": "updated_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   }
+  ]
+ },
+ "PropertyImage": {
+  "doctype": "Rental Property Image",
+  "fields": [
+   {
+    "prisma": "propertyId",
+    "fieldname": "property_id",
+    "type": "String",
+    "required": true,
+    "link": "Rental Property"
+   },
+   {
+    "prisma": "image",
+    "fieldname": "image",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "isCover",
+    "fieldname": "is_cover",
+    "type": "Boolean",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "uploadedAt",
+    "fieldname": "uploaded_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   }
+  ]
+ },
+ "Unit": {
+  "doctype": "Rental Unit",
+  "fields": [
+   {
+    "prisma": "companyId",
+    "fieldname": "company_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "propertyId",
+    "fieldname": "property_id",
+    "type": "String",
+    "required": true,
+    "link": "Rental Property"
+   },
+   {
+    "prisma": "unitNumber",
+    "fieldname": "unit_number",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "unitType",
+    "fieldname": "unit_type",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "status",
+    "fieldname": "status",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "floor",
+    "fieldname": "floor",
+    "type": "Int",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "area",
+    "fieldname": "area",
+    "type": "Float",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "rentPrice",
+    "fieldname": "rent_price",
+    "type": "Float",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "electricMeter",
+    "fieldname": "electric_meter",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "notes",
+    "fieldname": "notes",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "createdAt",
+    "fieldname": "created_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "updatedAt",
+    "fieldname": "updated_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   }
+  ]
+ },
+ "UnitImage": {
+  "doctype": "Rental Unit Image",
+  "fields": [
+   {
+    "prisma": "unitId",
+    "fieldname": "unit_id",
+    "type": "String",
+    "required": true,
+    "link": "Rental Unit"
+   },
+   {
+    "prisma": "image",
+    "fieldname": "image",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "isCover",
+    "fieldname": "is_cover",
+    "type": "Boolean",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "uploadedAt",
+    "fieldname": "uploaded_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   }
+  ]
+ },
+ "TenantProfile": {
+  "doctype": "Rental Tenant",
+  "fields": [
+   {
+    "prisma": "userId",
+    "fieldname": "user_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "companyId",
+    "fieldname": "company_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "name",
+    "fieldname": "name_val",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "nationalId",
+    "fieldname": "national_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "phone",
+    "fieldname": "phone",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "email",
+    "fieldname": "email",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "address",
+    "fieldname": "address",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "emergencyContact",
+    "fieldname": "emergency_contact",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "partyType",
+    "fieldname": "party_type",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "companyName",
+    "fieldname": "company_name",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "crNumber",
+    "fieldname": "cr_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "vatNumber",
+    "fieldname": "vat_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "crDate",
+    "fieldname": "cr_date",
+    "type": "DateTime",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "unifiedNumber",
+    "fieldname": "unified_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "orgType",
+    "fieldname": "org_type",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "representativeName",
+    "fieldname": "representative_name",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "representativeId",
+    "fieldname": "representative_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "representativeMobile",
+    "fieldname": "representative_mobile",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "representativeEmail",
+    "fieldname": "representative_email",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "createdAt",
+    "fieldname": "created_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "updatedAt",
+    "fieldname": "updated_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   }
+  ]
+ },
+ "TenantDelayRecord": {
+  "doctype": "Rental Tenant Delay Record",
+  "fields": [
+   {
+    "prisma": "companyId",
+    "fieldname": "company_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantId",
+    "fieldname": "tenant_id",
+    "type": "String",
+    "required": true,
+    "link": "Rental Tenant"
+   },
+   {
+    "prisma": "contractId",
+    "fieldname": "contract_id",
+    "type": "String",
+    "required": true,
+    "link": "Rental Contract"
+   },
+   {
+    "prisma": "contractNumber",
+    "fieldname": "contract_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "installmentNo",
+    "fieldname": "installment_no",
+    "type": "Int",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "dueDate",
+    "fieldname": "due_date",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "firstSeenAt",
+    "fieldname": "first_seen_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "resolvedAt",
+    "fieldname": "resolved_at",
+    "type": "DateTime",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "delayDays",
+    "fieldname": "delay_days",
+    "type": "Int",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "source",
+    "fieldname": "source",
+    "type": "String",
+    "required": true,
+    "link": null
+   }
+  ]
+ },
+ "RentalContract": {
+  "doctype": "Rental Contract",
+  "fields": [
+   {
+    "prisma": "internalId",
+    "fieldname": "internal_id",
+    "type": "Int",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "contractNumber",
+    "fieldname": "contract_number",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "companyId",
+    "fieldname": "company_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "rentalPropertyId",
+    "fieldname": "rental_property_id",
+    "type": "String",
+    "required": false,
+    "link": "Rental Property"
+   },
+   {
+    "prisma": "propertyType",
+    "fieldname": "property_type",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "otherPropertyType",
+    "fieldname": "other_property_type",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "propertyLocation",
+    "fieldname": "property_location",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "propertyStreet",
+    "fieldname": "property_street",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "propertyBuildingNumber",
+    "fieldname": "property_building_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "propertyCity",
+    "fieldname": "property_city",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "propertyDistrict",
+    "fieldname": "property_district",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "propertyPostalCode",
+    "fieldname": "property_postal_code",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "propertyAddress",
+    "fieldname": "property_address",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantId",
+    "fieldname": "tenant_id",
+    "type": "String",
+    "required": false,
+    "link": "Rental Tenant"
+   },
+   {
+    "prisma": "createdById",
+    "fieldname": "created_by_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "startDate",
+    "fieldname": "start_date",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "endDate",
+    "fieldname": "end_date",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "rentAmount",
+    "fieldname": "rent_amount",
+    "type": "Float",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "securityDeposit",
+    "fieldname": "security_deposit",
+    "type": "Float",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "paymentFrequency",
+    "fieldname": "payment_frequency",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "installmentsPerYear",
+    "fieldname": "installments_per_year",
+    "type": "Int",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "status",
+    "fieldname": "status",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "notes",
+    "fieldname": "notes",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "terms",
+    "fieldname": "terms",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "parentContractId",
+    "fieldname": "parent_contract_id",
+    "type": "String",
+    "required": false,
+    "link": "Rental Contract"
+   },
+   {
+    "prisma": "createdAt",
+    "fieldname": "created_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "updatedAt",
+    "fieldname": "updated_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "contractType",
+    "fieldname": "contract_type",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "registeredCalendar",
+    "fieldname": "registered_calendar",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "sealingLocation",
+    "fieldname": "sealing_location",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "sealingDate",
+    "fieldname": "sealing_date",
+    "type": "DateTime",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "vatNumber",
+    "fieldname": "vat_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "totalContractValue",
+    "fieldname": "total_contract_value",
+    "type": "Float",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "taxRate",
+    "fieldname": "tax_rate",
+    "type": "Float",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "ejarContractNumber",
+    "fieldname": "ejar_contract_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "contractAttachment",
+    "fieldname": "contract_attachment",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "attachmentsByDocType",
+    "fieldname": "attachments_by_doc_type",
+    "type": "Json",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "lessorName",
+    "fieldname": "lessor_name",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "lessorNationalId",
+    "fieldname": "lessor_national_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "lessorVatRegistrationNumber",
+    "fieldname": "lessor_vat_registration_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "lessorPhone",
+    "fieldname": "lessor_phone",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "lessorAddress",
+    "fieldname": "lessor_address",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "lessorNationalAddress",
+    "fieldname": "lessor_national_address",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "lessorStreet",
+    "fieldname": "lessor_street",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "lessorBuildingNumber",
+    "fieldname": "lessor_building_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "lessorCity",
+    "fieldname": "lessor_city",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "lessorDistrict",
+    "fieldname": "lessor_district",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "lessorPostalCode",
+    "fieldname": "lessor_postal_code",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "lessorAdditionalNumber",
+    "fieldname": "lessor_additional_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantPartyType",
+    "fieldname": "tenant_party_type",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantName",
+    "fieldname": "tenant_name",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantCompanyName",
+    "fieldname": "tenant_company_name",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantCrNumber",
+    "fieldname": "tenant_cr_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantUnifiedNumber",
+    "fieldname": "tenant_unified_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantNationalId",
+    "fieldname": "tenant_national_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantVatRegistrationNumber",
+    "fieldname": "tenant_vat_registration_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantPhone",
+    "fieldname": "tenant_phone",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantEmail",
+    "fieldname": "tenant_email",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantNationalAddress",
+    "fieldname": "tenant_national_address",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantStreet",
+    "fieldname": "tenant_street",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantBuildingNumber",
+    "fieldname": "tenant_building_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantCity",
+    "fieldname": "tenant_city",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantDistrict",
+    "fieldname": "tenant_district",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantPostalCode",
+    "fieldname": "tenant_postal_code",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantAdditionalNumber",
+    "fieldname": "tenant_additional_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantRepresentativeName",
+    "fieldname": "tenant_representative_name",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantRepresentativeMobile",
+    "fieldname": "tenant_representative_mobile",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "unitId",
+    "fieldname": "unit_id",
+    "type": "String",
+    "required": false,
+    "link": "Rental Unit"
+   },
+   {
+    "prisma": "prepaidSettled",
+    "fieldname": "prepaid_settled",
+    "type": "Boolean",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "prepaidNote",
+    "fieldname": "prepaid_note",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "prepaidAt",
+    "fieldname": "prepaid_at",
+    "type": "DateTime",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "prepaidById",
+    "fieldname": "prepaid_by_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "paidPreviouslyInstallments",
+    "fieldname": "paid_previously_installments",
+    "type": "Json",
+    "required": false,
+    "link": null
+   }
+  ]
+ },
+ "ContractUnit": {
+  "doctype": "Rental Contract Unit",
+  "fields": [
+   {
+    "prisma": "contractId",
+    "fieldname": "contract_id",
+    "type": "String",
+    "required": true,
+    "link": "Rental Contract"
+   },
+   {
+    "prisma": "unitId",
+    "fieldname": "unit_id",
+    "type": "String",
+    "required": true,
+    "link": "Rental Unit"
+   },
+   {
+    "prisma": "rentAmount",
+    "fieldname": "rent_amount",
+    "type": "Float",
+    "required": false,
+    "link": null
+   }
+  ]
+ },
+ "Payment": {
+  "doctype": "Rental Payment",
+  "fields": [
+   {
+    "prisma": "contractId",
+    "fieldname": "contract_id",
+    "type": "String",
+    "required": true,
+    "link": "Rental Contract"
+   },
+   {
+    "prisma": "companyId",
+    "fieldname": "company_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "amount",
+    "fieldname": "amount",
+    "type": "Float",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "amountPaid",
+    "fieldname": "amount_paid",
+    "type": "Float",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "dueDate",
+    "fieldname": "due_date",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "paidDate",
+    "fieldname": "paid_date",
+    "type": "DateTime",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "status",
+    "fieldname": "status",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "paymentMethod",
+    "fieldname": "payment_method",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "referenceNumber",
+    "fieldname": "reference_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "customPaymentMethod",
+    "fieldname": "custom_payment_method",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "notes",
+    "fieldname": "notes",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "recordedById",
+    "fieldname": "recorded_by_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "periodStart",
+    "fieldname": "period_start",
+    "type": "DateTime",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "periodEnd",
+    "fieldname": "period_end",
+    "type": "DateTime",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "createdAt",
+    "fieldname": "created_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "updatedAt",
+    "fieldname": "updated_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   }
+  ]
+ },
+ "Invoice": {
+  "doctype": "Rental Invoice",
+  "fields": [
+   {
+    "prisma": "invoiceNumber",
+    "fieldname": "invoice_number",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "contractId",
+    "fieldname": "contract_id",
+    "type": "String",
+    "required": true,
+    "link": "Rental Contract"
+   },
+   {
+    "prisma": "companyId",
+    "fieldname": "company_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "installmentNo",
+    "fieldname": "installment_no",
+    "type": "Int",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "totalInstallments",
+    "fieldname": "total_installments",
+    "type": "Int",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "rentValue",
+    "fieldname": "rent_value",
+    "type": "Float",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "vatAmount",
+    "fieldname": "vat_amount",
+    "type": "Float",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "servicesAmount",
+    "fieldname": "services_amount",
+    "type": "Float",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "totalValue",
+    "fieldname": "total_value",
+    "type": "Float",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "annualRent",
+    "fieldname": "annual_rent",
+    "type": "Float",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "totalContractValue",
+    "fieldname": "total_contract_value",
+    "type": "Float",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "securityDeposit",
+    "fieldname": "security_deposit",
+    "type": "Float",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "issueDate",
+    "fieldname": "issue_date",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "supplyDate",
+    "fieldname": "supply_date",
+    "type": "DateTime",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "dueDate",
+    "fieldname": "due_date",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "periodStart",
+    "fieldname": "period_start",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "periodEnd",
+    "fieldname": "period_end",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "status",
+    "fieldname": "status",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "paidDate",
+    "fieldname": "paid_date",
+    "type": "DateTime",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "paidAmount",
+    "fieldname": "paid_amount",
+    "type": "Float",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "paymentMethod",
+    "fieldname": "payment_method",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "referenceNumber",
+    "fieldname": "reference_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "bankName",
+    "fieldname": "bank_name",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "iban",
+    "fieldname": "iban",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "bankAccountNumber",
+    "fieldname": "bank_account_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantBankName",
+    "fieldname": "tenant_bank_name",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantIban",
+    "fieldname": "tenant_iban",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "tenantBankAccountNumber",
+    "fieldname": "tenant_bank_account_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "chequeNumber",
+    "fieldname": "cheque_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "customPaymentMethod",
+    "fieldname": "custom_payment_method",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "notes",
+    "fieldname": "notes",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "invoiceAttachment",
+    "fieldname": "invoice_attachment",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "attachmentsByDocType",
+    "fieldname": "attachments_by_doc_type",
+    "type": "Json",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "printedAt",
+    "fieldname": "printed_at",
+    "type": "DateTime",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "egsUnitId",
+    "fieldname": "egs_unit_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "uuid",
+    "fieldname": "zatca_uuid",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "icv",
+    "fieldname": "zatca_icv",
+    "type": "Int",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "invoiceHash",
+    "fieldname": "zatca_invoice_hash",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "previousInvoiceHash",
+    "fieldname": "zatca_previous_invoice_hash",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "invoiceType",
+    "fieldname": "zatca_invoice_type",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "documentType",
+    "fieldname": "zatca_document_type",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "originalInvoiceNumber",
+    "fieldname": "original_invoice_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "originalInvoiceUuid",
+    "fieldname": "original_invoice_uuid",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "noteReason",
+    "fieldname": "note_reason",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "zatcaStatus",
+    "fieldname": "zatca_status",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "zatcaSignedXml",
+    "fieldname": "zatca_signed_xml",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "zatcaClearedXml",
+    "fieldname": "zatca_cleared_xml",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "zatcaQr",
+    "fieldname": "zatca_qr",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "zatcaWarnings",
+    "fieldname": "zatca_warnings",
+    "type": "Json",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "zatcaErrors",
+    "fieldname": "zatca_errors",
+    "type": "Json",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "submittedAt",
+    "fieldname": "zatca_submitted_at",
+    "type": "DateTime",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "taxCategoryCode",
+    "fieldname": "tax_category_code",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "taxExemptionReasonCode",
+    "fieldname": "tax_exemption_reason_code",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "taxExemptionReason",
+    "fieldname": "tax_exemption_reason",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "fatoraInvoiceId",
+    "fieldname": "fatora_invoice_id",
+    "type": "Int",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "fatoraStatus",
+    "fieldname": "fatora_status",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "fatoraLink",
+    "fieldname": "fatora_link",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "fatoraSyncedAt",
+    "fieldname": "fatora_synced_at",
+    "type": "DateTime",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "fatoraSyncError",
+    "fieldname": "fatora_sync_error",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "whatsappSentAt",
+    "fieldname": "whatsapp_sent_at",
+    "type": "DateTime",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "whatsappStatus",
+    "fieldname": "whatsapp_status",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "createdAt",
+    "fieldname": "created_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "updatedAt",
+    "fieldname": "updated_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   }
+  ]
+ },
+ "Transaction": {
+  "doctype": "Rental Transaction",
+  "fields": [
+   {
+    "prisma": "companyId",
+    "fieldname": "company_id",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "propertyId",
+    "fieldname": "property_id",
+    "type": "String",
+    "required": false,
+    "link": "Rental Property"
+   },
+   {
+    "prisma": "contractId",
+    "fieldname": "contract_id",
+    "type": "String",
+    "required": false,
+    "link": "Rental Contract"
+   },
+   {
+    "prisma": "type",
+    "fieldname": "type",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "amount",
+    "fieldname": "amount",
+    "type": "Float",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "description",
+    "fieldname": "description",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "category",
+    "fieldname": "category",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "date",
+    "fieldname": "date",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "isRecurring",
+    "fieldname": "is_recurring",
+    "type": "Boolean",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "recurrenceType",
+    "fieldname": "recurrence_type",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "recurrenceEnd",
+    "fieldname": "recurrence_end",
+    "type": "DateTime",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "notes",
+    "fieldname": "notes",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "invoiceNumber",
+    "fieldname": "invoice_number",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "supplierName",
+    "fieldname": "supplier_name",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "voucherType",
+    "fieldname": "voucher_type",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "createdAt",
+    "fieldname": "created_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "updatedAt",
+    "fieldname": "updated_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   }
+  ]
+ },
+ "TransactionAttachment": {
+  "doctype": "Rental Transaction Attachment",
+  "fields": [
+   {
+    "prisma": "transactionId",
+    "fieldname": "transaction_id",
+    "type": "String",
+    "required": true,
+    "link": "Rental Transaction"
+   },
+   {
+    "prisma": "filePath",
+    "fieldname": "file_path",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "fileName",
+    "fieldname": "file_name",
+    "type": "String",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "fileSize",
+    "fieldname": "file_size",
+    "type": "Int",
+    "required": true,
+    "link": null
+   },
+   {
+    "prisma": "mimeType",
+    "fieldname": "mime_type",
+    "type": "String",
+    "required": false,
+    "link": null
+   },
+   {
+    "prisma": "uploadedAt",
+    "fieldname": "uploaded_at",
+    "type": "DateTime",
+    "required": true,
+    "link": null
+   }
+  ]
+ }
+}

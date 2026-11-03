@@ -1,0 +1,40 @@
+import { chromium } from '@playwright/test'
+const BASE = 'https://tamkeen-v2.base.meena.sa'
+const browser = await chromium.launch()
+const page = await (await browser.newContext({ viewport: { width: 1512, height: 900 }, locale: 'ar' })).newPage()
+const stamp = Date.now()
+let errors = []
+page.on('console', (m) => { if (m.type() === 'error') errors.push('[console] ' + m.text().slice(0, 200)) })
+page.on('response', (r) => { if (r.status() >= 400 && !r.url().includes('/_next/')) errors.push(`${r.status()} ${r.request().method()} ${r.url().replace(BASE, '').slice(0, 150)}`) })
+
+await page.goto(BASE + '/hr?module=jobs', { waitUntil: 'networkidle' })
+await page.waitForTimeout(1000)
+await page.getByRole('button', { name: 'اضافة وظيفة', exact: true }).click()
+await page.waitForTimeout(500)
+await page.locator('[role=dialog] input').first().fill('دورة حياة ' + stamp)
+await page.getByRole('button', { name: 'حفظ', exact: true }).click()
+await page.waitForTimeout(1500)
+
+await page.locator('input[placeholder="ابحث باسم او كود الوظيفة"]').fill('دورة حياة ' + stamp)
+await page.waitForTimeout(1000)
+await page.locator('tbody tr button[title="تعديل"]').first().click()
+await page.waitForTimeout(600)
+await page.locator('[role=dialog] input').first().fill('دورة حياة معدّلة ' + stamp)
+await page.getByRole('button', { name: 'حفظ', exact: true }).click()
+await page.waitForTimeout(1500)
+
+await page.locator('input[placeholder="ابحث باسم او كود الوظيفة"]').fill('معدّلة ' + stamp)
+await page.waitForTimeout(1000)
+const editedCount = await page.locator('tbody tr').count()
+console.log('edited row visible:', editedCount)
+
+await page.locator('tbody tr button[title="حذف"]').first().click()
+await page.waitForTimeout(600)
+await page.getByRole('button', { name: 'حذف', exact: true }).last().click()
+await page.waitForTimeout(1500)
+await page.locator('input[placeholder="ابحث باسم او كود الوظيفة"]').fill('معدّلة ' + stamp)
+await page.waitForTimeout(1000)
+const afterDelete = await page.locator('tbody tr').count()
+console.log('rows after delete (should be 0):', afterDelete)
+console.log('errors:', [...new Set(errors)].join(' | ') || 'none')
+await browser.close()

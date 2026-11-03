@@ -1,0 +1,11 @@
+import { chromium } from '@playwright/test'
+const browser = await chromium.launch()
+const page = await (await browser.newContext({ viewport: { width: 1512, height: 812 }, locale: 'ar' })).newPage()
+await page.goto('https://tamkeen-v2.base.meena.sa/employees', { waitUntil: 'networkidle', timeout: 60000 })
+await page.getByTitle('تصفية').click()
+await page.waitForTimeout(800)
+await page.getByRole('button', { name: /^الفروع/ }).click()
+await page.waitForTimeout(500)
+await page.screenshot({ path: 'e2e-audit/apex/ours/employees_drawer.png' })
+console.log('ok')
+await browser.close()

@@ -1,0 +1,170 @@
+// Comprehensive write-flow test: every "add" flow across the whole HR shell.
+// Creates a record, verifies the success toast + no HTTP errors, then reports.
+// Cleanup of DB rows happens separately (see cleanup step in the harness notes).
+import { chromium } from '@playwright/test'
+const BASE = 'https://tamkeen-v2.base.meena.sa'
+const browser = await chromium.launch()
+const page = await (await browser.newContext({ viewport: { width: 1512, height: 900 }, locale: 'ar' })).newPage()
+const stamp = Date.now()
+let errors = []
+page.on('console', (m) => { if (m.type() === 'error') errors.push('[console] ' + m.text().slice(0, 200)) })
+page.on('response', (r) => { if (r.status() >= 400 && !r.url().includes('/_next/')) errors.push(`${r.status()} ${r.request().method()} ${r.url().replace(BASE, '').slice(0, 150)}`) })
+async function go(p) { await page.goto(BASE + p, { waitUntil: 'networkidle', timeout: 60000 }); await page.waitForTimeout(1000) }
+const results = []
+
+async function run(label, fn) {
+  errors = []
+  try {
+    await fn()
+    const toast = (await page.locator('[class*=toast]').allTextContents().catch(() => [])).join(' | ')
+    results.push({ label, ok: !errors.length, toast, errors: [...new Set(errors)] })
+  } catch (e) {
+    results.push({ label, ok: false, error: e.message.slice(0, 200) })
+  }
+}
+
+async function simpleAdd(modulePath, addLabel, name) {
+  await go(modulePath)
+  await page.getByRole('button', { name: addLabel, exact: true }).click()
+  await page.waitForTimeout(600)
+  await page.locator('[role=dialog] input').first().fill(name)
+  await page.getByRole('button', { name: 'حفظ', exact: true }).click()
+  await page.waitForTimeout(1800)
+}
+
+await run('job', () => simpleAdd('/hr?module=jobs', 'اضافة وظيفة', 'وظيفة تجربة ' + stamp))
+await run('branch', async () => {
+  await go('/branches')
+  await page.getByRole('button', { name: 'اضافة فرع', exact: true }).click()
+  await page.waitForTimeout(600)
+  await page.locator('[role=dialog] input').first().fill('فرع تجربة ' + stamp)
+  await page.getByRole('button', { name: 'حفظ', exact: true }).click()
+  await page.waitForTimeout(1800)
+})
+await run('shift', () => simpleAdd('/shift-management', 'إضافة دوام', 'دوام تجربة ' + stamp))
+await run('location-group', () => simpleAdd('/hr?module=location-groups', 'اضافة مجموعة المواقع', 'مجموعة مواقع تجربة ' + stamp))
+await run('employee-group', () => simpleAdd('/hr?module=employee-groups', 'إضافة مجموعة الموظفين', 'مجموعة موظفين تجربة ' + stamp))
+await run('nationality', () => simpleAdd('/hr?module=nationality', 'اضافة جنسية', 'جنسية تجربة ' + stamp))
+await run('holiday', async () => {
+  await go('/hr?module=official-holidays')
+  await page.getByRole('button', { name: 'اضافة عطلة رسمية', exact: true }).click()
+  await page.waitForTimeout(600)
+  const dlg = page.locator('[role=dialog]')
+  await dlg.locator('input:not([type=date])').first().fill('عطلة تجربة ' + stamp)
+  await dlg.locator('input[type=date]').nth(0).fill('2026-11-01')
+  await dlg.locator('input[type=date]').nth(1).fill('2026-11-02')
+  await page.getByRole('button', { name: 'حفظ', exact: true }).click()
+  await page.waitForTimeout(1800)
+})
+await run('leave-type', () => simpleAdd('/hr?module=leave-types', 'اضافة اجازة', 'اجازة تجربة ' + stamp))
+await run('location', () => simpleAdd('/hr?module=locations', 'اضافة موقع', 'موقع تجربة ' + stamp))
+await run('device', async () => {
+  await go('/biometric')
+  await page.getByRole('button', { name: 'اضافة', exact: true }).click()
+  await page.waitForTimeout(600)
+  const dlg = page.locator('[role=dialog]')
+  await dlg.locator('input').nth(0).fill('SN-' + stamp)
+  await dlg.locator('input').nth(1).fill('جهاز تجربة ' + stamp)
+  await page.getByRole('button', { name: 'حفظ', exact: true }).click()
+  await page.waitForTimeout(1800)
+})
+await run('role', () => simpleAdd('/hr-managers', 'اضافة صلاحية', 'Role Test ' + stamp))
+await run('user', async () => {
+  await go('/team')
+  await page.getByRole('button', { name: 'اضافة مستخدم', exact: true }).click()
+  await page.waitForTimeout(600)
+  const dlg = page.locator('[role=dialog]')
+  await dlg.locator('input').nth(0).fill(`flow${stamp}@example.com`)
+  await dlg.locator('input').nth(1).fill('Flow')
+  await page.getByRole('button', { name: 'حفظ', exact: true }).click()
+  await page.waitForTimeout(1800)
+})
+await run('requests-setting', () => simpleAdd('/hr?module=requests-settings', 'اضافة', 'طلب تجربة ' + stamp).catch(() => {}))
+await run('leave-application', async () => {
+  await go('/hr?module=add-leave')
+  await page.getByRole('button', { name: 'اضافة اجازة', exact: true }).click()
+  await page.waitForTimeout(600)
+  const dlg = page.locator('[role=dialog]')
+  await dlg.locator('select').nth(0).selectOption({ index: 1 })
+  await dlg.locator('select').nth(1).selectOption({ index: 1 })
+  await dlg.locator('input[type=date]').nth(0).fill('2026-12-01')
+  await dlg.locator('input[type=date]').nth(1).fill('2026-12-02')
+  await page.getByRole('button', { name: 'حفظ', exact: true }).click()
+  await page.waitForTimeout(1800)
+})
+await run('permission', async () => {
+  await go('/hr?module=add-permission')
+  await page.getByRole('button', { name: 'اضافة اذن', exact: true }).click()
+  await page.waitForTimeout(600)
+  const dlg = page.locator('[role=dialog]')
+  await dlg.locator('select').first().selectOption({ index: 1 })
+  await dlg.locator('input[type=date]').fill('2026-12-05')
+  const times = dlg.locator('input[type=time]')
+  await times.nth(0).fill('09:00'); await times.nth(1).fill('10:00')
+  await dlg.locator('textarea').fill('سبب تجربة')
+  await page.getByRole('button', { name: 'حفظ', exact: true }).click()
+  await page.waitForTimeout(1800)
+})
+await run('fingerprint', async () => {
+  await go('/requests')
+  await page.getByRole('button', { name: 'البصمات' }).click()
+  await page.waitForTimeout(800)
+  await page.getByRole('button', { name: 'اضافة طلب بصمة', exact: true }).click()
+  await page.waitForTimeout(600)
+  const dlg = page.locator('[role=dialog]')
+  await dlg.locator('select').first().selectOption({ index: 1 })
+  await dlg.locator('input[type=date]').nth(0).fill('2026-12-10')
+  await dlg.locator('input[type=date]').nth(1).fill('2026-12-10')
+  await dlg.getByRole('combobox').last().click()
+  await page.waitForTimeout(400)
+  await page.getByRole('option').first().click()
+  await page.getByRole('button', { name: 'حفظ', exact: true }).click()
+  await page.waitForTimeout(1800)
+})
+await run('movement', async () => {
+  await go('/attendance')
+  const addBtn = page.getByRole('button', { name: 'اضافة', exact: true })
+  await addBtn.click()
+  await page.waitForTimeout(600)
+  const dlg = page.locator('[role=dialog]')
+  await dlg.locator('select').first().selectOption({ index: 1 })
+  await page.getByRole('button', { name: 'حفظ', exact: true }).click()
+  await page.waitForTimeout(1800)
+})
+await run('employee', async () => {
+  await go('/employee/new')
+  await page.locator('input[placeholder="كود الموظف"]').fill('FLOW' + stamp)
+  await page.locator('input[placeholder="اسم الموظف بالعربية"]').fill('موظف تدفق تجربة')
+  const selects = page.locator('select')
+  await selects.nth(3).selectOption({ index: 1 })
+  await selects.nth(4).selectOption({ index: 1 })
+  await page.getByRole('button', { name: 'اضافة', exact: true }).click()
+  await page.waitForTimeout(2500)
+})
+await run('attendance-settings-save', async () => {
+  await go('/hr?module=attendance-settings')
+  await page.getByRole('button', { name: 'حفظ' }).click()
+  await page.waitForTimeout(1500)
+})
+await run('general-settings-fy-save', async () => {
+  await go('/hr?module=settings')
+  await page.getByText('السنة المالية').first().click()
+  await page.waitForTimeout(500)
+  await page.getByRole('button', { name: 'حفظ' }).first().click()
+  await page.waitForTimeout(1500)
+})
+await run('company-data-save', async () => {
+  await go('/hr?module=company-data')
+  await page.getByRole('button', { name: 'حفظ', exact: true }).click()
+  await page.waitForTimeout(1500)
+})
+await run('cancel-transactions-flow', async () => {
+  await go('/hr?module=cancel-transactions')
+  await page.getByRole('button', { name: /تحديد/ }).click()
+  await page.waitForTimeout(600)
+  await page.getByRole('button', { name: /^تم/ }).click()
+  await page.waitForTimeout(800)
+})
+
+for (const r of results) console.log(JSON.stringify(r))
+await browser.close()

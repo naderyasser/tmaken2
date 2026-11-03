@@ -1,0 +1,619 @@
+'use client'
+
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { Check, ChevronDown, ChevronUp, Loader2, Plus, X, Image as ImageIcon, Trash2 } from 'lucide-react'
+import { frappeClient } from '@/lib/api-client'
+import { useCompanySafe } from '@/hooks/use-company'
+import { useToast } from '@/hooks/use-toast'
+import { cn, frappeImageUrl } from '@/lib/utils'
+import { COUNTRY_AR } from '@/lib/country-names-ar'
+
+/** Apex `checkImageSize` — 1 MB. */
+const MAX_IMAGE_BYTES = 1 * 1024 * 1024
+
+function getCsrfTokenFromCookie(): string | null {
+  if (typeof document === 'undefined') return null
+  const cookie = document.cookie.split('; ').find((c) => c.startsWith('csrf_token=') || c.startsWith('csrftoken='))
+  return cookie ? decodeURIComponent(cookie.split('=')[1]) : null
+}
+
+/** Uploads via Frappe's own `/api/method/upload_file` endpoint, attached to
+ *  `Employee`/`docname`. (Test round 4 fix: `/api/upload_file` 404s — nginx
+ *  routes bare `/api/*` straight through to Frappe, which only exposes
+ *  whitelisted methods under `/api/method/*`.) */
+async function uploadEmployeeImage(file: File, docname: string): Promise<string> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('doctype', 'Employee')
+  formData.append('docname', docname)
+  formData.append('fieldname', 'image')
+  formData.append('is_private', '0')
+  const headers: Record<string, string> = {}
+  const csrf = getCsrfTokenFromCookie() || (await frappeClient.fetchCsrfToken())
+  if (csrf) headers['X-Frappe-CSRF-Token'] = csrf
+  const res = await fetch('/api/method/upload_file', { method: 'POST', credentials: 'include', headers, body: formData })
+  if (!res.ok) throw new Error('تعذّر رفع الصورة')
+  const data = await res.json().catch(() => null)
+  const url = data?.message?.file_url || data?.file_url
+  if (!url) throw new Error('تعذّر رفع الصورة')
+  return url as string
+}
+
+/**
+ * «اضافة موظف / تعديل موظف» — the Apex full-page employee form, field for field:
+ *   تعريف الموظف · معلومات الموظف · معلومات شخصية · إعدادات إحتساب الإضافي
+ * Backed by the Employee doctype (+ the custom_* fields created for this copy).
+ */
+
+type F = Record<string, any>
+
+const FIELD = 'w-full h-[44px] rounded border border-[var(--apex-border)] bg-white px-3 text-[14px] text-slate-800 outline-none focus:border-[var(--apex-blue)] placeholder:text-slate-400'
+
+const STATUS = [['Active', 'نشط'], ['Inactive', 'غير نشط'], ['Suspended', 'موقوف'], ['Left', 'منتهي']]
+
+interface Opts {
+  designations: string[]; branches: string[]; shifts: string[]; departments: string[]; groups: string[]; projects: string[]
+  employees: { name: string; employee_name: string }[]; countries: [string, string][]
+  /** «الدوام *» combined picker — every normal/open shift AND every
+   *  variable rotational group, from base_meena.api.hr_rotational_shifts.list_shift_options. */
+  shiftOptions: { value: string; label: string; kind: string; default_shift: string }[]
+}
+const EMPTY: Opts = { designations: [], branches: [], shifts: [], departments: [], groups: [], projects: [], employees: [], countries: [], shiftOptions: [] }
+
+// Client review of the real running system, 2026-09-20: new-employee save
+// was rejecting on fields that read as "already filled" to the person
+// entering data — because `custom_branch_access` ("صلاحية الموظف بالفروع")
+// sits right next to the real "الفرع" select and shares the same word
+// "فرع", so a missed checkbox there read as a broken Branch/Shift field.
+// The client's own spec: exactly 5 required fields for an instant save —
+// employee code, name, job, branch, shift — everything else optional.
+// `gender`/`date_of_birth` are `reqd: 1` on the core Employee schema
+// though (see setup_employee_optional_fields.py) — dropping them here
+// without also relaxing the schema would silently fail every save again,
+// the exact bug this file already carries scar tissue from once.
+// Apex /hr/AddEmployee required set (client parity audit 2026-09-30, supersedes
+// the 2026-09-20 five-field spec): كود الموظف · حالة الموظف · اسم الموظف بالعربية ·
+// صلاحية الموظف بالفروع · الفروع · الدوام · طريقة الحضور — الوظيفة is optional.
+const REQUIRED = ['attendance_device_id', 'status', 'employee_name', 'custom_branch_access', 'branch', 'default_shift', 'custom_attendance_method']
+/** Which collapsible section to open (so the field is actually in the DOM) when scrolling a
+ *  failed-validation field into view. Fields in the always-open top block need no entry. */
+const FIELD_SECTION: Record<string, 'basic' | 'info' | 'personal' | 'ot' | undefined> = {
+  attendance_device_id: 'basic', status: 'basic', custom_branch_access: 'basic',
+  branch: 'info', default_shift: 'info', custom_attendance_method: 'info',
+}
+
+export function ApexEmployeeForm({ employeeId }: { employeeId?: string }) {
+  const router = useRouter()
+  const { toast } = useToast()
+  const { company } = useCompanySafe()
+  const isNew = !employeeId
+  const [f, setF] = useState<F>({ status: 'Active', custom_branch_access: '', custom_attendance_method: 'جهاز البصمة', custom_mobile_app: 'لا' })
+  const [opts, setOpts] = useState<Opts>(EMPTY)
+  const [loading, setLoading] = useState(!isNew)
+  const [saving, setSaving] = useState(false)
+  const [open, setOpen] = useState({ basic: true, info: true, personal: true, ot: true })
+  // 5.3: الإدارة/القسم/المدير المباشر/المهمة are Apex-style autocomplete text
+  // inputs. For «المدير المباشر» the stored value is an Employee ID (reports_to)
+  // while the box shows/edits the readable name — kept as separate display text,
+  // resolved to/from opts.employees, so the field stays a valid Employee link.
+  const [reportsToText, setReportsToText] = useState('')
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const pendingImageFile = useRef<File | null>(null)
+  /** The «الدوام» picker's value as loaded from the server (stays `undefined` for a
+   *  brand-new employee) — save() only calls set_employee_shift when this changed,
+   *  skipping a needless write when the shift/group pick wasn't touched.
+   *  Opus review round 3, item 1: sourced from get_employee_shift_value's
+   *  resolved CURRENT effective shift, not Employee.default_shift — see load(). */
+  const initialShiftValueRef = useRef<string | undefined>(undefined)
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setF((p) => ({ ...p, [k]: e.target.type === 'checkbox' ? ((e.target as HTMLInputElement).checked ? 1 : 0) : e.target.value }))
+
+  useEffect(() => {
+    const list = (dt: string, fields = ['name'], filters?: any) =>
+      frappeClient.getList<any>(dt, { fields, filters, order_by: `${fields[fields.length - 1]} asc`, limit_page_length: 0 }).catch(() => [])
+    const shiftOptions = () =>
+      frappeClient.call('base_meena.api.hr_rotational_shifts.list_shift_options', {}).then((r: any) => r?.message ?? []).catch(() => [])
+    Promise.all([
+      // No is_group filter: an employee already assigned to a group department must still
+      // see that value in the select (otherwise it renders blank and gets wiped on save).
+      list('Designation'), list('Branch'), list('Shift Type'), list('Department'),
+      list('Employee Group'), list('Project'), list('Employee', ['name', 'employee_name'], [['status', '=', 'Active']]), list('Country', ['name', 'country_name', 'custom_name_ar'], [['custom_is_nationality', '=', 1]]),
+      shiftOptions(),
+    ]).then(([d, b, s, dep, g, p, e, c, so]) => setOpts({
+      designations: d.map((x: any) => x.name), branches: b.map((x: any) => x.name), shifts: s.map((x: any) => x.name),
+      departments: dep.map((x: any) => x.name), groups: g.map((x: any) => x.name), projects: p.map((x: any) => x.name),
+      employees: e, shiftOptions: so,
+      // «الجنسية» = the tenant's الجنسية master, Arabic names exactly as the Nationality page shows them
+      countries: c.map((x: any) => [x.name, x.custom_name_ar || COUNTRY_AR[x.country_name] || x.country_name] as [string, string])
+        .sort((a: [string, string], b: [string, string]) => a[1].localeCompare(b[1], 'ar')),
+    }))
+  }, [])
+
+  // «موظفين غير مسجلين» ✎ on an unlinked device PIN → /employee/new?device_id=<PIN>
+  useEffect(() => {
+    if (!isNew) return
+    const params = new URLSearchParams(window.location.search)
+    const pin = params.get('device_id')
+    if (pin) setF((prev) => ({ ...prev, attendance_device_id: pin }))
+    // the device's «الفرع» (Biometric Device.location holds the Branch name) → الفرع
+    const serial = params.get('serial')
+    if (serial) frappeClient.get<any>('Biometric Device', serial).then((res: any) => {
+      const branch = res?.data?.location
+      if (branch) setF((prev) => ({
+        ...prev,
+        branch: prev.branch || branch,
+        custom_branch_access: prev.custom_branch_access || branch,  // صلاحية الموظف بالفروع = that branch
+      }))
+    }).catch(() => { /* device gone — the user picks the branch */ })
+  }, [isNew])
+
+  const load = useCallback(async () => {
+    if (!employeeId) return
+    setLoading(true)
+    try {
+      const res: any = await frappeClient.get<F>('Employee', employeeId)
+      const data = res?.data ?? {}
+      // «كود الموظف» و«رقم الموظف على جهاز البصمة» أصبحا حقلًا واحدًا (طلب
+      // العميل) — سجلات قديمة قد تحمل employee_number فقط بلا attendance_device_id
+      // (استيراد سابق قبل هذا التوحيد)؛ اعرض القيمة الموجودة أيًا كانت.
+      if (!data.attendance_device_id && data.employee_number) data.attendance_device_id = data.employee_number
+      // Opus review round 3, item 1: the combined «الدوام *» dropdown must show
+      // the employee's CURRENT effective shift, not Employee.default_shift —
+      // default_shift is now write-once/frozen (round 2) and can silently be
+      // stale, e.g. an employee who switched shifts 3 times since it was first
+      // set still reads their very first shift there. get_employee_shift_value
+      // resolves the real current value server-side (custom_rotational_group,
+      // else today's Shift Assignment, else default_shift, else "") in the same
+      // plain-shift / "group:<name>" shape list_shift_options() already uses —
+      // use THAT as both the picker's initial value and the "did the user
+      // change anything" baseline. A failure here must not block the rest of
+      // the employee load: toast and leave the picker unselected.
+      try {
+        const shiftRes: any = await frappeClient.call('base_meena.api.hr_rotational_shifts.get_employee_shift_value', { employee: employeeId })
+        data.default_shift = shiftRes?.message?.value ?? ''
+      } catch (e: any) {
+        toast({ title: 'تعذّر تحميل الدوام الحالي للموظف', description: e?.message, variant: 'destructive' })
+        data.default_shift = ''
+      }
+      initialShiftValueRef.current = data.default_shift
+      setF(data)
+    } catch (e: any) {
+      toast({ title: 'تعذّر تحميل الموظف', description: e?.message, variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
+  }, [employeeId, toast])
+  useEffect(() => { load() }, [load])
+
+  // Keep the «المدير المباشر» display text (an employee NAME) in sync with the
+  // underlying reports_to ID (loaded from the server, or resolved from a
+  // previous exact match below) whenever either changes.
+  useEffect(() => {
+    const match = opts.employees.find((e) => e.name === f.reports_to)
+    setReportsToText(match ? match.employee_name : (f.reports_to || ''))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [f.reports_to, opts.employees])
+
+  const isValid = REQUIRED.every((k) => !!f[k])
+
+  /** Scroll+focus the first invalid field (in addition to the toast) — on /employee/new the
+   *  invalid fields can be below the fold and the toast alone is easy to miss. */
+  const focusInvalidField = (k: string) => {
+    const sec = FIELD_SECTION[k]
+    if (sec) setOpen((o) => ({ ...o, [sec]: true }))
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        const el = document.querySelector<HTMLElement>(`[name="${k}"]`)
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el?.focus()
+      }, sec ? 60 : 0)
+    })
+  }
+
+  /** «رفع صورة» — existing employee: upload + PUT `image` immediately (Apex
+   *  behaviour). New employee: no docname yet, so stage the file and only
+   *  upload it in `save()` right after the insert succeeds. */
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast({ title: 'حجم الصورة يجب ألا يتجاوز 1 ميجابايت', variant: 'destructive' })
+      return
+    }
+    if (imagePreview) URL.revokeObjectURL(imagePreview)
+    const localUrl = URL.createObjectURL(file)
+    setImagePreview(localUrl)
+
+    if (isNew) {
+      pendingImageFile.current = file
+      return
+    }
+    setUploadingImage(true)
+    try {
+      const fileUrl = await uploadEmployeeImage(file, employeeId!)
+      await frappeClient.put('Employee', employeeId!, { image: fileUrl })
+      setF((p) => ({ ...p, image: fileUrl }))
+      toast({ title: 'تم رفع الصورة' })
+    } catch (e: any) {
+      toast({ title: 'فشل رفع الصورة', description: e?.message, variant: 'destructive' })
+    } finally {
+      setUploadingImage(false)
+      setImagePreview((cur) => { if (cur) URL.revokeObjectURL(cur); return null })
+    }
+  }
+
+  const handleImageRemove = async () => {
+    if (imagePreview) URL.revokeObjectURL(imagePreview)
+    setImagePreview(null)
+    pendingImageFile.current = null
+    if (isNew) return
+    const prev = f.image
+    setF((p) => ({ ...p, image: '' }))
+    try {
+      await frappeClient.put('Employee', employeeId!, { image: '' })
+      toast({ title: 'تمت إزالة الصورة' })
+    } catch (e: any) {
+      setF((p) => ({ ...p, image: prev }))
+      toast({ title: 'فشلت إزالة الصورة', description: e?.message, variant: 'destructive' })
+    }
+  }
+
+  const save = async () => {
+    for (const k of REQUIRED) {
+      if (!f[k]) {
+        toast({ title: 'حقول مطلوبة', description: 'أكمل الحقول المعلّمة بـ *', variant: 'destructive' })
+        focusInvalidField(k)
+        return
+      }
+    }
+    setSaving(true)
+    try {
+      const payload: F = {
+        company: f.company || company || undefined,
+        // حقل واحد فقط: كود الموظف = رقم الموظف على جهاز البصمة (طلب العميل).
+        // الباك إند أيضًا يفرض هذا التطابق (employee_hooks.sync_employee_code)
+        // بغض النظر عن مسار الحفظ، فهذا مجرد اتساق مبكر مع ما سيُفرض على أي حال.
+        employee_number: f.attendance_device_id, status: f.status || 'Active', employee_name: f.employee_name, first_name: f.employee_name,
+        middle_name: '', last_name: '',
+        custom_employee_name_en: f.custom_employee_name_en || '', designation: f.designation || '', custom_branch_access: f.custom_branch_access,
+        // default_shift is intentionally NOT sent here (Opus review round 2, item 2):
+        // Employee.default_shift is now written exactly once, on first creation, and
+        // frozen thereafter — set_employee_shift below is the ONLY thing allowed to
+        // write it. The combined «الدوام *» picker's own value (plain shift, or
+        // "group:<name>") is passed to that call instead, never through this payload.
+        branch: f.branch, department: f.department || '', custom_employee_group: f.custom_employee_group || '',
+        custom_section: f.custom_section || '', reports_to: f.reports_to || '', custom_project: f.custom_project || '', custom_task: f.custom_task || '',
+        custom_attendance_method: f.custom_attendance_method, custom_mobile_app: f.custom_mobile_app || 'لا',
+        attendance_device_id: f.attendance_device_id || '',
+        gender: f.gender, date_of_birth: f.date_of_birth,
+        custom_nationality: f.custom_nationality || '', custom_national_id: f.custom_national_id || '', custom_religion: f.custom_religion || '',
+        cell_number: f.cell_number || '', personal_email: f.personal_email || '', current_address: f.current_address || '',
+        custom_ot_deduct_late: f.custom_ot_deduct_late ? 1 : 0, custom_ot_before_shift: f.custom_ot_before_shift ? 1 : 0,
+        custom_ot_after_shift: f.custom_ot_after_shift ? 1 : 0, custom_ot_holidays: f.custom_ot_holidays ? 1 : 0,
+        custom_checkout_without_punch: f.custom_checkout_without_punch ? 1 : 0,
+      }
+      let newName: string | undefined
+      if (isNew) {
+        // Opus review round 3, item 2: validate the shift/group pick BEFORE
+        // ever creating the Employee doc. Read-only, throws the same
+        // Arabic-message-carrying error as every other endpoint here — letting
+        // it bubble to the catch below reuses the existing 'فشل الحفظ' toast
+        // and, critically, never reaches frappeClient.post, so a known-bad
+        // shift pick can never create an orphaned employee in the first place.
+        await frappeClient.call('base_meena.api.hr_rotational_shifts.validate_employee_shift_choice', {
+          value: f.default_shift, company: payload.company,
+        })
+        payload.date_of_joining = f.date_of_joining || new Date().toISOString().slice(0, 10)
+        const res = await frappeClient.post('Employee', payload)
+        newName = (res as any)?.data?.name
+        let imageFailed = false
+        if (pendingImageFile.current && newName) {
+          try {
+            const fileUrl = await uploadEmployeeImage(pendingImageFile.current, newName)
+            await frappeClient.put('Employee', newName, { image: fileUrl })
+          } catch {
+            imageFailed = true
+          }
+        }
+        // The employee itself is already saved at this point — a failed photo
+        // upload shouldn't block navigation or read as "save failed".
+        toast(imageFailed
+          ? { title: 'تمت إضافة الموظف، لكن تعذّر رفع الصورة', variant: 'destructive' }
+          : { title: 'تمت إضافة الموظف' })
+      } else {
+        await frappeClient.put('Employee', employeeId!, payload)
+        toast({ title: 'تم الحفظ' })
+      }
+
+      // The employee doc now definitely exists — assign the actual shift/group
+      // membership from the ORIGINAL picked value (plain shift, or "group:<name>",
+      // never written into Employee.default_shift directly — see the payload above).
+      // Opus review round 2, item 2: this is now a REAL blocking step, not
+      // best-effort — set_employee_shift is the ONLY thing allowed to write
+      // Employee.default_shift, so a failure here must be treated exactly like any
+      // other save failure (falls through to the catch below, which already shows
+      // the 'فشل الحفظ' toast and — critically — never reaches router.push).
+      // Skipped when editing an existing employee whose picked value hasn't actually
+      // changed since load() (LOW item); a brand-new employee always calls it, since
+      // initialShiftValueRef starts `undefined` and can never equal a real pick.
+      if (isNew || f.default_shift !== initialShiftValueRef.current) {
+        try {
+          await frappeClient.call('base_meena.api.hr_rotational_shifts.set_employee_shift', {
+            employee: isNew ? newName : employeeId, value: f.default_shift,
+          })
+        } catch (e: any) {
+          if (isNew && newName) {
+            // Opus review round 3, item 2: the Employee doc above was already
+            // created successfully — only the shift/group assignment failed
+            // (validate_employee_shift_choice passed, but a race is still
+            // possible, e.g. someone deleted the group in between; that's
+            // expected per the backend's own docs). Leaving the form sitting
+            // on /employee/new would orphan that employee behind an
+            // apparently-failed save, and a retry would POST a second one.
+            // Surface the error and switch this form into EDIT mode on the
+            // employee that WAS created instead: replace (not push) the URL
+            // so back doesn't return to /new. The page at
+            // app/(erp)/(dashboard)/employee/[id]/page.tsx derives
+            // `employeeId` straight from the route param and passes it down
+            // as this component's own prop, and Next keeps this same
+            // component instance mounted across a same-segment param change —
+            // so the prop update alone flips `isNew` false and reruns load()
+            // (its useCallback depends on `employeeId`), re-fetching the just
+            // -created employee and picking up get_employee_shift_value's ""
+            // for the still-unset shift. The user just re-picks the shift and
+            // hits «حفظ» again, which now PUTs instead of POSTs.
+            toast({ title: 'فشل الحفظ', description: e?.message, variant: 'destructive' })
+            router.replace(`/employee/${encodeURIComponent(newName)}`)
+            return
+          }
+          throw e
+        }
+      }
+
+      router.push('/employees')
+    } catch (e: any) {
+      // e?.message already carries the backend's error text verbatim — including the
+      // attendance_device_id uniqueness violation (that field is `unique: 1` on Employee),
+      // which Frappe reports in whatever language the site is set to.
+      toast({ title: 'فشل الحفظ', description: e?.message, variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // plain render helpers (not components) so inputs keep focus across re-renders
+  const lbl = (t: string, req?: boolean) => (
+    <span className="block text-[13px] text-slate-700 mb-1">{t}{req && <span className="text-red-500"> *</span>}</span>
+  )
+  const Txt = (k: string, label: string, req?: boolean, type = 'text') => (
+    <div>{lbl(label, req)}<input name={k} type={type} value={f[k] ?? ''} onChange={set(k)} placeholder={label} className={FIELD} /></div>
+  )
+  const Sel = (k: string, label: string, items: (string | [string, string])[], req?: boolean) => (
+    <div>
+      {lbl(label, req)}
+      <div className="relative">
+        <select name={k} aria-label={label} value={f[k] ?? ''} onChange={set(k)} className={cn(FIELD, 'appearance-none', !f[k] && 'text-slate-400')}>
+          <option value="">{label}</option>
+          {items.map((o) => Array.isArray(o) ? <option key={o[0]} value={o[0]}>{o[1]}</option> : <option key={o} value={o}>{o}</option>)}
+        </select>
+        <ChevronDown className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+      </div>
+    </div>
+  )
+  /** Same as `Sel`, over `{value,label}` objects instead of plain strings —
+   *  the «الدوام *» combined shift+group picker (opts.shiftOptions), whose
+   *  option label ("<shift> - <group>") differs from its stored value
+   *  ("group:<name>"). */
+  const SelOpts = (k: string, label: string, items: { value: string; label: string }[], req?: boolean) => (
+    <div>
+      {lbl(label, req)}
+      <div className="relative">
+        <select name={k} aria-label={label} value={f[k] ?? ''} onChange={set(k)} className={cn(FIELD, 'appearance-none', !f[k] && 'text-slate-400')}>
+          <option value="">{label}</option>
+          {items.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+        <ChevronDown className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+      </div>
+    </div>
+  )
+  /** Chips + checkbox list — Apex's `AddEmployee` multi-selects (branches,
+   *  attendance methods) save as `values.join(",")`; we store the same
+   *  comma-joined string in the field so the payload needs no translation. */
+  const MultiSel = (k: string, label: string, items: string[], req?: boolean) => {
+    const selected = String(f[k] ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+    const toggle = (item: string) => {
+      const next = selected.includes(item) ? selected.filter((s) => s !== item) : [...selected, item]
+      setF((p) => ({ ...p, [k]: next.join(',') }))
+    }
+    return (
+      <div>
+        {lbl(label, req)}
+        {/* `name` is not a typed div attribute, but the scroll-to-first-error
+            lookup above queries `[name="${k}"]` — spread it in as a plain DOM
+            attribute so the lookup keeps working without a TS error. */}
+        <div {...({ name: k } as Record<string, string>)} className={cn(FIELD, 'h-auto min-h-[44px] py-2 flex flex-wrap items-center gap-1.5')}>
+          {selected.length === 0 && <span className="text-slate-400">{label}</span>}
+          {selected.map((item) => (
+            <span key={item} className="inline-flex items-center gap-1 rounded bg-[var(--apex-blue)]/10 text-[var(--apex-blue)] text-[12.5px] px-2 py-1">
+              {item}
+              <button type="button" onClick={() => toggle(item)} aria-label={`إزالة ${item}`} className="hover:opacity-70">
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="mt-2 max-h-[160px] overflow-y-auto rounded border border-[var(--apex-border)] bg-white p-2 space-y-1">
+          {items.length === 0 && <p className="text-[12.5px] text-slate-400 px-1 py-1">لا يوجد خيارات</p>}
+          {items.map((item) => (
+            <label key={item} className="flex items-center gap-2 text-[13px] text-slate-700 py-0.5 cursor-pointer">
+              <input type="checkbox" checked={selected.includes(item)} onChange={() => toggle(item)} className="h-[16px] w-[16px] accent-[var(--apex-blue)]" />
+              {item}
+            </label>
+          ))}
+        </div>
+      </div>
+    )
+  }
+  /** 5.3: «الإدارة / القسم / المدير المباشر / المهمة» — Apex-style autocomplete
+   *  text input (native input+datalist) over the existing option list, instead
+   *  of a rigid <select>. `text`/`onText` let the caller decide what "typing"
+   *  means for that field (plain passthrough for department/section/task,
+   *  name→ID resolution for reports_to below). */
+  const Combo = (k: string, label: string, text: string, onText: (v: string) => void, options: string[], req?: boolean) => (
+    <div>
+      {lbl(label, req)}
+      <input
+        name={k}
+        list={`dl-${k}`}
+        value={text}
+        onChange={(e) => onText(e.target.value)}
+        placeholder={label}
+        autoComplete="off"
+        className={FIELD}
+      />
+      <datalist id={`dl-${k}`}>
+        {options.map((o) => <option key={o} value={o} />)}
+      </datalist>
+    </div>
+  )
+  const onReportsToText = (typed: string) => {
+    setReportsToText(typed)
+    const match = opts.employees.find((e) => e.employee_name === typed)
+    setF((p) => ({ ...p, reports_to: match ? match.name : (typed === '' ? '' : p.reports_to) }))
+  }
+  const Chk = (k: string, label: string) => (
+    <label className="flex items-center gap-3 text-[15px] font-semibold text-slate-800 cursor-pointer py-1">
+      <input type="checkbox" checked={!!f[k]} onChange={set(k)} className="h-[18px] w-[18px] accent-[var(--apex-blue)]" />
+      {label}
+    </label>
+  )
+  const section = (id: keyof typeof open, title: string, children: React.ReactNode) => (
+    <div className="mt-8">
+      <button type="button" onClick={() => setOpen((o) => ({ ...o, [id]: !o[id] }))}
+        className="w-full flex items-center justify-between bg-white rounded px-4 h-[52px] shadow-sm mb-5">
+        <span className="text-[18px] font-bold text-[var(--apex-blue)]">{title}</span>
+        {open[id] ? <ChevronUp className="h-5 w-5 text-[var(--apex-blue)]" /> : <ChevronDown className="h-5 w-5 text-[var(--apex-blue)]" />}
+      </button>
+      {open[id] && children}
+    </div>
+  )
+  const grid = 'grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-5 px-4'
+
+  return (
+    <div className="pb-10" dir="rtl">
+      {/* action bar */}
+      <div className="flex items-center justify-between px-6 h-[62px] bg-[var(--apex-form-bar-bg)]">
+        <div className="text-[14px] text-slate-700">
+          <span className="text-slate-600">البيانات الاساسية</span><span className="mx-2 text-slate-400">/</span>
+          <button type="button" onClick={() => router.push('/employees')} className="text-[var(--apex-link)]">الموظفين</button><span className="mx-2 text-slate-400">/</span>
+          <span>{isNew ? 'اضافة موظف' : 'تعديل موظف'}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => router.push('/employees')} className="h-[40px] px-4 rounded bg-[var(--apex-red)] text-white text-[14px] flex items-center gap-1.5 hover:bg-[var(--apex-red-dark)]">
+            <X className="h-4 w-4" />اغلاق
+          </button>
+          <button type="button" onClick={save} disabled={saving || loading || !isValid} className="h-[40px] px-4 rounded bg-[var(--apex-green)] text-white text-[14px] flex items-center gap-1.5 hover:bg-[var(--apex-green-dark)] disabled:opacity-60">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : isNew ? <Plus className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+            {isNew ? 'اضافة' : 'حفظ'}
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="py-20 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-[var(--apex-blue)]" /></div>
+      ) : (
+        <div className="px-4">
+          {/* 5.3: centered 100×100 grey placeholder, click anywhere on it to
+              upload (≤ 1 MB) — «إزالة» kept as a small link underneath (X). */}
+          <div className="flex flex-col items-center gap-2 my-4">
+            <label
+              className="h-[100px] w-[100px] rounded bg-slate-200 flex items-center justify-center overflow-hidden cursor-pointer hover:bg-slate-300/70 transition-colors"
+              title="اضغط لرفع الصورة"
+            >
+              {uploadingImage ? (
+                <Loader2 className="h-7 w-7 animate-spin text-slate-500" />
+              ) : imagePreview || f.image ? (
+                <img src={imagePreview || frappeImageUrl(f.image)} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <ImageIcon className="h-10 w-10 text-slate-500" />
+              )}
+              <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} disabled={uploadingImage} />
+            </label>
+            {(imagePreview || f.image) && (
+              <button type="button" onClick={handleImageRemove} disabled={uploadingImage}
+                className="text-[12.5px] text-red-600 hover:underline disabled:opacity-60 flex items-center gap-1">
+                <Trash2 className="h-3 w-3" />
+                إزالة
+              </button>
+            )}
+          </div>
+
+          {/* 5.3: «تعريف الموظف» is collapsible with a chevron too, matching
+              Apex (previously a plain non-collapsible heading). */}
+          {section('basic', 'تعريف الموظف', (
+            <div className={grid}>
+              <div>
+                {lbl('كود الموظف', true)}
+                <input
+                  name="attendance_device_id"
+                  type="text"
+                  inputMode="numeric"
+                  value={f.attendance_device_id ?? ''}
+                  onChange={(e) => setF((p) => ({ ...p, attendance_device_id: e.target.value.replace(/[^0-9]/g, '') }))}
+                  placeholder="كود الموظف (رقم الموظف على جهاز البصمة)"
+                  className={FIELD}
+                />
+              </div>
+              {Sel('status', 'حالة الموظف', STATUS as [string, string][], true)}
+              {Txt('employee_name', 'اسم الموظف بالعربية', true)}
+              {Txt('custom_employee_name_en', 'اسم الموظف بالانجليزية')}
+              {Sel('designation', 'الوظيفة', opts.designations)}
+              {MultiSel('custom_branch_access', 'صلاحية الموظف بالفروع', opts.branches, true)}
+            </div>
+          ))}
+
+          {section('info', 'معلومات الموظف', (
+            <div className={grid}>
+              {Sel('branch', 'الفروع', opts.branches, true)}
+              {SelOpts('default_shift', 'الدوام', opts.shiftOptions, true)}
+              {Combo('department', 'الإدارة', f.department ?? '', (v) => setF((p) => ({ ...p, department: v })), opts.departments)}
+              {Sel('custom_employee_group', 'المجموعة', opts.groups)}
+              {Combo('custom_section', 'القسم', f.custom_section ?? '', (v) => setF((p) => ({ ...p, custom_section: v })), [])}
+              {Combo('reports_to', 'المدير المباشر', reportsToText, onReportsToText, opts.employees.map((e) => e.employee_name))}
+              {Sel('custom_project', 'المشروع', opts.projects)}
+              {Combo('custom_task', 'المهمة', f.custom_task ?? '', (v) => setF((p) => ({ ...p, custom_task: v })), [])}
+              {MultiSel('custom_attendance_method', 'طريقة الحضور', ['جهاز البصمة', 'تطبيق الجوال'], true)}
+              {Sel('custom_mobile_app', 'تفعيل تطبيق الجوال', ['نعم', 'لا'])}
+            </div>
+          ))}
+
+          {section('personal', 'معلومات شخصية', (
+            <div className={grid}>
+              {/* Apex has no «الجنس» field (removed 2026-09-30; gender stays optional on the schema). */}
+              {Sel('custom_nationality', 'الجنسية', opts.countries)}
+              {Txt('custom_national_id', 'رقم الهوية')}
+              {Sel('custom_religion', 'الديانة', ['مسلم', 'غير مسلم'])}
+              {Txt('date_of_birth', 'عيد الميلاد', false, 'date')}
+              {Txt('cell_number', 'رقم الجوال')}
+              {Txt('personal_email', 'البريد الالكترونى', false, 'email')}
+              <div className="md:col-span-2">{Txt('current_address', 'العنوان')}</div>
+            </div>
+          ))}
+
+          {section('ot', 'إعدادات إحتساب الإضافي', (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-2 px-4">
+              {Chk('custom_ot_deduct_late', 'خصم التأخير من الوقت الإضافي')}
+              {Chk('custom_ot_before_shift', 'حساب الوقت الإضافي قبل الدوام')}
+              {Chk('custom_ot_after_shift', 'حساب الوقت الإضافي بعد الدوام')}
+              {Chk('custom_ot_holidays', 'إضافة ساعات العمل أيام الأجازات')}
+              {Chk('custom_checkout_without_punch', 'تسجيل خروج بدون بصمة')}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
