@@ -38,9 +38,18 @@ interface Violation {
   effective_status: string | null
 }
 
+// Arabic labels for the backend's English select values (Masar HR edition)
+const AR_LABEL: Record<string, string> = {
+  'Planned Action': 'إجراء مقترح', 'Applied Action': 'إجراء مطبّق', 'Under Appeal': 'قيد التظلّم',
+  'Appeal Accepted': 'تظلّم مقبول', 'Appeal Rejected': 'تظلّم مرفوض', Exempted: 'مُعفاة', Invalidated: 'ملغاة',
+  Closed: 'مغلقة', Open: 'مفتوحة', Warning: 'إنذار', Deduction: 'خصم',
+}
+const arLabel = (v: string | null | undefined, isRTL: boolean) => (v ? (isRTL ? AR_LABEL[v] || v : v) : '')
+
 function Chip({ status }: { status: string | null | undefined }) {
+  const { isRTL } = useI18n()
   if (!status) return <span className="text-muted-foreground">—</span>
-  return <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getStatusClass(status)}`}>{status}</span>
+  return <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getStatusClass(status)}`}>{arLabel(status, isRTL)}</span>
 }
 
 export function ViolationsRegister() {
@@ -97,7 +106,7 @@ export function ViolationsRegister() {
     { id: 'date', header: tx('Date', 'التاريخ'), cell: (r) => (r.violation_date ? formatDateShort(r.violation_date) : '—'), sortable: true, sortAccessor: (r) => r.violation_date || '', exportAccessor: (r) => r.violation_date },
     { id: 'state', header: tx('State', 'الحالة'), cell: (r) => <Chip status={r.effective_status} />, exportAccessor: (r) => r.effective_status },
     { id: 'source', header: tx('Source', 'المصدر'), cell: (r) => (r.source === 'Manual' ? tx('Manual', 'يدوي') : tx('Auto', 'آلي')), exportAccessor: (r) => r.source },
-    { id: 'penalty', header: tx('Penalty', 'الجزاء'), cell: (r) => r.penalty_applied || '—', exportAccessor: (r) => r.penalty_applied },
+    { id: 'penalty', header: tx('Penalty', 'الجزاء'), cell: (r) => arLabel(r.penalty_applied, isRTL) || '—', exportAccessor: (r) => r.penalty_applied },
     { id: 'deduction', header: tx('Deduction', 'الخصم'), align: 'end', cell: (r) => (r.deduction_amount ? formatSAR(r.deduction_amount) : '—'), exportAccessor: (r) => r.deduction_amount ?? '' },
   ], [isRTL])
 
@@ -184,7 +193,7 @@ export function ViolationsRegister() {
             <Row label={tx('State', 'الحالة')} value={<Chip status={detail.effective_status} />} />
             <Row label={tx('Source', 'المصدر')} value={detail.source === 'Manual' ? tx('Manual', 'يدوي') : tx('Auto', 'آلي')} />
             <Row label={tx('Reported by', 'أبلغ بواسطة')} value={detail.reported_by || '—'} />
-            <Row label={tx('Penalty', 'الجزاء')} value={detail.penalty_applied || '—'} />
+            <Row label={tx('Penalty', 'الجزاء')} value={arLabel(detail.penalty_applied, isRTL) || '—'} />
             <Row label={tx('Deduction', 'الخصم')} value={detail.deduction_amount ? formatSAR(detail.deduction_amount) : '—'} />
             <Row label={tx('Appeal', 'التظلّم')} value={detail.appeal_status || '—'} />
             {detail.reason && <div><p className="mb-1 text-muted-foreground">{tx('Reason', 'السبب')}</p><p className="rounded-lg bg-muted p-3">{detail.reason}</p></div>}
