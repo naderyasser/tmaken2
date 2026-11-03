@@ -72,3 +72,4 @@ instrumentation-client.ts
 .next*/
 tsconfig.tsbuildinfo
 .login-revert/
+.next.prev/

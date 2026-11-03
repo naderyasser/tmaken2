@@ -22,6 +22,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ met
     return NextResponse.json({ ok: true })
   }
   if (!METHODS.includes(method)) return NextResponse.json({ error: 'not found' }, { status: 404 })
+  // Masar HR edition runs on the staging bench: the support inbox (fc.local) is not reachable from
+  // here and must stay that way — report «team offline» so the widget offers phone/WhatsApp instead.
+  if (process.env.MASAR_SUPPORT_OFFLINE === '1' && (method === 'team_status' || method === 'chat_poll')) {
+    return NextResponse.json({ data: { team_online: false, messages: [] } })
+  }
+  if (process.env.MASAR_SUPPORT_OFFLINE === '1') {
+    return NextResponse.json({ error: 'المحادثة المباشرة غير متاحة الآن — تواصل معنا عبر واتساب أو الاتصال' }, { status: 503 })
+  }
   const body = await req.json().catch(() => ({}))
   const args: Record<string, unknown> = body && typeof body === 'object' ? { ...body } : {}
   delete args.origin
