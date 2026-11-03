@@ -44,9 +44,9 @@ const SITES_DIR = process.env.FRAPPE_SITES_DIR || '/home/frappeuser/frappe-dev/s
 const SITE_RE = /^[a-z0-9][a-z0-9-]*(\.[a-z0-9-]+)*$/
 
 const DEFAULT_BRAND: Omit<TenantBrand, 'site' | 'entry'> = {
-  name: 'Masar Time',
-  tagline: 'مسار تايم - النظام الذكي',
-  logoWhite: '/branding/masar/masar-logo-white.png',
+  name: 'Masar HR',
+  tagline: 'مسار HR - نظام الموارد البشرية المتكامل',
+  logoWhite: '/branding/masar/masar-hr-logo-white.png',
   companyLogo: '',
   favicon: '/branding/masar/masar-favicon.png',
   appleIcon: '/m/apple-touch-icon.png',

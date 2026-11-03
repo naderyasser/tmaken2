@@ -6,6 +6,8 @@ import {
   Plus, FileMinus, RotateCcw, Send, BarChart3, ShieldCheck,
   UserCog, Activity, Cpu, SlidersHorizontal, MailOpen, Building,
   CreditCard, Moon, Fingerprint, Upload, UserX, CheckSquare, Smartphone,
+  Wallet, FileSignature, Package, Settings2, UserPlus, Gavel, Megaphone, Receipt,
+  Network, CalendarRange, Repeat, PieChart, ShieldAlert, Siren,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { HR_REPORTS, REPORT_MODULE_PREFIX } from '@/lib/hr-reports'
@@ -233,6 +235,43 @@ export const RAIL_SECTIONS: RailSection[] = [
           match: mod(`${REPORT_MODULE_PREFIX}${r.slug}`),
         })),
       },
+    ],
+  },
+
+  // ── 3b. الموارد البشرية — Masar HR edition: Base Meena HR modules ───────
+  {
+    id: 'hr-core',
+    labelKey: 'nav.hr_core',
+    icon: Briefcase,
+    items: [
+      { id: 'payroll', labelKey: 'nav.payroll', href: '/payroll', match: route('/payroll'), icon: Wallet },
+      { id: 'contracts', labelKey: 'nav.contracts', href: '/hr?module=contracts', match: mod('contracts'), icon: FileSignature },
+      { id: 'custody', labelKey: 'nav.custody', href: '/hr?module=custody', match: mod('custody'), icon: Package },
+      { id: 'leaves', labelKey: 'nav.leaves', href: '/hr?module=leaves', match: mod('leaves'), icon: Umbrella },
+      { id: 'leave-setup', labelKey: 'nav.leave_setup', href: '/hr?module=leave-setup', match: mod('leave-setup'), icon: Settings2 },
+      { id: 'onboarding', labelKey: 'nav.onboarding', href: '/hr?module=onboarding', match: mod('onboarding'), icon: UserPlus },
+      { id: 'discipline', labelKey: 'nav.discipline', href: '/hr?module=discipline', match: mod('discipline'), icon: Gavel },
+      { id: 'announcements', labelKey: 'nav.announcements', href: '/hr?module=announcements', match: mod('announcements'), icon: Megaphone },
+      { id: 'expenses', labelKey: 'nav.expenses', href: '/hr?module=expenses', match: mod('expenses'), icon: Receipt },
+      { id: 'org-chart', labelKey: 'nav.org_chart', href: '/org-chart', match: route('/org-chart'), icon: Network },
+      { id: 'shift-calendar', labelKey: 'nav.shift_calendar', href: '/hr?module=shift-calendar', match: mod('shift-calendar'), icon: CalendarRange },
+      { id: 'shift-marketplace', labelKey: 'nav.shift_marketplace', href: '/shifts/marketplace', match: route('/shifts/marketplace'), icon: Repeat },
+    ],
+  },
+
+  // ── 3c. التحليلات والامتثال — Masar HR edition ──────────────────────────
+  {
+    id: 'hr-insights',
+    labelKey: 'nav.hr_insights',
+    icon: PieChart,
+    items: [
+      { id: 'hr-analytics', labelKey: 'nav.analytics', href: '/hr/analytics', match: route('/hr/analytics'), icon: PieChart },
+      { id: 'hr-compliance', labelKey: 'nav.compliance', href: '/hr/compliance', match: route('/hr/compliance'), icon: ShieldAlert },
+      { id: 'employee-report', labelKey: 'nav.employee_report', href: '/employee-report', match: route('/employee-report'), icon: FileText },
+      { id: 'punch-sheet', label: 'كشف البصمات', labelKey: 'nav.attendance_report', href: '/punch-sheet', match: route('/punch-sheet'), icon: ClipboardList },
+      { id: 'location-tracking', labelKey: 'nav.location_tracking', href: '/hr?module=location-tracking', match: mod('location-tracking'), icon: MapPin },
+      { id: 'radius-alerts', labelKey: 'nav.radius_alerts', href: '/hr?module=radius-alerts', match: mod('radius-alerts'), icon: Siren },
+      { id: 'hr-import', labelKey: 'nav.data_import', href: '/hr/import', match: route('/hr/import'), icon: Upload },
     ],
   },
 
