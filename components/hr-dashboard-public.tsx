@@ -13,6 +13,7 @@ import { SessionRenew } from '@/components/login-page'
 import { SubscriptionTile } from '@/components/hr/subscription-card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { APEX } from '@/lib/apex-colors'
+import { useTenantBrand } from '@/components/tenant-brand-provider'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 /**
@@ -198,6 +199,7 @@ export function PublicHrDashboard() {
   }, [load])
 
   const totals = data?.totals ?? EMPTY_TOTALS
+  const countOffset = branch ? 0 : Math.max(0, Math.trunc(Number(useTenantBrand().employeeCountOffset) || 0))
   const donut = useMemo(() => [
     { name: 'حضور', value: totals.present, fill: APEX.chartPresent },
     { name: 'الغياب', value: totals.absent, fill: APEX.chartAbsent },
@@ -230,7 +232,7 @@ export function PublicHrDashboard() {
             </ResponsiveContainer>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
               <span className="text-[13px] text-slate-700">إجمالي الموظفين</span>
-              <span className="text-xl text-[var(--apex-blue)]" data-testid="total-employees">{loading ? '…' : totals.employees}</span>
+              <span className="text-xl text-[var(--apex-blue)]" data-testid="total-employees">{loading ? '…' : totals.employees + countOffset}</span>
             </div>
           </div>
         </div>

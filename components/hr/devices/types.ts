@@ -19,6 +19,11 @@ export interface BiometricDevice {
   sync_errors?: number
   is_online: boolean
   seconds_since_activity?: number | null
+  /** Where the server sends this device's punches: this company, another
+   *  company, or nowhere yet (kept until the device is saved here). */
+  route?: 'here' | 'other' | 'none'
+  /** Punches the server is holding for an unlinked device. */
+  unrouted_pending?: number
 }
 
 export interface DeviceLog {
@@ -51,7 +56,7 @@ export interface UnmappedEmployee {
   branch?: string
 }
 
-export type DeviceStatusKey = 'online' | 'offline' | 'disabled' | 'never'
+export type DeviceStatusKey = 'online' | 'offline' | 'disabled' | 'never' | 'elsewhere' | 'unlinked'
 
 /** Device serial is the doctype's docname — but always fall back to `name` just in case. */
 export const deviceSerial = (d: BiometricDevice): string => d.serial_number || d.name
@@ -59,6 +64,20 @@ export const deviceSerial = (d: BiometricDevice): string => d.serial_number || d
 export function deviceStatus(d: BiometricDevice): { key: DeviceStatusKey; label: string; className: string } {
   if (!d.enabled) {
     return { key: 'disabled', label: 'معطّل', className: 'bg-red-50 text-[var(--apex-red)] border border-red-200' }
+  }
+  // A device whose punches go to another company (or nowhere) would otherwise
+  // just read «لم يتصل بعد» while it is in fact talking to the server.
+  if (d.route === 'other') {
+    return { key: 'elsewhere', label: 'مربوط بمنشأة أخرى — تواصل مع الدعم لنقله', className: 'bg-amber-50 text-amber-700 border border-amber-200' }
+  }
+  if (d.route === 'none') {
+    return {
+      key: 'unlinked',
+      label: d.unrouted_pending
+        ? `يرسل بصمات (${d.unrouted_pending}) وغير مربوط — افتح الجهاز واضغط حفظ`
+        : 'غير مربوط بالسيرفر — افتح الجهاز واضغط حفظ',
+      className: 'bg-amber-50 text-amber-700 border border-amber-200',
+    }
   }
   if (d.is_online) {
     return { key: 'online', label: 'متصل', className: 'bg-green-50 text-[var(--apex-green)] border border-[var(--apex-green)]/30' }

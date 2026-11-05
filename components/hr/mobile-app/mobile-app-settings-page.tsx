@@ -16,6 +16,7 @@ import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import type { PickerLocation } from '@/components/hr/mobile-app/location-picker-map'
+import PlaceSearch from '@/components/hr/locations/place-search'
 
 const LocationPickerMap = dynamic(() => import('@/components/hr/mobile-app/location-picker-map'), {
   ssr: false,
@@ -688,6 +689,15 @@ function LocationDialog({
               <span className="mb-1 block font-bold text-slate-700">اسم الموقع *</span>
               <input value={f.location_name || ''} onChange={(e) => setF((p) => ({ ...p, location_name: e.target.value }))} className={input} />
             </label>
+            <div>
+              <span className="mb-1 block font-bold text-slate-700">ابحث عن مكان</span>
+              <PlaceSearch
+                onPick={(h) => {
+                  setPin(h.lat, h.lon)
+                  if (h.detail) setF((p) => (p.location_name?.trim() ? p : { ...p, location_name: h.label }))
+                }}
+              />
+            </div>
             <label className="block">
               <span className="mb-1 block font-bold text-slate-700">الإحداثيات (خط العرض، خط الطول)</span>
               <input dir="ltr" value={coordsText} onChange={(e) => fromText(e.target.value)} placeholder="24.713600, 46.675300" className={cn(input, 'text-left tabular-nums')} />

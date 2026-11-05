@@ -3,7 +3,7 @@
 import { Component, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { ArrowRight, CheckCircle2, Loader2, MessageCircle, PhoneCall, Send, X } from 'lucide-react'
 
-import { CONTACT } from '@/lib/site-contact'
+import { CONTACT, CONTACTS } from '@/lib/site-contact'
 
 /**
  * «تحتاج مساعدة؟» — bottom-right corner of the public pages: chat answered by
@@ -175,11 +175,19 @@ function HelpWidgetInner({ embedded }: { embedded: boolean }) {
                 <PhoneCall className="h-5 w-5 shrink-0" />
                 <span className="flex-1 text-[15px] font-bold">اطلب مكالمة</span>
               </button>
-              <div className="flex items-center justify-between gap-2 border-t border-[#eef3f3] pt-3 text-[13px] text-[#5b7a7f]">
-                <a href={CONTACT.whatsappHref} target="_blank" rel="noopener" className="flex items-center gap-1.5 font-bold text-[#1f9d55] hover:underline">
-                  <WhatsAppIcon /> واتساب
-                </a>
-                <a href={CONTACT.phoneHref} className="hover:text-[#24817f]" dir="ltr">{CONTACT.phoneDisplay}</a>
+              <div className="space-y-2 border-t border-[#eef3f3] pt-3 text-[13px] text-[#5b7a7f]">
+                <p className="text-[12px] font-bold text-[#163d44]">خدمة العملاء</p>
+                {CONTACTS.map((c) => (
+                  <div key={c.phoneHref} className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 text-[12px] leading-5">{c.company}</span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <a href={c.whatsappHref} target="_blank" rel="noopener" aria-label={`واتساب ${c.company}`} className="text-[#1f9d55] hover:opacity-80">
+                        <WhatsAppIcon />
+                      </a>
+                      <a href={c.phoneHref} className="hover:text-[#24817f]" dir="ltr">{c.phoneDisplay}</a>
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           )}

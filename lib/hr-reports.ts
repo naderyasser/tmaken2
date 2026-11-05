@@ -20,6 +20,7 @@ export const HR_REPORTS: ReportConfig[] = [
   { slug: 'daystatus', report: 'daystatus', title: 'حالة اليوم', dates: true },
   { slug: 'detailed', report: 'detailed', title: 'الحضور والانصراف التفصيلي', dates: true },
   { slug: 'total', report: 'total', title: 'الحضور و الانصراف الاجمالي', dates: true },
+  { slug: 'branch-summary', report: 'branch-summary', title: 'ملخص الفرع', dates: true },
   { slug: 'vacations', report: 'vacations', title: 'اجازات الموظفين', dates: true, extras: ['leave_type'] },
   { slug: 'delays', report: 'delays', title: 'التأخير التفصيلي للموظفين', dates: true },
   { slug: 'absences', report: 'absences', title: 'الغياب التفصيلي للموظفين', dates: true },

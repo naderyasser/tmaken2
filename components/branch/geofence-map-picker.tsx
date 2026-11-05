@@ -12,6 +12,7 @@
 import { useEffect, useRef } from 'react'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
+import { addLocateControl } from '@/lib/leaflet-locate'
 
 export interface GeofenceMapPickerProps {
   latitude: number
@@ -62,6 +63,7 @@ export default function GeofenceMapPicker({
       maxZoom: 19,
       attribution: '&copy; OpenStreetMap',
     }).addTo(map)
+    addLocateControl(map)
 
     const marker = L.marker([latitude, longitude], { draggable: true, icon: pinIcon }).addTo(map)
     marker.on('dragend', () => {

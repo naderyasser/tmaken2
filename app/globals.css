@@ -729,3 +729,17 @@ html[lang="ur"] button {
   --apex-chart-badge-text: #1d4d56;
   --apex-amber: #f0ae4f;
 }
+
+/* Per-client desktop zoom on wide screens only (narrower ones would cramp the
+   two-column dashboard). Set via site_config tenant_brand.uiScale on <html> in
+   app/layout.tsx. CSS zoom also scales viewport-height boxes, so the shell's
+   full-height containers are divided back by the factor to still fit the screen. */
+@media (min-width: 1536px) {
+  html[data-ui-scale] { zoom: var(--ui-scale); }
+  html[data-ui-scale] .h-screen,
+  html[data-ui-scale] .h-\[100dvh\] { height: calc(100dvh / var(--ui-scale)); }
+  html[data-ui-scale] .min-h-screen { min-height: calc(100dvh / var(--ui-scale)); }
+  html[data-ui-scale] .max-h-screen { max-height: calc(100dvh / var(--ui-scale)); }
+  html[data-ui-scale] .max-h-\[calc\(100vh-2rem\)\] { max-height: calc(100dvh / var(--ui-scale) - 2rem); }
+  html[data-ui-scale] .lg\:max-h-\[calc\(100vh-7rem\)\] { max-height: calc(100dvh / var(--ui-scale) - 7rem); }
+}

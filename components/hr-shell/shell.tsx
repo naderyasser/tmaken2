@@ -8,6 +8,7 @@ import { HrGuard } from './hr-guard'
 import { IconRail } from './icon-rail'
 import { Topbar } from './topbar'
 import { MobileNav } from './mobile-nav'
+import { SubscriptionBanner } from '@/components/hr/subscription-banner'
 import { isFingerprintRoute, FINGERPRINT_HOME } from './routes'
 
 function FingerprintRouteGuard() {
@@ -81,6 +82,9 @@ export function HrShell({ requireHR = true, children }: { requireHR?: boolean; c
           <Suspense fallback={<div className="h-[60px] shrink-0 bg-[var(--masar-ink-2)]" />}>
             <Topbar onOpenMobileNav={() => setMobileNavOpen(true)} />
           </Suspense>
+
+          {/* subscription ending soon / near the employee limit */}
+          <SubscriptionBanner />
 
           {/* S8: page canvas #fbfbfb, content padding-top 10px */}
           <main className="flex-1 overflow-y-auto bg-[var(--apex-canvas)]">

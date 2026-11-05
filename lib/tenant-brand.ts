@@ -32,6 +32,12 @@ export interface TenantBrand {
   pwaIconBase: string
   loginPhoto: string
   themeColor: string
+  /** Desktop zoom factor as a string ("1" = off). Masar renders ~15% larger like Apex,
+   *  whose screens the clients come from; a site can opt out with "1". */
+  uiScale: string
+  /** Added to the dashboard's «إجمالي الموظفين» (all-branches view): Apex keeps
+   *  counting employees it deleted, and a migrated client's total must match. */
+  employeeCountOffset: string
 }
 
 const SITES_DIR = process.env.FRAPPE_SITES_DIR || '/home/frappeuser/frappe-dev/sites'
@@ -47,6 +53,8 @@ const DEFAULT_BRAND: Omit<TenantBrand, 'site' | 'entry'> = {
   pwaIconBase: '/m',
   loginPhoto: '/branding/product/login-photo.webp',
   themeColor: '#1d4d56',
+  uiScale: '1.15',
+  employeeCountOffset: '',
 }
 
 const KEYS = Object.keys(DEFAULT_BRAND) as (keyof typeof DEFAULT_BRAND)[]

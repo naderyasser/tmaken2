@@ -350,7 +350,7 @@ function GroupRows({ g, gi, cols, collapsed, onToggle }: {
         </tr>
       )}
       {!collapsed && g.rows.map((r, ri) => (
-        <tr key={ri} className="border-b border-slate-200 bg-white hover:bg-slate-50">
+        <tr key={ri} className={cn('border-b border-slate-200', r.is_total ? 'bg-[var(--apex-row-group)] font-bold' : 'bg-white hover:bg-slate-50')}>
           <td />
           {cols.map((c) => (
             <td key={c.key} className={cn('py-2.5 px-2 whitespace-nowrap', cellClass(c.key, r[c.key]))}>

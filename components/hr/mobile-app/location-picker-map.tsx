@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
+import { addLocateControl } from '@/lib/leaflet-locate'
 
 export interface PickerLocation {
   name: string
@@ -38,6 +39,7 @@ export default function LocationPickerMap({ value, radius, onPick, others = [], 
     const m = L.map(el.current, { zoomControl: true })
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(m)
     m.attributionControl.setPrefix(false)
+    addLocateControl(m)
     ctx.current = L.layerGroup().addTo(m)
     m.setView(value ? [value.latitude, value.longitude] : [24.7136, 46.6753], value ? 16 : 11)
     m.on('click', (e: L.LeafletMouseEvent) => onPickRef.current?.(e.latlng.lat, e.latlng.lng))
@@ -84,7 +86,8 @@ export default function LocationPickerMap({ value, radius, onPick, others = [], 
     } else {
       circle.current.setLatLng(ll).setRadius(radius)
       pin.current?.setLatLng(ll)
-      if (!m.getBounds().contains(ll)) m.panTo(ll)
+      // a far pin (place search, pasted coordinates) flies there at street zoom
+      if (!m.getBounds().contains(ll)) m.setView(ll, Math.max(m.getZoom(), 15))
     }
   }, [value, radius])
 

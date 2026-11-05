@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast'
  */
 export const SERVER_PRINTABLE_REPORTS = [
   'detailed', 'total', 'delays', 'late-early', 'daystatus', 'incomplete', 'by-branch', 'absences',
+  'branch-summary',
 ] as const
 
 /** base64 (as returned by base_meena.api.hr_print.report_pdf) -> a same-origin Blob URL. */

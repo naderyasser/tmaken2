@@ -4,6 +4,7 @@ import { Inter, IBM_Plex_Sans_Arabic, Noto_Nastaliq_Urdu, Amiri, Noto_Kufi_Arabi
 
 import { TenantBrandProvider } from '@/components/tenant-brand-provider'
 import { getTenantBrand } from '@/lib/tenant-brand'
+import { SubscriptionExpiredGate } from '@/components/subscription-expired-gate'
 
 import './globals.css'
 
@@ -44,14 +45,22 @@ export default async function RootLayout({
   // layout, not just text alignment. suppressHydrationWarning permits that rewrite.
   // (See i18n-html-lang-dir.test.tsx for the locked behavior.)
   const brand = await getTenantBrand()
+  const scale = Number(brand.uiScale)
+  const scaled = scale > 1 && scale <= 1.5
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning>
+    <html
+      lang="ar"
+      dir="rtl"
+      suppressHydrationWarning
+      {...(scaled ? { 'data-ui-scale': '', style: { '--ui-scale': String(scale) } as React.CSSProperties } : {})}
+    >
       <head>
         {/* realtime joins the socket.io namespace of this client's Frappe site */}
         {brand.site && <meta name="frappe-site" content={brand.site} />}
       </head>
       <body className={`${inter.variable} ${ibmPlexArabic.variable} ${notoNastaliqUrdu.variable} ${amiriNaskh.variable} ${notoKufiArabic.variable}`} suppressHydrationWarning>
         <TenantBrandProvider brand={brand}>{children}</TenantBrandProvider>
+        {brand.site && <SubscriptionExpiredGate />}
       </body>
     </html>
   )

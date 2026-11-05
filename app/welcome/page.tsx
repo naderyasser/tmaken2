@@ -6,7 +6,7 @@ import {
 
 import { HelpWidget } from '@/components/landing/help-widget'
 import { Pricing } from '@/components/landing/pricing'
-import { CONTACT } from '@/lib/site-contact'
+import { CONTACT, CONTACTS } from '@/lib/site-contact'
 import { storeCall, type PackageInfo } from '@/lib/store-api'
 
 /**
@@ -196,8 +196,14 @@ export default async function WelcomePage() {
       </section>
       <footer className="bg-[#0f2a2f] py-8 text-center text-[13px] text-white/60">
         <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-          <a href={CONTACT.phoneHref} className="hover:text-white" dir="ltr">{CONTACT.phoneDisplay}</a>
-          <a href={CONTACT.whatsappHref} target="_blank" rel="noopener" className="hover:text-white">واتساب</a>
+          <span className="text-white/80">خدمة العملاء:</span>
+          {CONTACTS.map((c) => (
+            <span key={c.phoneHref} className="flex items-center gap-2">
+              <span>{c.company}</span>
+              <a href={c.phoneHref} className="hover:text-white" dir="ltr">{c.phoneDisplay}</a>
+              <a href={c.whatsappHref} target="_blank" rel="noopener" className="hover:text-white">واتساب</a>
+            </span>
+          ))}
           <a href={`mailto:${CONTACT.email}`} className="hover:text-white" dir="ltr">{CONTACT.email}</a>
         </div>
         <p className="mt-4 text-[12.5px] text-white/40">© {new Date().getFullYear()} Masar Time — نظام الحضور والانصراف والموارد البشرية</p>
