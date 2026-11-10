@@ -100,6 +100,11 @@ if plan:
         annual = round(float(rate) * int(emps), 2)
         conf.update({"subscription_price_per_employee": float(rate), "subscription_setup_fee": float(setup or 0),
                      "subscription_annual_fee": annual, "subscription_total": round(annual * max(1, m // 12) + float(setup or 0), 2)})
+if site.startswith("mini-"):
+    # Masar Mini (msar-erp.com/tc/mini self sign-up): HR in fingerprint-only mode + sales/inventory/accounting,
+    # employee cap enforced server-side (base_meena.hr_management.employee_cap)
+    conf.update({"masar_mini": 1, "enabled_modules": ["hr", "inventory", "accounting"], "hr_fingerprint_only": 1,
+                 "subscription_employee_cap": min(int(emps or 20), 20), "subscription_cap_enforced": 1})
 json.dump(conf, open(p, "w"), indent=1, ensure_ascii=False)
 PY
 
