@@ -4,7 +4,7 @@ import { useTenantBrand } from '@/components/tenant-brand-provider'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { ChevronDown, LogOut, MapPin, Search, UserCircle2 } from 'lucide-react'
+import { ChevronDown, LayoutGrid, LogOut, MapPin, Search, UserCircle2 } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 import { useAuth } from '@/lib/auth-context'
 import { logout as apiLogout } from '@/lib/api'
@@ -117,6 +117,14 @@ export function Topbar({ onOpenMobileNav }: { onOpenMobileNav: () => void }) {
         </label>
 
         <div className="flex-1" />
+
+        {/* Masar Mini: back to the one-page board (owner 2026-11-11: «عشان ميحسش انه مفصول») */}
+        {brand.site.startsWith('mini-') && (
+          <a href="https://msar-erp.com/tc/mini/app/board.html" data-testid="mini-board-link"
+            className="flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-white/15 px-3 text-[13.5px] font-bold text-white ring-1 ring-white/20 hover:bg-white/25">
+            <LayoutGrid className="h-4 w-4" aria-hidden />لوحتي
+          </a>
+        )}
 
         {/* search */}
         <div className="relative hidden w-[300px] md:block">

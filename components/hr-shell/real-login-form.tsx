@@ -20,7 +20,7 @@ const TXT = {
     signup: 'إنشاء حساب جديد', show: 'إظهار كلمة المرور', hide: 'إخفاء كلمة المرور',
     needUser: 'أدخل البريد الإلكتروني أو اسم المستخدم أولاً', notAllowed: 'لا يمكن إعادة تعيين كلمة مرور هذا الحساب',
     disabled: 'هذا الحساب معطّل', notFound: 'لا يوجد حساب بهذا البريد أو الاسم', sent: 'تم إرسال رابط إعادة التعيين إلى بريدك',
-    sendFail: 'تعذّر إرسال رابط إعادة التعيين', other: 'English',
+    sendFail: 'تعذّر إرسال رابط إعادة التعيين', other: 'English', mini: 'عملاء مسار ميني: يكفي رقم جوالك وكلمة مرورك',
   },
   en: {
     title: 'Sign in', db: 'Database name', company: 'Company code', badCompany: 'Unknown company code', user: 'Email or username', pass: 'Password',
@@ -28,7 +28,7 @@ const TXT = {
     signup: 'Create new account', show: 'Show password', hide: 'Hide password',
     needUser: 'Enter your email or username first', notAllowed: "This account's password can't be reset",
     disabled: 'This account is disabled', notFound: 'No account with this email or username', sent: 'A reset link was sent to your email',
-    sendFail: "Couldn't send the reset link", other: 'العربية',
+    sendFail: "Couldn't send the reset link", other: 'العربية', mini: 'Masar Mini: your mobile number and password are enough',
   },
 } as const
 
@@ -108,6 +108,18 @@ export function RealLoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setCompanyError('')
+    // Masar Mini owners sign in with the same mobile + password everywhere (owner 2026-11-11: «نفس الاكونت
+    // يخش السيستم التانيه… عشان ميحسش انه مفصول»): the right password picks their company, no code needed.
+    const phone = username.replace(/[\s-]/g, '')
+    if (brand.entry && /^(?:\+?966|0)?5\d{8}$/.test(phone)) {
+      const r = await fetch('/mini-company', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, password }) }).catch(() => null)
+      const j = r && r.ok ? await r.json().catch(() => null) : null
+      if (j?.ok) {
+        setDbName(j.code); setCompanyChanged(j.code !== brand.site); setSubmitted(true)
+        await login(j.username, password)
+        return
+      }
+    }
     const code = dbName.trim().toLowerCase()
     if (brand.entry && code !== brand.site) {
       const r = await fetch('/company-select', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code }) })
@@ -166,6 +178,7 @@ export function RealLoginForm() {
                 </label>
               )}
               {companyError && <p role="alert" className="text-[13px] text-red-200">{companyError}</p>}
+              {brand.entry && <p className="-mt-1.5 text-[12.5px] text-white/55">{t.mini}</p>}
               <label className="relative block">
                 <span className="sr-only">{t.user}</span>
                 <User className={icon} />
