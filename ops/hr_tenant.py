@@ -134,6 +134,28 @@ def _make_admin(login, password):
 		frappe.db.set_single_value("System Settings", "allow_login_using_user_name", 1)
 
 
+def _fix_cashier_warehouse():
+	"""The template's cashier pointed at a warehouse the clean-up deletes («… - Van»): every sale failed
+	(found 2026-11-12 on the Masar Mini sites). Point it at the company's own main store."""
+	if not frappe.db.exists("DocType", "Cashier Settings"):
+		return
+	cur = frappe.db.get_single_value("Cashier Settings", "default_warehouse")
+	wh = cur if cur and frappe.db.exists("Warehouse", cur) else None
+	abbr = frappe.db.get_value("Company", frappe.get_all("Company", pluck="name")[0], "abbr")
+	wh = wh or f"مخازن - {abbr}"
+	if not frappe.db.exists("Warehouse", wh):
+		wh = (frappe.get_all("Warehouse", filters={"is_group": 0}, pluck="name", limit=1) or [None])[0]
+	if wh:
+		frappe.db.set_single_value("Cashier Settings", "default_warehouse", wh)
+	# the template also carried a 9% «tax» row: Saudi VAT is 15% (every cashier sale was under-taxed)
+	st = frappe.get_single("Cashier Settings")
+	if any(abs((r.rate or 0) - 15) > 0.001 for r in st.taxes):
+		for r in st.taxes:
+			r.rate, r.tax_name = 15, "ضريبة القيمة المضافة 15%"
+		st.flags.ignore_permissions = True
+		st.save()
+
+
 def setup_client(args):
 	if frappe.db.count("Employee"):
 		sys.exit("refusing: this site already has employees — setup-client only runs on a fresh template copy")
@@ -148,6 +170,7 @@ def setup_client(args):
 	update_password("Administrator", args["admin_password"])
 	if args.get("admin_user"):
 		_make_admin(args["admin_user"], args["admin_password"])
+	_fix_cashier_warehouse()
 	_forget_history()
 	frappe.db.commit()
 	print(f"client ready: {args['company']} ({args['abbr']}) in {time.time() - t:.0f}s")
@@ -159,4 +182,4 @@ if __name__ == "__main__":
 	frappe.init(site=site, sites_path=SITES)
 	frappe.connect()
 	frappe.set_user("Administrator")
-	{"clean-template": clean_template, "setup-client": setup_client}[cmd](args)
+	{"clean-template": clean_template, "setup-client": setup_client, "fix-cashier": lambda a: (_fix_cashier_warehouse(), frappe.db.commit())}[cmd](args)
