@@ -103,7 +103,8 @@ if plan:
 if site.startswith("mini-"):
     # Masar Mini (msar-erp.com/tc/mini self sign-up): HR in fingerprint-only mode + sales/inventory/accounting,
     # employee cap enforced server-side (base_meena.hr_management.employee_cap)
-    conf.update({"masar_mini": 1, "enabled_modules": ["hr", "inventory", "accounting"], "hr_fingerprint_only": 1,
+    # cashier_post_to_accounting: the cashier's day close posts its sales to the ledger (Mini board 2026-11-12)
+    conf.update({"masar_mini": 1, "enabled_modules": ["hr", "inventory", "accounting"], "hr_fingerprint_only": 1, "cashier_post_to_accounting": 1,
                  "subscription_employee_cap": min(int(emps or 20), 20), "subscription_cap_enforced": 1})
 json.dump(conf, open(p, "w"), indent=1, ensure_ascii=False)
 PY
