@@ -3,11 +3,13 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { CalendarDays, Fingerprint, UserRound, WifiOff } from 'lucide-react'
+import { CalendarDays, ClipboardList, Fingerprint, UserRound, Wallet, WifiOff } from 'lucide-react'
 
 const NAV = [
   { href: '/m', label: 'البصمة', icon: Fingerprint },
   { href: '/m/history', label: 'السجل', icon: CalendarDays },
+  { href: '/m/payslips', label: 'رواتبي', icon: Wallet },
+  { href: '/m/requests', label: 'طلباتي', icon: ClipboardList },
   { href: '/m/profile', label: 'حسابي', icon: UserRound },
 ]
 
@@ -42,9 +44,9 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
         {!bare && (
           <nav
             aria-label="التنقل"
-            className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[480px] border-t border-[#dbe5e6] bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
+            className="fixed inset-x-0 bottom-0 z-40 print:hidden mx-auto w-full max-w-[480px] border-t border-[#dbe5e6] bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur"
           >
-            <ul className="grid grid-cols-3">
+            <ul className="grid grid-cols-5">
               {NAV.map(({ href, label, icon: Icon }) => {
                 const active = href === '/m' ? pathname === '/m' : pathname.startsWith(href)
                 return (
