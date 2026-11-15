@@ -53,9 +53,24 @@ test -e "$CONF" && die "$CONF already exists"
 [[ -z $ADMIN_PASS || $ADMIN_PASS =~ ^[^[:space:]]{8,64}$ ]] || die "--admin-pass: 8-64 characters, no spaces"
 ADMIN_PASS=${ADMIN_PASS:-$(openssl rand -base64 12 | tr -d '/+=' | cut -c1-12)}
 
-as_fu() { sudo -u frappeuser --preserve-env=RP,AP bash -c "cd $BENCH_DIR && $1"; }
+# secrets go through stdin, never the environment: sudo logs --preserve-env values in the journal
+as_fu() { printf '%s\n%s\n' "${RP:-}" "${AP:-}" | sudo -u frappeuser bash -c "IFS= read -r RP; IFS= read -r AP; export RP AP; cd $BENCH_DIR && $1 </dev/null"; }
 step() { echo "── $*   [$(date +%T)]"; }
 
+export AP=$ADMIN_PASS AU=$ADMIN_USER
+# Masar Mini fast path (owner 2026-11-15: «بتقعد 4 دقايق، ده رقم كبير قوي»): mini-pool.sh keeps ready sites
+# (template restored + migrated, no company, scheduler off) under sites/pool-*; a sign-up takes one by renaming its
+# folder (the db name lives in its site_config) instead of new-site + restore (~2 min). Falls back to the slow path.
+POOLED=
+if [[ $SITE == mini-* ]]; then
+  for P in $(find "$BENCH_DIR/sites" -maxdepth 1 -name 'pool-*' -type d -printf '%f\n' 2>/dev/null | sort); do
+    [[ -f $BENCH_DIR/sites/$P/pool.json ]] || continue  # still being built
+    if mv -T "$BENCH_DIR/sites/$P" "$BENCH_DIR/sites/$SITE" 2>/dev/null; then POOLED=$P; break; fi
+  done
+fi
+if [[ -n $POOLED ]]; then
+  step "1-2/7 site $SITE (ready pool site $POOLED)"
+else
 step "1/7 template backup"
 as_fu "$BENCH --site $TEMPLATE backup >/dev/null"
 # (not `ls -t`: this box's ls is wrapped and exits 255)
@@ -63,9 +78,9 @@ DUMP=$(find $BENCH_DIR/sites/$TEMPLATE/private/backups -name '*-database.sql.gz'
 
 step "2/7 site $SITE (from $(basename "$DUMP"))"
 export RP=$(python3 -c "import json;print(json.load(open('$BENCH_DIR/sites/common_site_config.json'))['db_root_password'])")
-export AP=$ADMIN_PASS AU=$ADMIN_USER
 as_fu "$BENCH new-site $SITE --mariadb-root-password \"\$RP\" --admin-password \"\$AP\" >/dev/null"
 as_fu "$BENCH --site $SITE restore $DUMP --mariadb-root-password \"\$RP\" >/dev/null"
+fi
 
 step "3/7 brand files + site_config"
 BRAND_JSON=$(sudo -u frappeuser $PY "$OPS/brand_assets.py" "$SITE" "$BRAND" "$COLOR" "$LOGO")
@@ -117,8 +132,15 @@ json.dump(conf, open(p, "w"), indent=1, ensure_ascii=False)
 PY
 
 step "4/7 migrate + company/admin"
-as_fu "$BENCH --site $SITE migrate >/dev/null"
-sudo -u frappeuser --preserve-env=AP,AU bash -c "cd $BENCH_DIR/sites && $PY $OPS/hr_tenant.py $SITE setup-client \"\$(python3 -c 'import json,os,sys;print(json.dumps({\"company\":sys.argv[1],\"abbr\":sys.argv[2],\"brand_name\":sys.argv[3],\"admin_password\":os.environ[\"AP\"],\"admin_user\":os.environ.get(\"AU\",\"\")},ensure_ascii=False))' \"$COMPANY\" \"$ABBR\" \"$BRAND\")\""
+# a pool site was migrated when it was built; migrate again only if app code changed since (doctypes/patches/hooks)
+STALE=yes
+if [[ -n $POOLED ]]; then
+  STALE=$(find "$BENCH_DIR/apps" -path '*/node_modules' -prune -o \( -name '*.json' -path '*/doctype/*' -o -name patches.txt -o -name hooks.py \) \
+          -newer "$BENCH_DIR/sites/$SITE/pool.json" -print -quit 2>/dev/null)
+  rm -f "$BENCH_DIR/sites/$SITE/pool.json"
+fi
+[[ -n $STALE ]] && as_fu "$BENCH --site $SITE migrate >/dev/null"
+printf '%s\n%s\n' "${AP:-}" "${AU:-}" | sudo -u frappeuser bash -c "IFS= read -r AP; IFS= read -r AU; export AP AU; cd $BENCH_DIR/sites && $PY $OPS/hr_tenant.py $SITE setup-client \"\$(python3 -c 'import json,os,sys;print(json.dumps({\"company\":sys.argv[1],\"abbr\":sys.argv[2],\"brand_name\":sys.argv[3],\"admin_password\":os.environ[\"AP\"],\"admin_user\":os.environ.get(\"AU\",\"\")},ensure_ascii=False))' \"$COMPANY\" \"$ABBR\" \"$BRAND\")\""
 as_fu "$BENCH --site $SITE enable-scheduler >/dev/null"
 
 step "5/7 company code «$SITE» on $ENTRY"

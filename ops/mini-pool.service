@@ -1,0 +1,9 @@
+[Unit]
+Description=Masar Mini: keep ready sites for instant sign-up (ops/mini-pool.sh)
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /usr/local/lib/hr-clients/mini-pool.sh
+Nice=15
+CPUQuota=150%
+MemoryMax=3G
+TimeoutStartSec=3600

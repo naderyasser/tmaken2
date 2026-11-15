@@ -11,7 +11,7 @@ SITE=${2:-}; [[ ${1:-} == --site && ${3:-} == --yes ]] || { echo "usage: $0 --si
 CFG=$BENCH_DIR/sites/$SITE/site_config.json
 DOMAIN=$(python3 -c "import json,sys;c=json.load(open('$CFG'));h=c.get('hr_client');sys.exit('not an ops-created HR client — refusing') if not h else print(h.get('domain') or '')")
 export RP=$(python3 -c "import json;print(json.load(open('$BENCH_DIR/sites/common_site_config.json'))['db_root_password'])")
-sudo -u frappeuser --preserve-env=RP bash -c "cd $BENCH_DIR && $BENCH drop-site $SITE --mariadb-root-password \"\$RP\" --archived-sites-path $BENCH_DIR/archived/sites --force >/dev/null"
+printf '%s\n' "$RP" | sudo -u frappeuser bash -c "IFS= read -r RP; export RP; cd $BENCH_DIR && $BENCH drop-site $SITE --mariadb-root-password \"\$RP\" --archived-sites-path $BENCH_DIR/archived/sites --force </dev/null >/dev/null"
 if [[ -n $DOMAIN ]]; then
   rm -f /etc/nginx/conf.d/$SITE.conf && nginx -t -q 2>/dev/null && systemctl reload nginx
   certbot delete --cert-name "$DOMAIN" --non-interactive -q || true

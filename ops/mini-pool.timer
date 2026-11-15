@@ -1,0 +1,8 @@
+[Unit]
+Description=Masar Mini ready-site pool top-up
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=15min
+RandomizedDelaySec=120
+[Install]
+WantedBy=timers.target
