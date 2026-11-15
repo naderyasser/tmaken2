@@ -54,6 +54,8 @@ export interface ReceiptData {
   /** Legacy: pre-generated QR base64 image (overrides TLV generation if provided) */
   qrCode?: string | null
   zatcaStatus?: string | null
+  /** Sale saved on this device only (offline) — no server invoice / ZATCA yet */
+  pendingSync?: boolean
   currency?: string
   /** Return receipt variant */
   isReturn?: boolean
@@ -134,6 +136,7 @@ export function ReceiptPreview({
       grandTotal: data.grandTotal,
       payments: (data.payments ?? []).map(p => ({ ...p, mode_of_payment: paymentMethodLabel(p.mode_of_payment, lang) })),
       changeAmount: data.changeAmount,
+      pendingSync: data.pendingSync,
     }
     // ZATCA QR → data URL for the printout (only when a VAT number exists)
     if (qrValue) {
@@ -219,7 +222,7 @@ export function ReceiptPreview({
           PDF
         </Button>
 
-        {showVoid && onVoid && (
+        {showVoid && onVoid && !data.pendingSync && (
           <Button
             size="sm"
             variant="destructive"
@@ -318,6 +321,11 @@ export function ReceiptPreview({
         </div>
 
         {/* ──────────── META ──────────── */}
+        {data.pendingSync && (
+          <div role="status" style={{ border: "1px dashed #b45309", color: "#b45309", textAlign: "center", fontWeight: 700, fontSize: "12px", padding: "4px", margin: "4px 0" }}>
+            بانتظار المزامنة — ستُنشأ الفاتورة الضريبية عند عودة الاتصال
+          </div>
+        )}
         <MetaRow label="رقم الفاتورة / Invoice" value={data.invoiceNumber} bold />
         {isReturn && data.originalInvoice && (
           <MetaRow label="الفاتورة الأصلية / Ref" value={data.originalInvoice} />

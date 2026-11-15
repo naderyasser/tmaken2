@@ -58,6 +58,8 @@ export interface PrintReceipt {
   changeAmount?: number
   qrDataUrl?: string         // ZATCA QR as a data: URL (optional)
   footerNote?: string
+  /** Offline sale not yet synced — prints a «بانتظار المزامنة» banner */
+  pendingSync?: boolean
 }
 
 const esc = (s: unknown) =>
@@ -146,6 +148,7 @@ export function buildReceiptHtml(
   ${r.companyAddress ? `<div class="c muted">${esc(r.companyAddress)}</div>` : ""}
   ${r.vatNumber ? `<div class="c muted">${L.vatno}: <span dir="ltr">${esc(r.vatNumber)}</span></div>` : ""}
   ${r.title ? `<div class="c b">${esc(r.title)}</div>` : ""}
+  ${r.pendingSync ? `<div class="c b" style="border:1px dashed #000;margin:3px 0;padding:2px">${lang === "ar" ? "بانتظار المزامنة — ليست فاتورة ضريبية نهائية" : "PENDING SYNC — not a final tax invoice"}</div>` : ""}
   <hr>
   <div class="row"><span>${L.invoice}</span><span class="b" dir="ltr">${esc(r.invoiceNumber)}</span></div>
   <div class="row"><span dir="ltr">${esc(r.date)} ${esc(r.time)}</span><span>${r.cashierName ? `${L.cashier}: ${esc(r.cashierName)}` : ""}</span></div>

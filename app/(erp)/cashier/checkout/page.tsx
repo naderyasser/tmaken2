@@ -366,6 +366,7 @@ export default function CheckoutPage() {
                 changeAmount: Number(receiptData.change_amount ?? 0),
                 qrCode: null,
                 zatcaStatus: null,
+                pendingSync: String(receiptData.name ?? "").startsWith("LOCAL-"),
                 currency: settings?.currency || "SAR",
               }}
               onClose={() => setReceiptOpen(false)}

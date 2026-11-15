@@ -58,8 +58,14 @@ export function isNetworkError(e: unknown): boolean {
     msg.includes("fetch failed") ||
     msg.includes("err_internet") ||
     msg.includes("err_network") ||
-    msg.includes("502") || msg.includes("503") || msg.includes("504") ||
-    msg.includes("bad gateway") || msg.includes("gateway time")
+    // HTTP 502/503/504 — anchored so a validation message that merely contains
+    // "502" (an item code, an amount) is NOT retried forever.
+    /(\(|http\s)50[234]\b/.test(msg) ||
+    msg.includes("bad gateway") || msg.includes("gateway time") ||
+    // api-client's 45s timeout wrapper — the request may or may not have committed,
+    // so it must queue under the SAME idempotency key rather than surface an error
+    // the cashier answers by re-ringing the sale (double-post risk).
+    msg.includes("انتهت مهلة الاتصال")
   )
 }
 

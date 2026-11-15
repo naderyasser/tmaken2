@@ -52,3 +52,13 @@ describe("closeIsBlocked (a queued close waits for every earlier sale)", () => {
     expect(ids.size).toBe(200)
   })
 })
+
+describe("isNetworkError — double-post guards", () => {
+  it("treats the api-client 45s timeout as retryable (same idempotency key)", () => {
+    expect(isNetworkError(new Error("انتهت مهلة الاتصال بالخادم — حدّث الصفحة"))).toBe(true)
+  })
+  it("does not treat a validation message containing 502 as a gateway error", () => {
+    expect(isNetworkError(new Error("Item 5021 is out of stock"))).toBe(false)
+    expect(isNetworkError(new Error("create_sale failed (HTTP 503)"))).toBe(true)
+  })
+})
