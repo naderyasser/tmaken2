@@ -101,11 +101,18 @@ if plan:
         conf.update({"subscription_price_per_employee": float(rate), "subscription_setup_fee": float(setup or 0),
                      "subscription_annual_fee": annual, "subscription_total": round(annual * max(1, m // 12) + float(setup or 0), 2)})
 if site.startswith("mini-"):
-    # Masar Mini (msar-erp.com/tc/mini self sign-up): HR in fingerprint-only mode + sales/inventory/accounting,
+    # Masar Mini (msar-erp.com/tc/mini self sign-up): EVERY module at full power — only the limits differ
+    # (owner 2026-11-15 «كل الأنظمة التانية بكل قوتها… الليمت بس هو اللي بيتغير»).
     # employee cap enforced server-side (base_meena.hr_management.employee_cap)
     # cashier_post_to_accounting: the cashier's day close posts its sales to the ledger (Mini board 2026-11-12)
-    conf.update({"masar_mini": 1, "enabled_modules": ["hr", "inventory", "accounting"], "hr_fingerprint_only": 1, "cashier_post_to_accounting": 1,
+    conf.pop("hr_fingerprint_only", None)
+    conf.update({"masar_mini": 1, "enabled_modules": ["hr", "inventory", "accounting", "purchases", "cashier", "salesReps", "tasks"], "cashier_post_to_accounting": 1,
                  "subscription_employee_cap": min(int(emps or 20), 20), "subscription_cap_enforced": 1})
+    # one product identity across Mini (2026-11-15): «masar Mini» name/tagline/colour instead of the client's HR brand,
+    # served on mini.msar-erp.com
+    conf["tenant_brand"] = {**(conf.get("tenant_brand") or {}), "name": "masar Mini", "tagline": "مسار ميني — شركتك في مكان واحد",
+                            "themeColor": "#0d685a", "uiScale": "1", "logoWhite": "/branding/mini/mini-logo-white.png"}
+    conf["host_name"] = "https://mini.msar-erp.com"
 json.dump(conf, open(p, "w"), indent=1, ensure_ascii=False)
 PY
 
